@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Cornhole - Brighter Scene (No Bloom)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <style>
+        body { margin:0; overflow:hidden; background:#000; font-family:Arial, sans-serif; touch-action:none; }
+        canvas { display:block; }
+
+        #scoreboard {
+            position: absolute; top: 1px; left: 50%; transform: translateX(-50%);
+            display: flex; align-items: center; gap: 25px;
+            background: rgba(12,12,28,0.88); backdrop-filter: blur(16px);
+            border: 3px solid rgba(255,255,255,0.22); border-radius: 24px;
+            padding: 14px 42px; box-shadow: 0 14px 50px rgba(0,0,0,0.75), inset 0 6px 18px rgba(255,255,255,0.18);
+            z-index: 100; height: 108px; box-sizing: border-box;
+        }
+        .side { display: flex; flex-direction: column; align-items: center; min-width: 90px; }
+        .score { font-size: 53px; font-weight: 900; line-height: 1; text-shadow: 0 5px 15px rgba(0,0,0,0.85); margin-bottom: 6px; }
+        .player-side .score { color: #ff5555; } .ai-side .score { color: #4488ff; }
+        .name-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .name { font-size: 16px; font-weight: 900; letter-spacing: 1.5px; }
+        .player-side .name { color: #ff7777; } .ai-side .name { color: #77aaff; }
+        .turn-dot { width: 16px; height: 16px; border-radius: 50%; transition: all 0.25s ease; background: #555555; box-shadow: 0 0 8px #333333; }
+        .turn-dot.active { background: #ffcc00; box-shadow: 0 0 22px #ffdd44; animation: pulse 1.35s infinite; }
+        @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.45;} }
+        .bags { display: flex; gap: 5px; }
+        .bag-square { width: 15px; height: 15px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.65), inset 0 2px 4px rgba(255,255,255,0.45); }
+        .player-bag { background: #ff3333; } .ai-bag { background: #4488ff; }
+        .vs { color: rgba(255,255,255,0.65); font-size: 26px; font-weight: bold; padding: 0 14px; }
+
+        #roundSummary { position: absolute; top: 132px; left: 50%; transform: translateX(-50%); background: rgba(12,12,28,0.88); backdrop-filter: blur(16px); border: 3px solid rgba(255,255,255,0.22); border-radius: 18px; padding: 10px 28px; color: #fff; font-size: 18px; font-weight: bold; text-align: center; text-shadow: 0 0 12px #000; box-shadow: 0 8px 30px rgba(0,0,0,0.6); z-index: 200; white-space: nowrap; opacity: 0; display: none; transition: opacity 0.6s ease; }
+        #gameOverScreen { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.94); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 500; color: white; text-align: center; }
+        #gameOverTitle { font-size: 78px; font-weight: 900; margin: 0 0 20px 0; text-shadow: 0 0 40px; }
+        #finalScore { font-size: 34px; margin-bottom: 50px; opacity: 0.95; }
+        #playAgainBtn { font-size: 26px; padding: 18px 56px; background: #ffcc00; color: #111; border: none; border-radius: 50px; font-weight: 900; cursor: pointer; box-shadow: 0 10px 30px rgba(255,204,0,0.5); transition: all 0.3s; }
+        #playAgainBtn:hover { transform: scale(1.08); background: #ffe033; }
+
+        #leftArrow, #rightArrow {
+            position: absolute; top: 50%; transform: translateY(-50%);
+            width: 65px; height: 65px; border-radius: 50%; background: linear-gradient(135deg, #4a9eff, #1e5ec4);
+            border: 4px solid #ffffff; box-shadow: 0 6px 18px rgba(0,0,0,0.4), inset 0 5px 12px rgba(255,255,255,0.6), inset 0 -5px 12px rgba(0,0,0,0.3);
+            display: flex; align-items: center; justify-content: center; font-size: 42px; color: #ffffff;
+            text-shadow: 0 2px 6px rgba(0,0,0,0.5); z-index: 300; cursor: pointer; user-select: none; opacity: 0.35; transition: all 0.25s ease;
+        }
+        #leftArrow { left: 8px; } #rightArrow { right: 8px; }
+        #leftArrow:hover, #rightArrow:hover { opacity: 0.9; transform: translateY(-50%) scale(1.12); }
+        #leftArrow::before { content: "‹"; } #rightArrow::before { content: "›"; }
+    </style>
+</head>
+<body>
+    <div id="scoreboard">
+        <div class="side player-side"><div id="playerScore" class="score">0</div><div class="name-row"><div class="name">YOU</div><div id="playerTurnDot" class="turn-dot"></div></div><div id="playerBags" class="bags"></div></div>
+        <div class="vs">VS</div>
+        <div class="side ai-side"><div id="aiScore" class="score">0</div><div class="name-row"><div class="name">AI</div><div id="aiTurnDot" class="turn-dot"></div></div><div id="aiBags" class="bags"></div></div>
+    </div>
+
+    <div id="roundSummary"></div>
+
+    <div id="leftArrow"></div>
+    <div id="rightArrow"></div>
+
+    <div id="gameOverScreen">
+        <div id="gameOverTitle">YOU WIN!</div>
+        <div id="finalScore">You 21 — AI 14</div>
+        <button id="playAgainBtn">PLAY AGAIN</button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
+
+    <script>
+        let scene = new THREE.Scene();
+
+        let camera = new THREE.PerspectiveCamera(49, window.innerWidth / window.innerHeight, 0.1, 400);
+        camera.position.set(0, 14.9, 12.8);
+        camera.lookAt(0, -8, 37);
+        camera.zoom = 0.5;
+        camera.updateProjectionMatrix();
+
+        let renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+        document.body.appendChild(renderer.domElement);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+        const sun = new THREE.DirectionalLight(0xffeedd, 1.8);
+        sun.position.set(30, 60, 15);
+        sun.castShadow = true;
+        sun.shadow.mapSize.width = 2048;
+        sun.shadow.mapSize.height = 2048;
+        sun.shadow.camera.near = 10;
+        sun.shadow.camera.far = 150;
+        sun.shadow.camera.left = -48;
+        sun.shadow.camera.right = 48;
+        sun.shadow.camera.top = 48;
+        sun.shadow.camera.bottom = -32;
+        sun.shadow.bias = -0.0007;
+        scene.add(sun);
+
+        const groundGeo = new THREE.PlaneGeometry(200, 200, 64, 64);
+
+        const proceduralGrassShader = {
+            uniforms: { time: { value: 0.0 } },
+            vertexShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+                void main() {
+                    vUv = uv;
+                    vNormal = normalize(normalMatrix * normal);
+                    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                }
+            `,
+            fragmentShader: `
+                varying vec2 vUv;
+                varying vec3 vNormal;
+
+                float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7)))*43758.5453); }
+                float noise(vec2 p) {
+                    vec2 i = floor(p), f = fract(p), u = f*f*(3.0-2.0*f);
+                    return mix(mix(hash(i+vec2(0,0)), hash(i+vec2(1,0)), u.x),
+                               mix(hash(i+vec2(0,1)), hash(i+vec2(1,1)), u.x), u.y);
+                }
+                float fbm(vec2 p) {
+                    float f = 0.0;
+                    f += 0.5000*noise(p); p*=12.01;
+                    f += 0.2500*noise(p); p*=12.02;
+                    f += 0.1250*noise(p); p*=12.03;
+                    f += 0.0625*noise(p);
+                    return f/0.9375;
+                }
+
+                void main() {
+                    vec2 uv = vUv*25.0;
+                    float n = fbm(uv);
+                    float n2 = fbm(uv*3.0 + vec2(12.3,45.7));
+
+                    vec3 dark   = vec3(0.12,0.45,0.14);
+                    vec3 med    = vec3(0.22,0.60,0.18);
+                    vec3 light  = vec3(0.38,0.78,0.22);
+                    vec3 dry    = vec3(0.55,0.48,0.22);
+
+                    vec3 color = mix(dark, med, smoothstep(0.35,0.65,n));
+                    color = mix(color, light, smoothstep(0.6,0.9,n));
+                    color = mix(color, dry, smoothstep(0.78,0.95,n2)*0.6);
+
+                    vec3 nrm = vNormal;
+                    nrm.xz += (n-0.5)*0.4;
+                    nrm = normalize(nrm);
+
+                    vec3 ldir = normalize(vec3(0.8,1.0,0.6));
+                    float diff = max(0.0, dot(nrm, ldir));
+                    float rim = 1.0 - max(0.0, dot(nrm, vec3(0,0,1)));
+
+                    vec3 final = color * (0.4 + diff*0.6);
+                    final += vec3(0.15,0.22,0.12) * rim * 0.5;
+
+                    gl_FragColor = vec4(final, 1.0);
+                }
+            `
+        };
+
+        const groundMat = new THREE.ShaderMaterial({
+            uniforms: proceduralGrassShader.uniforms,
+            vertexShader: proceduralGrassShader.vertexShader,
+            fragmentShader: proceduralGrassShader.fragmentShader,
+            side: THREE.DoubleSide
+        });
+
+        const ground = new THREE.Mesh(groundGeo, groundMat);
+        ground.rotation.x = -Math.PI / 2;
+        ground.receiveShadow = true;
+        scene.add(ground);
+
+        const BOARD_W = 7.6, BOARD_L = 15.2, DISTANCE = 37, HOLE_Z = -5.1;
+        const FRONT_HEIGHT = 0.35, BACK_HEIGHT = 1.12;
+        const slopeAngle = Math.atan2(BACK_HEIGHT - FRONT_HEIGHT, BOARD_L);
+
+        let selectedDesign, selectedText;
+        const boardTexts = ["CORNHOLE", "STICK IT", "SLIDE IN", "BUCKETS", "HIT ME", "DROP ZONE", "AIR MAIL", "CHAMPIONS", "SINK IT", "BAG DROP", "DEEP HOLE", "ON THE MONEY"];
+
+        function drawStar(ctx, cx, cy, spikes, outerRadius, innerRadius) {
+            let rot = Math.PI / 2 * 3;
+            ctx.beginPath();
+            ctx.moveTo(cx + Math.cos(rot) * outerRadius, cy + Math.sin(rot) * outerRadius);
+            for (let i = 0; i < spikes; i++) {
+                const x = cx + Math.cos(rot) * outerRadius;
+                const y = cy + Math.sin(rot) * outerRadius;
+                ctx.lineTo(x, y);
+                rot += Math.PI / spikes;
+                const x2 = cx + Math.cos(rot) * innerRadius;
+                const y2 = cy + Math.sin(rot) * innerRadius;
+                ctx.lineTo(x2, y2);
+                rot += Math.PI / spikes;
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+
+        function createBoardTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+            if (selectedDesign === undefined) {
+                selectedDesign = Math.floor(Math.random() * 10);
+                selectedText = boardTexts[Math.floor(Math.random() * boardTexts.length)];
+            }
+            const design = selectedDesign, text = selectedText;
+            const baseColors = ['#a36b3f','#8B4513','#0A2540','#1C1C1C','#2E8B57','#c9b29f','#5C4033','#2C3E50','#4B2E83','#8B6F47'];
+            ctx.fillStyle = baseColors[design]; ctx.fillRect(0, 0, 512, 1024);
+
+            if ([0,1,5,6].includes(design)) {
+                ctx.strokeStyle = design % 2 === 0 ? 'rgba(55,32,12,0.72)' : 'rgba(40,20,10,0.85)';
+                ctx.lineWidth = 8;
+                for (let i = 0; i < 52; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random()*90-45, 0);
+                    ctx.quadraticCurveTo(190 + Math.random()*140, 360 + i*14, Math.random()*512, 1024);
+                    ctx.stroke();
+                }
+            } else if (design === 2) {
+                ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 14;
+                for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.moveTo(28, 570 + i*52); ctx.lineTo(484, 570 + i*52); ctx.stroke(); }
+                ctx.fillStyle = '#ffffff';
+                drawStar(ctx, 82, 92, 5, 29, 12); drawStar(ctx, 430, 92, 5, 29, 12);
+                drawStar(ctx, 82, 932, 5, 29, 12); drawStar(ctx, 430, 932, 5, 29, 12);
+            } else if (design === 3) {
+                ctx.strokeStyle = 'rgba(255,215,0,0.28)'; ctx.lineWidth = 7;
+                for (let i = 0; i < 38; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random()*110-55, 0);
+                    ctx.quadraticCurveTo(210 + Math.random()*110, 390 + i*22, Math.random()*512, 1024);
+                    ctx.stroke();
+                }
+            } else if (design === 4) {
+                ctx.strokeStyle = 'rgba(255,255,240,0.38)'; ctx.lineWidth = 6;
+                for (let i = -6; i < 48; i++) {
+                    ctx.beginPath(); ctx.moveTo(0, i*26-90); ctx.lineTo(512, i*26+85); ctx.stroke();
+                }
+            } else if (design === 7) {
+                ctx.strokeStyle = 'rgba(220,220,220,0.35)'; ctx.lineWidth = 5;
+                for (let i = 0; i < 65; i++) {
+                    ctx.beginPath(); ctx.moveTo(Math.random()*512, Math.random()*1024); ctx.lineTo(Math.random()*512, Math.random()*1024); ctx.stroke();
+                }
+            } else if (design === 8) {
+                ctx.strokeStyle = 'rgba(255,240,255,0.35)'; ctx.lineWidth = 9;
+                for (let i = 0; i < 35; i++) {
+                    ctx.beginPath(); ctx.moveTo(0, i*35-100); ctx.lineTo(512, i*35+200); ctx.stroke();
+                }
+            } else if (design === 9) {
+                ctx.strokeStyle = 'rgba(255,230,200,0.45)'; ctx.lineWidth = 4;
+                for (let i = 0; i < 70; i++) {
+                    ctx.beginPath(); ctx.moveTo(Math.random()*512, 0); ctx.lineTo(Math.random()*512, 1024); ctx.stroke();
+                }
+            }
+
+            const borderColors = ['#ffffff','#f5d9b0','#ffffff','#ffcc00','#ffffff','#e6d5b8','#d4af37','#a9a9a9','#e6ccff','#ffffff'];
+            const borderWidths = [18,21,26,20,17,19,22,15,24,18];
+            ctx.strokeStyle = borderColors[design]; ctx.lineWidth = borderWidths[design];
+            ctx.strokeRect(20, 20, 472, 984);
+
+            ctx.save(); ctx.scale(-1, 1);
+            let fontSize = 98; if (text.length > 10) fontSize = 68; else if (text.length > 8) fontSize = 78; else if (text.length > 6) fontSize = 88;
+            ctx.font = `bold ${fontSize}px Arial`; ctx.textAlign = 'center';
+            const tx = -256, ty = 590;
+            ctx.strokeStyle = '#000000'; ctx.lineWidth = 5; ctx.lineJoin = 'round';
+            ctx.shadowColor = '#000000'; ctx.shadowBlur = 4;
+            ctx.strokeText(text, tx, ty);
+            const fillColors = ['#111111','#f5e8c7','#ffcc00','#ffcc00','#ffeb3b','#333333','#f4e8c0','#00ffcc','#e0bbff','#111111'];
+            ctx.fillStyle = fillColors[design]; ctx.fillText(text, tx, ty);
+            ctx.restore();
+
+            const tex = new THREE.CanvasTexture(canvas); tex.anisotropy = 8;
+            tex.colorSpace = THREE.SRGBColorSpace;
+            return tex;
+        }
+
+        function createCornholeBoard(zPos) {
+            const group = new THREE.Group(); group.position.z = zPos;
+            const texture = createBoardTexture();
+            const deck = new THREE.Mesh(new THREE.BoxGeometry(BOARD_W, 0.1, BOARD_L), new THREE.MeshPhongMaterial({ map: texture, shininess: 12 }));
+            deck.rotation.x = slopeAngle; deck.position.y = (FRONT_HEIGHT + BACK_HEIGHT) / 2;
+            group.add(deck);
+
+            const blackCircle = new THREE.Mesh(new THREE.CircleGeometry(1.03, 64), new THREE.MeshBasicMaterial({ color: 0x000000, depthTest: false, depthWrite: false }));
+            blackCircle.rotation.x = -Math.PI / 2; blackCircle.position.set(0, deck.position.y + 0.12, HOLE_Z); blackCircle.renderOrder = 10; group.add(blackCircle);
+
+            group.rotation.y = Math.PI; deck.scale.x = -1;
+
+            const legMat = new THREE.MeshPhongMaterial({ color: 0x2a2a2a });
+            const legGeo = new THREE.BoxGeometry(0.22, 1.6, 0.22);
+            [-3.2, 3.2].forEach(x => {
+                const frontLeg = new THREE.Mesh(legGeo, legMat); frontLeg.position.set(x, FRONT_HEIGHT/2 + 0.2, BOARD_L/2 - 0.8); group.add(frontLeg);
+                const backLeg = frontLeg.clone(); backLeg.position.set(x, BACK_HEIGHT/2 + 0.2, -BOARD_L/2 + 0.8); backLeg.scale.y = 1.55; group.add(backLeg);
+            });
+
+            group.traverse(child => { if (child.isMesh) { child.castShadow = child.receiveShadow = true; } });
+            scene.add(group);
+            return { group, deck, slope: slopeAngle };
+        }
+
+        function createRoundedBoxGeometry(xSize, ySize, zSize, radius) {
+            const shape = new THREE.Shape();
+            const hx = xSize / 2, hz = zSize / 2;
+            shape.moveTo(-hx + radius, -hz);
+            shape.lineTo(hx - radius, -hz);
+            shape.quadraticCurveTo(hx, -hz, hx, -hz + radius);
+            shape.lineTo(hx, hz - radius);
+            shape.quadraticCurveTo(hx, hz, hx - radius, hz);
+            shape.lineTo(-hx + radius, hz);
+            shape.quadraticCurveTo(-hx, hz, -hx, hz - radius);
+            shape.lineTo(-hx, -hz + radius);
+            shape.quadraticCurveTo(-hx, -hz, -hx + radius, -hz);
+
+            const extrudeSettings = {
+                depth: ySize,
+                bevelEnabled: true,
+                bevelThickness: radius * 0.8,
+                bevelSize: radius * 0.6,
+                bevelSegments: 8,
+                curveSegments: 8
+            };
+
+            const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+            geometry.center();
+            geometry.rotateX(Math.PI / 2);
+            return geometry;
+        }
+
+        let targetBoard;
+        let gameOver = false;
+
+        class Bag {
+            constructor(color, isPlayer) {
+                this.isPlayer = isPlayer;
+                this.mesh = new THREE.Mesh(
+                    createRoundedBoxGeometry(1.52, 0.44, 1.52, 0.19),
+                    new THREE.MeshPhongMaterial({ color: color, shininess: 2, specular: 0x222222 })
+                );
+                this.mesh.castShadow = true;
+                this.mesh.receiveShadow = true;
+                this.mesh.renderOrder = 100;
+                scene.add(this.mesh);
+
+                this.collisionCollider = new THREE.Mesh(
+                    new THREE.SphereGeometry(1.25, 24, 24),
+                    new THREE.MeshBasicMaterial({ visible: false })
+                );
+                this.mesh.add(this.collisionCollider);
+
+                this.trailDots = [];
+                this.lastSpawnPos = new THREE.Vector3();
+                this.velocity = new THREE.Vector3();
+                this.angularVel = new THREE.Vector3();
+                this.originalVelocity = new THREE.Vector3();
+                this.settled = false;
+                this.inHole = false;
+                this.fallingOff = false;
+                this.onGround = false;
+                this.throwTime = 0;
+                this.landedTime = 0;
+                this.velocityLifespanEnd = 0;
+                this.hasPlayedHoleRing = false;
+                this.hasPlayedGroundDust = false;
+                this.hasPlayedGrassHit = false;   // NEW: soft grass hit flag
+                this.angle = 0;
+                this.power = 0;
+
+                this.squashFactor = 1.0;
+                this.squashVelocity = 0;
+
+                this.targetRotX = 0;
+                this.targetRotZ = 0;
+                this.flattenTime = 0;
+            }
+
+            reset() {
+                this.mesh.position.set(0, -30, 0);
+                this.mesh.visible = false;
+                this.settled = false;
+                this.inHole = false;
+                this.fallingOff = false;
+                this.onGround = false;
+                this.originalVelocity.set(0,0,0);
+                this.throwTime = 0;
+                this.landedTime = 0;
+                this.velocityLifespanEnd = 0;
+                this.hasPlayedHoleRing = false;
+                this.hasPlayedGroundDust = false;
+                this.hasPlayedGrassHit = false;   // NEW
+                this.angle = 0;
+                this.power = 0;
+                this.squashFactor = 1.0;
+                this.squashVelocity = 0;
+                this.mesh.renderOrder = 100;
+
+                this.trailDots.forEach(d => scene.remove(d));
+                this.trailDots = [];
+                this.lastSpawnPos.set(0,0,0);
+
+                this.targetRotX = 0;
+                this.targetRotZ = 0;
+                this.flattenTime = 0;
+            }
+
+            extendLifespan() {
+                this.velocityLifespanEnd = Date.now() + 3000;
+            }
+        }
+
+        const NUM_BAGS = 4;
+        const playerBags = Array(NUM_BAGS).fill().map(() => new Bag(0xff3333, true));
+        const aiBags = Array(NUM_BAGS).fill().map(() => new Bag(0x4488ff, false));
+
+        let playerScore = 0, aiScore = 0;
+        let playerBagsThrown = 0;
+        let aiBagsThrown = 0;
+        let isPlayerTurn = true;
+        let activeBags = [];
+        let firstThrowerIsPlayer = true;
+
+        let playerSuccessfulThrows = [];
+        let playerThrowHistory = [];
+        let roundEnding = false;
+        let allTrailDots = [];
+        let holeRings = [];
+        let particles = [];
+
+        let isAnyBagFlying = false;
+        let freezeBoardPhysics = false;
+
+        function createDustBurst(position) {
+            const colors = [0x8B5A2B, 0xA67B5B, 0x6B4E31, 0x9C6F4E];
+            for (let i = 0; i < 32; i++) {
+                const size = 0.04 + Math.random() * 0.07;
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(size, 15, 15),
+                    new THREE.MeshBasicMaterial({ 
+                        color: colors[Math.floor(Math.random()*colors.length)],
+                        transparent: true,
+                        opacity: 0.95
+                    })
+                );
+                p.position.copy(position);
+                p.position.y += 0.22;
+                scene.add(p);
+
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 10.5,
+                    4.5 + Math.random() * 11.5,
+                    (Math.random() - 0.5) * 10.5
+                );
+                particles.push({ 
+                    mesh: p, 
+                    velocity: vel, 
+                    life: 380 + Math.random() * 420,
+                    gravity: -48, 
+                    type: 'dust' 
+                });
+            }
+        }
+
+        function createConfettiBurst(position) {
+            const colors = [0xff2222, 0x4488ff, 0xffff00, 0x00ff88, 0xff88ff, 0x88ffff];
+            for (let i = 0; i < 48; i++) {
+                const size = 0.08 + Math.random() * 0.07;
+                const p = new THREE.Mesh(
+                    new THREE.PlaneGeometry(size, size * 1.6),
+                    new THREE.MeshBasicMaterial({
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        side: THREE.DoubleSide,
+                        transparent: true
+                    })
+                );
+                p.position.copy(position);
+                p.position.y += 0.6;
+                p.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, Math.random()*Math.PI);
+                scene.add(p);
+
+                const vel = new THREE.Vector3(
+                    (Math.random() - 0.5) * 22,
+                    18 + Math.random() * 26,
+                    (Math.random() - 0.5) * 22
+                );
+                particles.push({ mesh: p, velocity: vel, life: 1400 + Math.random() * 900, gravity: -42, spin: (Math.random() - 0.5) * 35, type: 'confetti' });
+            }
+        }
+
+        let ambientParticles = [];
+
+        function initAmbientParticles() {
+            ambientParticles.forEach(p => scene.remove(p));
+            ambientParticles = [];
+            const colors = [0xa8d5a8, 0x9acd32, 0xb0e0b0, 0xf0e68c, 0xc0d8a0];
+            for (let i = 0; i < 72; i++) {
+                const isLeaf = Math.random() > 0.4;
+                const size = isLeaf ? 0.16 + Math.random() * 0.24 : 0.05 + Math.random() * 0.09;
+                const geo = isLeaf ? new THREE.PlaneGeometry(size, size * 0.72) : new THREE.SphereGeometry(size, 6, 6);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: colors[Math.floor(Math.random() * colors.length)],
+                    transparent: true,
+                    opacity: 0.55 + Math.random() * 0.35,
+                    side: THREE.DoubleSide
+                });
+                const p = new THREE.Mesh(geo, mat);
+                scene.add(p);
+                const spawnZ = 8 + Math.random() * 68;
+                p.position.set((Math.random() - 0.5) * 72, 4 + Math.random() * 26, spawnZ);
+                p.userData = {
+                    baseY: p.position.y,
+                    speedX: (Math.random() - 0.5) * 1.1,
+                    speedZ: -0.35 - Math.random() * 0.45,
+                    swayPhase: Math.random() * Math.PI * 2,
+                    swaySpeed: 1.1 + Math.random() * 1.6,
+                    rotSpeed: (Math.random() - 0.5) * 2.8,
+                    type: isLeaf ? 'leaf' : 'pollen'
+                };
+                ambientParticles.push(p);
+            }
+        }
+
+        const roundSummaryDiv = document.getElementById('roundSummary');
+        const leftArrow = document.getElementById('leftArrow');
+        const rightArrow = document.getElementById('rightArrow');
+        const playerTurnDot = document.getElementById('playerTurnDot');
+        const aiTurnDot = document.getElementById('aiTurnDot');
+
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        const gameOverTitle = document.getElementById('gameOverTitle');
+        const finalScoreText = document.getElementById('finalScore');
+        const playAgainBtn = document.getElementById('playAgainBtn');
+
+        playAgainBtn.addEventListener('click', () => resetFullGame());
+
+        // ====================== AUDIO SYSTEM (Web Audio API) ======================
+        let audioContext = null;
+
+        function getAudioContext() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioContext.state === 'suspended') audioContext.resume();
+            return audioContext;
+        }
+
+        function playDeepThump() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(140, now);
+            osc.frequency.exponentialRampToValueAtTime(42, now + 0.32);
+
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(1.15, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.48);
+
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(720, now);
+            filter.frequency.exponentialRampToValueAtTime(180, now + 0.25);
+
+            osc.connect(filter).connect(gain).connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.55);
+
+            const noise = ctx.createBufferSource();
+            const bufferSize = ctx.sampleRate * 0.15;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            noise.buffer = buffer;
+
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.55, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.22);
+
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'lowpass';
+            noiseFilter.frequency.value = 950;
+
+            noise.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
+            noise.start(now);
+        }
+
+        function playHoleMelody() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+
+            const sequence = [
+                {f: 659.25, d: 0.07},
+                {f: 783.99, d: 0.07},
+                {f: 987.77, d: 0.09},
+                {f: 1318.51, d: 0.25}
+            ];
+
+            let t = now;
+            sequence.forEach(s => {
+                const osc = ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.value = s.f;
+
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0.32, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + s.d + 0.12);
+
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.value = 2800;
+
+                osc.connect(filter).connect(gain).connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + s.d + 0.15);
+                t += s.d * 0.82;
+            });
+        }
+
+        // NEW: Soft grass hit sound (muffled thump + light grass rustle)
+        function playGrassHit() {
+            const ctx = getAudioContext();
+            const now = ctx.currentTime;
+
+            // Soft low thump
+            const osc = ctx.createOscillator();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(105, now);
+            osc.frequency.exponentialRampToValueAtTime(48, now + 0.22);
+
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0.68, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.38);
+
+            osc.connect(gain).connect(ctx.destination);
+            osc.start(now);
+            osc.stop(now + 0.45);
+
+            // Light grass/rustle noise (bandpass filtered)
+            const noise = ctx.createBufferSource();
+            const bufferSize = ctx.sampleRate * 0.18;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            noise.buffer = buffer;
+
+            const noiseGain = ctx.createGain();
+            noiseGain.gain.setValueAtTime(0.24, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+
+            const noiseFilter = ctx.createBiquadFilter();
+            noiseFilter.type = 'bandpass';
+            noiseFilter.frequency.value = 1250;
+            noiseFilter.Q.value = 0.85;
+
+            noise.connect(noiseFilter).connect(noiseGain).connect(ctx.destination);
+            noise.start(now);
+        }
+
+        function rebuildBoard() {
+            if (targetBoard && targetBoard.group) scene.remove(targetBoard.group);
+            targetBoard = createCornholeBoard(DISTANCE);
+        }
+
+        leftArrow.addEventListener('click', () => { selectedDesign = (selectedDesign - 1 + 10) % 10; rebuildBoard(); });
+        rightArrow.addEventListener('click', () => { selectedDesign = (selectedDesign + 1) % 10; rebuildBoard(); });
+
+        function updateUI() {
+            document.getElementById('playerScore').textContent = playerScore;
+            document.getElementById('aiScore').textContent = aiScore;
+            playerTurnDot.classList.toggle('active', isPlayerTurn);
+            aiTurnDot.classList.toggle('active', !isPlayerTurn);
+        }
+
+        function showRoundSummary(playerRound, aiRound, net) {
+            let result = net > 0 ? `You +${net}` : net < 0 ? `AI +${-net}` : 'Tie';
+            roundSummaryDiv.innerHTML = `Last Round: You ${playerRound} — AI ${aiRound} (${result})`;
+            roundSummaryDiv.style.opacity = '1';
+            roundSummaryDiv.style.display = 'block';
+        }
+
+        function hideRoundSummary() {
+            roundSummaryDiv.style.opacity = '0';
+            setTimeout(() => roundSummaryDiv.style.display = 'none', 600);
+        }
+
+        function showGameOver(playerWon) {
+            gameOver = true;
+            gameOverTitle.textContent = playerWon ? "YOU WIN!" : "YOU LOSE";
+            gameOverTitle.style.color = playerWon ? "#00ff88" : "#ff5555";
+            finalScoreText.textContent = `You ${playerScore} — AI ${aiScore}`;
+            gameOverScreen.style.display = 'flex';
+            document.getElementById('scoreboard').style.opacity = '0.25';
+            leftArrow.style.display = 'none';
+            rightArrow.style.display = 'none';
+        }
+
+        function resetFullGame() {
+            gameOver = false;
+            playerScore = 0;
+            aiScore = 0;
+            firstThrowerIsPlayer = true;
+            gameOverScreen.style.display = 'none';
+            document.getElementById('scoreboard').style.opacity = '1';
+            leftArrow.style.display = 'flex';
+            rightArrow.style.display = 'flex';
+            selectedDesign = undefined;
+            resetForNewRound();
+            updateUI();
+        }
+
+        function isOnBoard(bag, board) {
+            if (bag.fallingOff || bag.onGround) return false;
+            let local = bag.mesh.position.clone().sub(board.group.position);
+            local.x = -local.x; local.z = -local.z;
+            if (Math.abs(local.x) > BOARD_W / 2 + 0.8) return false;
+            const cos = Math.cos(board.slope), sin = Math.sin(board.slope);
+            const boardLocalZ = local.z * cos + local.y * sin;
+            if (Math.abs(boardLocalZ) > BOARD_L / 2 + 1.0) return false;
+            const heightAbove = local.y - (board.deck.position.y - 0.1);
+            if (heightAbove < -0.4 || heightAbove > 1.4) return false;
+
+            const holeDist = Math.hypot(local.x, boardLocalZ - HOLE_Z);
+            if (holeDist < 1.30 && heightAbove < 1.30) {
+                bag.inHole = true;
+                bag.settled = true;
+                bag.mesh.visible = false;
+
+                if (!bag.hasPlayedHoleRing) {
+                    createHoleRing(bag.isPlayer);
+                    const holeWorldPos = new THREE.Vector3(0, board.deck.position.y + 0.6, HOLE_Z);
+                    board.group.localToWorld(holeWorldPos);
+                    createConfettiBurst(holeWorldPos);
+                    bag.hasPlayedHoleRing = true;
+                    playHoleMelody();
+                }
+
+                if (bag.isPlayer) playerSuccessfulThrows.push({angle: bag.angle, power: bag.power});
+                return true;
+            }
+            return true;
+        }
+
+        function shouldFallOffBoard(bag, board) {
+            if (bag.inHole || bag.onGround) return false;
+            let local = bag.mesh.position.clone().sub(board.group.position);
+            local.x = -local.x; local.z = -local.z;
+
+            const cos = Math.cos(board.slope), sin = Math.sin(board.slope);
+            const boardLocalZ = local.z * cos + local.y * sin;
+
+            const halfW = BOARD_W / 2;
+            const halfL = BOARD_L / 2;
+
+            const xOver = Math.max(0, Math.abs(local.x) - halfW + 0.38);
+            const zOver = Math.max(0, Math.abs(boardLocalZ) - halfL + 0.42);
+
+            return xOver > 0.52 || zOver > 0.58;
+        }
+
+        function initBagIndicators() {
+            const playerBagsEl = document.getElementById('playerBags'); playerBagsEl.innerHTML = '';
+            for (let i = 0; i < NUM_BAGS; i++) {
+                const sq = document.createElement('span');
+                sq.className = 'bag-square player-bag';
+                playerBagsEl.appendChild(sq);
+            }
+            const aiBagsEl = document.getElementById('aiBags'); aiBagsEl.innerHTML = '';
+            for (let i = 0; i < NUM_BAGS; i++) {
+                const sq = document.createElement('span');
+                sq.className = 'bag-square ai-bag';
+                aiBagsEl.appendChild(sq);
+            }
+        }
+
+        function updateBagIndicators() {
+            document.querySelectorAll('#playerBags .bag-square').forEach((el, i) => {
+                el.style.display = i < NUM_BAGS - playerBagsThrown ? 'inline-block' : 'none';
+            });
+            document.querySelectorAll('#aiBags .bag-square').forEach((el, i) => {
+                el.style.display = i < NUM_BAGS - aiBagsThrown ? 'inline-block' : 'none';
+            });
+        }
+
+        let startX, startY, startTime;
+        let isMouseDown = false;
+
+        function spawnTrailDot(bag) {
+            const dot = new THREE.Mesh(
+                new THREE.SphereGeometry(.60, 3, 3),
+                new THREE.MeshBasicMaterial({ color: bag.isPlayer ? 0xff0000 : 0x00ffff, transparent: true, opacity: .10 })
+            );
+            dot.position.copy(bag.mesh.position);
+            dot.userData = { birthTime: Date.now() };
+            scene.add(dot);
+            bag.trailDots.push(dot);
+            allTrailDots.push(dot);
+            if (bag.trailDots.length > 40) {
+                const old = bag.trailDots.shift();
+                scene.remove(old);
+            }
+        }
+
+        function createHoleRing(isPlayer) {
+            const color = isPlayer ? 0xff5555 : 0x55aaff;
+            const ring = new THREE.Mesh(
+                new THREE.RingGeometry(1.05, 1.62, 64),
+                new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.92 })
+            );
+            ring.rotation.x = -Math.PI / 2;
+            const holeLocal = new THREE.Vector3(0, targetBoard.deck.position.y - 0.05 + 0.48, HOLE_Z);
+            targetBoard.group.localToWorld(holeLocal);
+            ring.position.copy(holeLocal);
+            ring.userData = { birth: Date.now(), duration: 1350, startScale: 0.62, endScale: 4.4, startY: holeLocal.y, rise: 9.2 };
+            scene.add(ring);
+            holeRings.push(ring);
+        }
+
+        renderer.domElement.addEventListener('touchstart', e => {
+            getAudioContext();
+            if (!isPlayerTurn || gameOver) return;
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+            startTime = Date.now();
+        });
+
+        renderer.domElement.addEventListener('touchend', e => {
+            if (!isPlayerTurn || gameOver) return;
+            const dx = e.changedTouches[0].clientX - startX;
+            const dy = e.changedTouches[0].clientY - startY;
+            const duration = (Date.now() - startTime) / 1000;
+            if (duration < 0.05 || Math.hypot(dx, dy) < 30) return;
+            throwBag(dx, dy, duration);
+        });
+
+        renderer.domElement.addEventListener('mousedown', e => {
+            getAudioContext();
+            if (!isPlayerTurn || gameOver) return;
+            startX = e.clientX;
+            startY = e.clientY;
+            startTime = Date.now();
+            isMouseDown = true;
+        });
+
+        document.addEventListener('mouseup', e => {
+            if (!isMouseDown) return;
+            isMouseDown = false;
+            if (!isPlayerTurn || gameOver) return;
+            const dx = e.clientX - startX;
+            const dy = e.clientY - startY;
+            const duration = (Date.now() - startTime) / 1000;
+            if (duration < 0.05 || Math.hypot(dx, dy) < 30) return;
+            throwBag(dx, dy, duration);
+        });
+
+        function throwBag(dx, dy, duration) {
+            const swipeLength = Math.hypot(dx, dy);
+            const swipeSpeed = swipeLength / duration;
+            let power = (swipeLength * 0.118) + (swipeSpeed * 0.082);
+            power = Math.max(9, Math.min(92, power));
+            const angle = Math.atan2(dx, -dy);
+
+            const bag = isPlayerTurn ? playerBags[playerBagsThrown] : aiBags[aiBagsThrown];
+            bag.reset();
+            bag.mesh.visible = true;
+            bag.mesh.position.set(isPlayerTurn ? 0 : (Math.random()-0.5)*0.9, 4.0 + (Math.random()*0.2), -6.5);
+            bag.lastSpawnPos.copy(bag.mesh.position);
+            spawnTrailDot(bag);
+
+            if (isPlayerTurn) {
+                bag.velocity.set(-Math.sin(angle) * power * 0.48, power * 0.46 + 11.8, power * 1.05);
+                bag.originalVelocity.copy(bag.velocity);
+                bag.angularVel.set((Math.random()-0.5)*32, (Math.random()-0.5)*26, (Math.random()-0.5)*34);
+                bag.angle = angle;
+                bag.power = power;
+                playerThrowHistory.push({angle, power});
+                if (playerThrowHistory.length > 8) playerThrowHistory.shift();
+                playerBagsThrown++;
+            } else {
+                const throwAccuracy = 0.80 + Math.random() * 0.17;
+                const errorFactor = (1 - throwAccuracy) * 1.15;
+
+                let targetVel;
+                if (playerSuccessfulThrows.length > 0) {
+                    const ref = playerSuccessfulThrows[Math.floor(Math.random() * playerSuccessfulThrows.length)];
+                    const useAngle = ref.angle + (Math.random() - 0.5) * errorFactor * 2.4;
+                    const usePower = ref.power * (1 + (Math.random() - 0.5) * errorFactor * 0.55);
+                    targetVel = new THREE.Vector3(Math.sin(useAngle) * usePower * 0.48, usePower * 0.46 + 11.8, usePower * 1.05);
+                } else {
+                    const basePower = 78;
+                    const baseAngle = (Math.random() - 0.5) * 0.28;
+                    const angleSpread = errorFactor * 3.8;
+                    const useAngle = baseAngle + (Math.random() - 0.5) * angleSpread;
+                    const usePower = basePower * (1 + (Math.random() - 0.5) * errorFactor * 1.1);
+                    targetVel = new THREE.Vector3(Math.sin(useAngle) * usePower * 0.48, usePower * 0.46 + 11.8, usePower * 1.05);
+                }
+
+                bag.velocity.copy(targetVel);
+                bag.angularVel.set((Math.random()-0.5)*27, (Math.random()-0.5)*31, (Math.random()-0.5)*25);
+                aiBagsThrown++;
+            }
+
+            bag.throwTime = Date.now();
+            bag.extendLifespan();
+            activeBags.push(bag);
+
+            updateBagIndicators();
+
+            isPlayerTurn = !isPlayerTurn;
+            updateUI();
+
+            if (playerBagsThrown >= NUM_BAGS && aiBagsThrown >= NUM_BAGS && !roundEnding) {
+                setTimeout(() => {
+                    if (!roundEnding) {
+                        roundEnding = true;
+                        endRound();
+                    }
+                }, 6500);
+            }
+
+            if (!isPlayerTurn && aiBagsThrown < NUM_BAGS && !gameOver) {
+                setTimeout(aiThrowNext, 1800 + Math.random() * 800);
+            }
+        }
+
+        function aiThrowNext() {
+            if (aiBagsThrown >= NUM_BAGS || gameOver || isPlayerTurn) return;
+            throwBag(0, 0, 0.3);
+        }
+
+        function resetForNewRound() {
+            playerThrowHistory = [];
+            playerSuccessfulThrows = [];
+            [...playerBags, ...aiBags].forEach(b => b.reset());
+            playerBagsThrown = 0;
+            aiBagsThrown = 0;
+            activeBags = [];
+            roundEnding = false;
+            allTrailDots.forEach(d => scene.remove(d)); allTrailDots = [];
+            holeRings.forEach(r => scene.remove(r)); holeRings = [];
+            particles.forEach(p => scene.remove(p.mesh)); particles = [];
+            isPlayerTurn = firstThrowerIsPlayer;
+            isAnyBagFlying = false;
+            freezeBoardPhysics = false;
+            updateUI();
+            updateBagIndicators();
+            hideRoundSummary();
+
+            if (!isPlayerTurn) {
+                setTimeout(aiThrowNext, 1800);
+            }
+        }
+
+        function handleBagCollisions() {
+            if (freezeBoardPhysics) return;
+
+            const candidates = [...playerBags, ...aiBags].filter(b => 
+                b.mesh.visible && !b.inHole && !b.onGround
+            );
+
+            if (candidates.length < 2) return;
+
+            for (let i = 0; i < candidates.length; i++) {
+                const a = candidates[i];
+                const aPos = new THREE.Vector3();
+                a.collisionCollider.getWorldPosition(aPos);
+
+                for (let j = i + 1; j < candidates.length; j++) {
+                    const b = candidates[j];
+                    const bPos = new THREE.Vector3();
+                    b.collisionCollider.getWorldPosition(bPos);
+
+                    const dx = bPos.x - aPos.x;
+                    const dz = bPos.z - aPos.z;
+                    const distSq = dx*dx + dz*dz;
+
+                    if (distSq > 9) continue;
+
+                    const dist = Math.sqrt(distSq);
+                    if (dist >= 2.5 || dist < 0.05) continue;
+
+                    const overlap = 2.5 - dist;
+                    if (overlap < 0.08) continue;
+
+                    const nx = dx / dist;
+                    const nz = dz / dist;
+
+                    const sep = overlap * 1.4;
+                    a.mesh.position.x -= nx * sep * 0.6;
+                    a.mesh.position.z -= nz * sep * 0.6;
+                    b.mesh.position.x += nx * sep * 0.6;
+                    b.mesh.position.z += nz * sep * 0.6;
+
+                    const relVelDot = (a.velocity.x - b.velocity.x) * nx + (a.velocity.z - b.velocity.z) * nz;
+                    const impulse = Math.max(1.2, relVelDot * 2.4);
+
+                    a.velocity.x -= impulse * nx * 1.3;
+                    a.velocity.z -= impulse * nz * 1.3;
+                    b.velocity.x += impulse * nx * 1.3;
+                    b.velocity.z += impulse * nz * 1.3;
+
+                    a.angularVel.x += (Math.random() - 0.5) * 32;
+                    a.angularVel.z += (Math.random() - 0.5) * 36;
+                    b.angularVel.x += (Math.random() - 0.5) * 32;
+                    b.angularVel.z += (Math.random() - 0.5) * 36;
+
+                    a.extendLifespan();
+                    b.extendLifespan();
+                }
+            }
+        }
+
+        function endRound() {
+            let playerRound = 0, aiRound = 0;
+            playerBags.forEach(b => {
+                if (b.inHole) playerRound += 3;
+                else if (isOnBoard(b, targetBoard)) playerRound += 1;
+            });
+            aiBags.forEach(b => {
+                if (b.inHole) aiRound += 3;
+                else if (isOnBoard(b, targetBoard)) aiRound += 1;
+            });
+
+            let net = 0;
+            if (playerRound > aiRound) {
+                net = playerRound - aiRound;
+                playerScore += net;
+                firstThrowerIsPlayer = true;
+            } else if (aiRound > playerRound) {
+                net = aiRound - playerRound;
+                aiScore += net;
+                firstThrowerIsPlayer = false;
+            }
+
+            showRoundSummary(playerRound, aiRound, playerRound - aiRound);
+            updateUI();
+
+            if ((playerScore >= 21 || aiScore >= 21) && playerScore !== aiScore) {
+                showGameOver(playerScore > aiScore);
+                return;
+            }
+
+            setTimeout(resetForNewRound, 2800);
+        }
+
+        const GRAVITY = 40;
+        let clock = new THREE.Clock();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            const dt = Math.min(clock.getDelta(), 0.12);
+            const now = Date.now();
+
+            groundMat.uniforms.time.value = clock.getElapsedTime();
+
+            const time = now / 1000;
+            ambientParticles.forEach((p, i) => {
+                const ud = p.userData;
+                p.position.x += ud.speedX * dt * 18;
+                p.position.z += ud.speedZ * dt * 18;
+                p.position.y = ud.baseY + Math.sin(time * ud.swaySpeed + ud.swayPhase) * 1.4;
+                if (ud.type === 'leaf') {
+                    p.rotation.z = Math.sin(time * ud.swaySpeed * 1.8 + ud.swayPhase) * 0.9;
+                    p.rotation.y = Math.sin(time * 0.7 + i) * 0.4;
+                } else {
+                    p.rotation.x = Math.sin(time * 3 + i) * 0.3;
+                }
+                if (p.position.z < -12 || p.position.x < -50 || p.position.x > 50 || p.position.y > 42) {
+                    p.position.x = (Math.random() - 0.5) * 72;
+                    p.position.y = 3 + Math.random() * 8;
+                    p.position.z = 75 + Math.random() * 18;
+                    ud.baseY = p.position.y;
+                    ud.speedX = (Math.random() - 0.5) * 1.1;
+                    ud.speedZ = -0.35 - Math.random() * 0.45;
+                }
+            });
+
+            for (let j = allTrailDots.length - 1; j >= 0; j--) {
+                const d = allTrailDots[j];
+                const age = now - d.userData.birthTime;
+                const life = 1200;
+                if (age > life) { scene.remove(d); allTrailDots.splice(j, 1); }
+                else { d.material.opacity = 0.30 * (1 - age / life); }
+            }
+
+            for (let i = holeRings.length - 1; i >= 0; i--) {
+                const ring = holeRings[i]; const ud = ring.userData;
+                const t = Math.min((now - ud.birth) / ud.duration, 1);
+                if (t >= 1) { scene.remove(ring); holeRings.splice(i, 1); continue; }
+                const ease = 1 - Math.pow(1 - t, 2);
+                const scale = ud.startScale + (ud.endScale - ud.startScale) * ease;
+                ring.scale.set(scale, scale, 1);
+                ring.position.y = ud.startY + ud.rise * ease;
+                ring.material.opacity = 0.92 * (1 - t * 0.88);
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+
+                p.life -= dt * 1000;
+                if (p.life <= 0) {
+                    scene.remove(p.mesh);
+                    particles.splice(i, 1);
+                    continue;
+                }
+
+                p.velocity.y += p.gravity * dt;
+                p.mesh.position.addScaledVector(p.velocity, dt);
+
+                if (p.type === 'dust') {
+                    p.velocity.multiplyScalar(0.94);
+                    if (p.mesh.position.y < 0.18) {
+                        p.mesh.position.y = 0.18;
+                        p.velocity.set(0, 0, 0);
+                    }
+                } else {
+                    p.velocity.x *= 0.982;
+                    p.velocity.z *= 0.982;
+                }
+
+                const fadeDiv = p.type === 'dust' ? 580 : 1950;
+                const alpha = Math.max(0.02, p.life / fadeDiv);
+                if (p.mesh.material.transparent) {
+                    p.mesh.material.opacity = alpha;
+                }
+
+                if (p.type === 'confetti' && p.spin !== undefined) {
+                    p.mesh.rotation.z += p.spin * dt * 2.1;
+                    p.mesh.rotation.x += p.spin * dt * 0.8;
+                }
+            }
+
+            isAnyBagFlying = activeBags.some(b => b.velocity.length() > 0.25);
+
+            freezeBoardPhysics = false;
+            activeBags.forEach(b => {
+                if (!b.settled && Math.abs(b.mesh.position.z - targetBoard.group.position.z) < 15) {
+                    freezeBoardPhysics = true;
+                }
+            });
+
+            for (let i = activeBags.length - 1; i >= 0; i--) {
+                const b = activeBags[i];
+
+                if (now > b.velocityLifespanEnd) {
+                    b.velocity.set(0, 0, 0);
+                    b.angularVel.set(0, 0, 0);
+                    b.settled = true;
+                }
+
+                b.velocity.y -= GRAVITY * dt;
+                b.velocity.multiplyScalar(0.974);
+
+                b.mesh.position.addScaledVector(b.velocity, dt);
+
+                b.mesh.rotation.x += b.angularVel.x * dt;
+                b.mesh.rotation.y += b.angularVel.y * dt;
+                b.mesh.rotation.z += b.angularVel.z * dt;
+
+                if (b.mesh.position.distanceTo(b.lastSpawnPos) > 0.45) {
+                    spawnTrailDot(b);
+                    b.lastSpawnPos.copy(b.mesh.position);
+                }
+
+                const onBoard = isOnBoard(b, targetBoard);
+
+                if (onBoard && !b.fallingOff) {
+                    const boardY = targetBoard.deck.position.y + targetBoard.group.position.y + 0.13;
+                    if (b.mesh.position.y < boardY + 0.9) {
+
+                        if (shouldFallOffBoard(b, targetBoard)) {
+                            b.fallingOff = true;
+                            b.velocity.y -= 7.5 + Math.random() * 5;
+                            b.angularVel.x += (Math.random() - 0.5) * 45;
+                            b.angularVel.z += (Math.random() - 0.5) * 32;
+                            b.velocity.x *= 0.6;
+                            b.velocity.z *= 0.6;
+                        } else {
+                            b.mesh.position.y = boardY;
+                            b.velocity.y = 0;
+                        }
+
+                        if (b.landedTime === 0) {
+                            b.landedTime = now;
+                            createDustBurst(b.mesh.position);
+                            playDeepThump();
+                            b.targetRotX = targetBoard.slope;
+                            b.targetRotZ = (Math.random() - 0.5) * 0.15;
+                            b.flattenTime = now;
+                        }
+
+                        if (b.flattenTime) {
+                            const t = Math.min(1, (now - b.flattenTime) / 420);
+                            const ease = 1 - Math.pow(1 - t, 2.8);
+                            b.mesh.rotation.x = THREE.MathUtils.lerp(b.mesh.rotation.x, b.targetRotX, ease * 0.7);
+                            b.mesh.rotation.z = THREE.MathUtils.lerp(b.mesh.rotation.z, b.targetRotZ, ease * 0.82);
+                        }
+
+                        const speed = b.velocity.length();
+                        const damping = 0.807 - speed * 0.00005;
+                        b.velocity.x *= Math.max(0.99, damping);
+                        b.velocity.z *= Math.max(0.99, damping);
+                        b.angularVel.multiplyScalar(0.65);
+                    }
+                }
+
+                if (b.mesh.position.y < 0.15 && !onBoard) {
+                    if (!b.hasPlayedGrassHit) {          // NEW: soft grass sound on first ground impact
+                        b.hasPlayedGrassHit = true;
+                        playGrassHit();
+                    }
+
+                    b.mesh.position.y = 0.15;
+                    b.velocity.y *= -0.18;
+                    b.velocity.x *= 0.48;
+                    b.velocity.z *= 0.48;
+                    b.angularVel.multiplyScalar(0.42);
+
+                    if (b.velocity.length() < 1.5 && !b.hasPlayedGroundDust) {
+                        b.settled = true;
+                        b.onGround = true;
+                        b.velocity.set(0,0,0);
+                        b.angularVel.set(0,0,0);
+                        createDustBurst(b.mesh.position);
+                        b.hasPlayedGroundDust = true;
+
+                        activeBags.splice(i, 1);
+                        continue;
+                    }
+                }
+
+                if (b.landedTime > 0) {
+                    const age = now - b.landedTime;
+                    if (age < 450) {
+                        b.squashVelocity += (0.68 - b.squashFactor) * 28 * dt;
+                        b.squashVelocity *= 0.78;
+                        b.squashFactor += b.squashVelocity * dt;
+                    } else {
+                        b.squashFactor += (1.0 - b.squashFactor) * 12 * dt;
+                    }
+                } else {
+                    b.squashFactor += (1.0 - b.squashFactor) * 12 * dt;
+                }
+
+                b.mesh.scale.set(
+                    1 + (1 - b.squashFactor) * 0.18,
+                    b.squashFactor * 0.82 + 0.18,
+                    1 + (1 - b.squashFactor) * 0.18
+                );
+            }
+
+            handleBagCollisions();
+
+            if (playerBagsThrown >= NUM_BAGS && aiBagsThrown >= NUM_BAGS && !roundEnding) {
+                const lastActivity = Math.max(...activeBags.map(b => b.velocityLifespanEnd || 0), 0);
+                if (now > lastActivity + 1000) {
+                    roundEnding = true;
+                    setTimeout(endRound, 1800);
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        initBagIndicators(); updateUI();
+        targetBoard = createCornholeBoard(DISTANCE);
+        initAmbientParticles();
+
+        roundSummaryDiv.style.display = 'none';
+        roundSummaryDiv.style.opacity = '0';
+
+        resetForNewRound();
+        animate();
+    </script>
+</body>
+</html>

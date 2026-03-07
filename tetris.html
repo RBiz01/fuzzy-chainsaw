@@ -26,8 +26,8 @@
             border-radius: 14px; padding: 8px 12px; text-align: center;
             pointer-events: auto; text-transform: uppercase;
         }
-        #scorePanel { position: absolute; top: 16px; left: 16px; width: 108px; }
-        #nextPanel { position: absolute; top: 16px; right: 16px; width: 98px; }
+        #scorePanel { position: absolute; top: 16px; left: 16px; width: 108px; display: none; }
+        #nextPanel { position: absolute; top: 16px; right: 16px; width: 98px; display: none; }
         #nextCanvas { width: 80px; height: 80px; background: rgba(30,10,70,0.6); border: 2px solid #ffff00; box-shadow: 0 0 18px #ffff00; image-rendering: pixelated; }
         .control-btn {
             width: 54px; height: 54px; border-radius: 50%;
@@ -38,12 +38,13 @@
             transition: all 0.08s ease;
         }
         .control-btn:active { transform: scale(0.88); box-shadow: 0 0 35px #00ffff; }
-        #rightControls { position: absolute; bottom: 32px; right: 22px; display: flex; flex-direction: column; gap: 14px; }
+        #rightControls { position: absolute; bottom: 32px; right: 22px; display: flex; flex-direction: column; gap: 14px; display: none; }
         #moveArea {
             position: absolute; bottom: 38px; left: 18px;
             width: 118px; height: 52px; display: flex; pointer-events: auto;
             border-radius: 12px; overflow: hidden;
             background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,255,0.4);
+            display: none;
         }
         #leftMove, #rightMove {
             flex: 1; background: rgba(0,255,255,0.12);
@@ -70,12 +71,40 @@
             border: 3px solid #ff0088; border-radius: 22px;
             padding: 32px 48px; text-align: center;
             box-shadow: 0 0 70px #ff0088; display: none; pointer-events: auto;
+            z-index: 200;
         }
         #gameOverScreen h1 { font-size: 32px; margin: 0 0 16px 0; color: #ff0088; text-shadow: 0 0 25px #ff0088; }
+
+        /* Start Screen */
+        #startScreen {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(10,0,30,0.9); backdrop-filter: blur(10px);
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 300; pointer-events: auto; color: #00ffff;
+            text-align: center;
+        }
+        #startScreen h1 {
+            font-size: 64px; margin: 0 0 40px; text-shadow: 0 0 30px #00ffff;
+        }
+        #startButton {
+            font-family: 'Orbitron', sans-serif;
+            font-size: 36px; padding: 20px 60px;
+            background: rgba(0,255,200,0.25); color: #00ffcc;
+            border: 3px solid #00ffff; border-radius: 16px;
+            box-shadow: 0 0 40px #00ffff, inset 0 0 20px rgba(0,255,255,0.4);
+            cursor: pointer; transition: all 0.15s;
+        }
+        #startButton:hover { transform: scale(1.08); box-shadow: 0 0 60px #00ffff; }
+        #startButton:active { transform: scale(0.95); }
     </style>
 </head>
 <body>
     <div id="container"></div>
+
+    <div id="startScreen">
+        <h1>2.5D TETRIS</h1>
+        <button id="startButton">START GAME</button>
+    </div>
     
     <div id="overlay">
         <div id="scorePanel" class="neon-panel">
@@ -134,6 +163,7 @@
         let previewCtx;
         let moveLeftInterval = null, moveRightInterval = null;
         let ghostMeshes = [];
+        let gameStarted = false;
 
         const COLORS = [0x00ffff,0xffff00,0xff00ff,0x00ff88,0xff8800,0x0088ff,0xff0088];
 
@@ -233,12 +263,12 @@
             return true;
         }
 
-        function rotatePiece(){if(!currentPiece||isGameOver)return; const nr=(currentPiece.rotation+1)%4;
+        function rotatePiece(){if(!currentPiece||isGameOver||!gameStarted)return; const nr=(currentPiece.rotation+1)%4;
             if(isValidMove(currentPiece.x,currentPiece.y,nr)){currentPiece.rotation=nr; createPieceMeshes(); if(sfxOn) playNote(920,35,'sine',0.3);}}
-        function moveLeft(){if(currentPiece&&isValidMove(currentPiece.x-1,currentPiece.y,currentPiece.rotation)){currentPiece.x--;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
-        function moveRight(){if(currentPiece&&isValidMove(currentPiece.x+1,currentPiece.y,currentPiece.rotation)){currentPiece.x++;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
-        function moveDown(){if(!currentPiece)return false; if(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;updatePiecePosition();score+=1;updateUI();return true;} return false;}
-        function hardDrop(){if(!currentPiece)return; let dist=0; while(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;dist++;}
+        function moveLeft(){if(currentPiece&&isValidMove(currentPiece.x-1,currentPiece.y,currentPiece.rotation)&&gameStarted){currentPiece.x--;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
+        function moveRight(){if(currentPiece&&isValidMove(currentPiece.x+1,currentPiece.y,currentPiece.rotation)&&gameStarted){currentPiece.x++;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
+        function moveDown(){if(!currentPiece||!gameStarted)return false; if(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;updatePiecePosition();score+=1;updateUI();return true;} return false;}
+        function hardDrop(){if(!currentPiece||!gameStarted)return; let dist=0; while(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;dist++;}
             updatePiecePosition(); score+=dist*2; updateUI(); lockPiece(); if(sfxOn) playNote(440,80,'triangle',0.5);}
 
         function updateGhost(){
@@ -279,7 +309,7 @@
                 if(lines.length === 0) break;
 
                 chain++;
-                playClearSFX(lines.length);
+                if(sfxOn) playClearSFX(lines.length);
                 lines.forEach(row => createParticleBurst(row));
 
                 const pts = [0,120,300,520,820];
@@ -365,7 +395,7 @@
         }
 
         function gameLoop(ts){
-            if(isGameOver) return requestAnimationFrame(gameLoop);
+            if(isGameOver || !gameStarted) return requestAnimationFrame(gameLoop);
             if(!lastDropTime) lastDropTime=ts;
             if(ts-lastDropTime>dropInterval){ if(!moveDown()) lockPiece(); lastDropTime=ts; }
             particles=particles.filter(p=>!p.update());
@@ -391,16 +421,19 @@
             }).toDestination();
         }
 
-        function playNote(freq, duration, type = 'triangle', vol = 0.24) {
-            if (!sfxOn) return;
+        async function playNote(freq, duration, type = 'triangle', vol = 0.24) {
+            if (!sfxOn || !gameStarted) return;
+            await Tone.start(); // Ensure context is running (safe to call multiple times)
             sfxSynth.oscillator.type = type;
             sfxSynth.triggerAttackRelease(freq, duration/1000, undefined, vol);
         }
 
         function playClearSFX(lines){
-            if (!sfxOn) return;
+            if (!sfxOn || !gameStarted) return;
             const base = 180 + lines*110;
-            for(let i=0;i<7;i++) setTimeout(()=>playNote(base+i*92,55,'triangle',0.45),i*38);
+            for(let i=0;i<7;i++) {
+                setTimeout(()=>playNote(base+i*92,55,'triangle',0.45),i*38);
+            }
         }
 
         function toggleSFX(){
@@ -408,17 +441,25 @@
             document.getElementById('sfxToggle').textContent = sfxOn ? 'SFX ON' : 'SFX OFF';
         }
 
-        function startGame(){
+        async function startGame(){
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('scorePanel').style.display = 'block';
+            document.getElementById('nextPanel').style.display = 'block';
+            document.getElementById('rightControls').style.display = 'flex';
+            document.getElementById('moveArea').style.display = 'flex';
+
+            await Tone.start();  // <- Critical: resumes AudioContext on user gesture
+
             initScene();
             initAudio();
 
             document.addEventListener('keydown',e=>{
-                if(isGameOver)return;
-                if(e.key==='ArrowLeft')moveLeft();
-                if(e.key==='ArrowRight')moveRight();
-                if(e.key==='ArrowDown')moveDown();
-                if(e.key==='ArrowUp')rotatePiece();
-                if(e.key===' ')hardDrop();
+                if(isGameOver || !gameStarted) return;
+                if(e.key==='ArrowLeft') moveLeft();
+                if(e.key==='ArrowRight') moveRight();
+                if(e.key==='ArrowDown') moveDown();
+                if(e.key==='ArrowUp') rotatePiece();
+                if(e.key===' ') hardDrop();
             });
 
             const leftB=document.getElementById('leftMove'), rightB=document.getElementById('rightMove');
@@ -430,10 +471,21 @@
             window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
             shuffleBag(); nextPieceType=getNextPieceType(); drawPreview(); spawnPiece(); updateUI();
+            gameStarted = true;
             requestAnimationFrame(gameLoop);
         }
 
-        window.onload = startGame;
+        document.getElementById('startButton').addEventListener('click', startGame);
+        // Also allow Enter/Space on start screen
+        document.addEventListener('keydown', e => {
+            if (!gameStarted && (e.key === 'Enter' || e.key === ' ')) {
+                e.preventDefault();
+                startGame();
+            }
+        });
+
+        // Optional: if user refreshes or something, but usually not needed
+        // window.onload not needed anymore
     </script>
 </body>
 </html>

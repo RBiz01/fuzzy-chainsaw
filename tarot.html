@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Celtic Cross Tarot • 3D Reading</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Playfair+Display:wght@400;700&display=swap');
+        
+        body { margin:0; padding:0; overflow:hidden; background:#0a0a0a; color:#e8d5a3; font-family:'Playfair Display', serif; touch-action:none; }
+        canvas { display:block; }
+        
+        #overlay { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; z-index:10; }
+        .ui-panel { position:absolute; background:rgba(20,15,10,0.95); border:3px solid #c9a66b; border-radius:14px; padding:12px; pointer-events:all; box-shadow:0 0 35px rgba(201,166,107,0.5); }
+        #top-bar { top:12px; left:50%; transform:translateX(-50%); display:flex; gap:8px; flex-wrap:wrap; justify-content:center; }
+        button { background:#3a2a1f; color:#e8d5a3; border:2px solid #c9a66b; padding:11px 18px; border-radius:8px; font-family:'Cinzel', serif; font-size:14.5px; cursor:pointer; transition:all .2s; }
+        button:hover { background:#5c4635; transform:scale(1.05); }
+        button:disabled { opacity:0.45; cursor:not-allowed; }
+        
+        #info-panel { bottom:18px; left:18px; right:18px; max-width:440px; font-size:15.5px; line-height:1.55; }
+        .card-name { font-family:'Cinzel', serif; font-size:23px; color:#ffcc66; margin:0 0 6px 0; }
+        .position-name { font-size:14.5px; color:#b89e6b; text-transform:uppercase; letter-spacing:2.5px; }
+        
+        #modal { position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.85); display:none; align-items:center; justify-content:center; z-index:100; pointer-events:all; }
+        #modal-inner { width:96%; max-width:540px; max-height:92vh; background:#1a140f; border:4px solid #c9a66b; border-radius:18px; display:flex; flex-direction:column; overflow:hidden; box-shadow:0 0 70px rgba(0,0,0,0.95); }
+        #modal-header { padding:16px 20px; background:#1a140f; border-bottom:3px solid #664422; display:flex; align-items:center; justify-content:space-between; flex-shrink:0; }
+        #modal-header h2 { margin:0; font-size:26px; color:#ffcc66; }
+        #modal-close { font-size:32px; color:#c9a66b; cursor:pointer; padding:4px 12px; }
+        #modal-scroll { flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:20px 18px 30px 18px; font-size:15.2px; line-height:1.58; color:#e8d5a3; }
+        .reading-line { margin-bottom:22px; padding-bottom:20px; border-bottom:1px dashed #664422; }
+        .reading-line:last-child { border-bottom:none; margin-bottom:0; }
+        #modal-footer { padding:16px 20px; background:#1a140f; border-top:3px solid #664422; flex-shrink:0; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    
+    <div id="overlay">
+        <div id="top-bar" class="ui-panel">
+            <button id="shuffle-btn">SHUFFLE</button>
+            <button id="draw-btn" disabled>DRAW NEXT</button>
+            <button id="interpret-btn" style="display:none;">FULL READING</button>
+            <button id="reset-view-btn">RESET VIEW</button>
+        </div>
+        
+        <div id="info-panel" class="ui-panel" style="display:none;">
+            <div class="position-name" id="pos-name"></div>
+            <div class="card-name" id="card-name"></div>
+            <div id="orientation" style="font-size:14px; font-weight:bold;"></div>
+            <div id="short-desc" style="margin-top:14px; font-style:italic; line-height:1.4;"></div>
+        </div>
+        
+        <div id="modal">
+            <div id="modal-inner">
+                <div id="modal-header">
+                    <h2>Celtic Cross • Complete Reading</h2>
+                    <div id="modal-close">✕</div>
+                </div>
+                <div id="modal-scroll"></div>
+                <div id="modal-footer">
+                    <button id="modal-close-btn" style="width:100%; padding:15px;">CLOSE READING</button>
+                </div>
+            </div>
+        </div>
+        
+        <div id="loading">Shuffling the Veil...</div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script>
+        const tarotDeckData = [ /* FULL 78 CARDS - same as before */ 
+            {id:0, name:"The Fool", type:"major", upright:"innocence, new beginnings, free spirit", reversed:"recklessness, taken advantage of"},
+            {id:1, name:"The Magician", type:"major", upright:"manifestation, power, skill, action", reversed:"manipulation, poor planning"},
+            {id:2, name:"The High Priestess", type:"major", upright:"intuition, sacred knowledge, mystery", reversed:"secrets, disconnection from intuition"},
+            {id:3, name:"The Empress", type:"major", upright:"femininity, abundance, nurturing", reversed:"creative block, dependence"},
+            {id:4, name:"The Emperor", type:"major", upright:"authority, structure, leadership", reversed:"rigidity, domination"},
+            {id:5, name:"The Hierophant", type:"major", upright:"tradition, spiritual wisdom, guidance", reversed:"rebellion, unconventionality"},
+            {id:6, name:"The Lovers", type:"major", upright:"love, harmony, choice", reversed:"imbalance, misalignment"},
+            {id:7, name:"The Chariot", type:"major", upright:"determination, control, victory", reversed:"lack of direction, aggression"},
+            {id:8, name:"Strength", type:"major", upright:"courage, inner strength, patience", reversed:"self-doubt, weakness"},
+            {id:9, name:"The Hermit", type:"major", upright:"introspection, solitude, wisdom", reversed:"isolation, withdrawal"},
+            {id:10, name:"Wheel of Fortune", type:"major", upright:"change, destiny, cycles", reversed:"bad timing, resistance"},
+            {id:11, name:"Justice", type:"major", upright:"truth, fairness, accountability", reversed:"dishonesty, imbalance"},
+            {id:12, name:"The Hanged Man", type:"major", upright:"surrender, new perspective, pause", reversed:"resistance, stalling"},
+            {id:13, name:"Death", type:"major", upright:"endings, transformation, rebirth", reversed:"fear of change, stagnation"},
+            {id:14, name:"Temperance", type:"major", upright:"balance, moderation, harmony", reversed:"imbalance, excess"},
+            {id:15, name:"The Devil", type:"major", upright:"attachment, temptation, addiction", reversed:"release, breaking free"},
+            {id:16, name:"The Tower", type:"major", upright:"sudden change, upheaval, revelation", reversed:"avoidance, fear of change"},
+            {id:17, name:"The Star", type:"major", upright:"hope, renewal, faith", reversed:"despair, lack of faith"},
+            {id:18, name:"The Moon", type:"major", upright:"illusion, intuition, uncertainty", reversed:"clarity, fear released"},
+            {id:19, name:"The Sun", type:"major", upright:"joy, success, vitality", reversed:"temporary sadness, delays"},
+            {id:20, name:"Judgement", type:"major", upright:"awakening, renewal, reflection", reversed:"self-doubt, delayed decision"},
+            {id:21, name:"The World", type:"major", upright:"completion, fulfillment, wholeness", reversed:"lack of closure"},
+            {id:22, name:"Ace of Wands", suit:"Wands", rank:"Ace", upright:"inspiration, new opportunities, growth", reversed:"delays, low energy"},
+            {id:23, name:"Two of Wands", suit:"Wands", rank:"Two", upright:"planning, progress, decisions", reversed:"fear of change"},
+            {id:24, name:"Three of Wands", suit:"Wands", rank:"Three", upright:"expansion, foresight, progress", reversed:"delays, obstacles"},
+            {id:25, name:"Four of Wands", suit:"Wands", rank:"Four", upright:"celebration, harmony, homecoming", reversed:"instability, tension"},
+            {id:26, name:"Five of Wands", suit:"Wands", rank:"Five", upright:"conflict, competition, tension", reversed:"avoiding conflict"},
+            {id:27, name:"Six of Wands", suit:"Wands", rank:"Six", upright:"victory, recognition, success", reversed:"delayed success"},
+            {id:28, name:"Seven of Wands", suit:"Wands", rank:"Seven", upright:"defense, perseverance", reversed:"overwhelm, giving up"},
+            {id:29, name:"Eight of Wands", suit:"Wands", rank:"Eight", upright:"speed, progress, swift action", reversed:"delays, miscommunication"},
+            {id:30, name:"Nine of Wands", suit:"Wands", rank:"Nine", upright:"resilience, persistence", reversed:"exhaustion, burnout"},
+            {id:31, name:"Ten of Wands", suit:"Wands", rank:"Ten", upright:"burden, responsibility", reversed:"release, delegation"},
+            {id:32, name:"Page of Wands", suit:"Wands", rank:"Page", upright:"curiosity, enthusiasm, new ideas", reversed:"lack of direction"},
+            {id:33, name:"Knight of Wands", suit:"Wands", rank:"Knight", upright:"bold action, passion, adventure", reversed:"impulsiveness"},
+            {id:34, name:"Queen of Wands", suit:"Wands", rank:"Queen", upright:"confidence, charisma, creativity", reversed:"jealousy, insecurity"},
+            {id:35, name:"King of Wands", suit:"Wands", rank:"King", upright:"leadership, vision, inspiration", reversed:"arrogance, impulsivity"},
+            {id:36, name:"Ace of Cups", suit:"Cups", rank:"Ace", upright:"new emotions, love, compassion", reversed:"emotional block"},
+            {id:37, name:"Two of Cups", suit:"Cups", rank:"Two", upright:"partnership, harmony, unity", reversed:"imbalance, broken connection"},
+            {id:38, name:"Three of Cups", suit:"Cups", rank:"Three", upright:"celebration, friendship, community", reversed:"gossip, tension"},
+            {id:39, name:"Four of Cups", suit:"Cups", rank:"Four", upright:"apathy, contemplation", reversed:"renewed interest"},
+            {id:40, name:"Five of Cups", suit:"Cups", rank:"Five", upright:"loss, grief, regret", reversed:"acceptance, healing"},
+            {id:41, name:"Six of Cups", suit:"Cups", rank:"Six", upright:"nostalgia, memories, kindness", reversed:"stuck in past"},
+            {id:42, name:"Seven of Cups", suit:"Cups", rank:"Seven", upright:"illusion, choices, fantasy", reversed:"clarity, decision"},
+            {id:43, name:"Eight of Cups", suit:"Cups", rank:"Eight", upright:"walking away, seeking meaning", reversed:"fear of change"},
+            {id:44, name:"Nine of Cups", suit:"Cups", rank:"Nine", upright:"contentment, satisfaction", reversed:"indulgence, dissatisfaction"},
+            {id:45, name:"Ten of Cups", suit:"Cups", rank:"Ten", upright:"harmony, emotional completion", reversed:"family tension"},
+            {id:46, name:"Page of Cups", suit:"Cups", rank:"Page", upright:"emotional curiosity, creativity", reversed:"emotional immaturity"},
+            {id:47, name:"Knight of Cups", suit:"Cups", rank:"Knight", upright:"romance, charm, idealism", reversed:"moodiness, avoidance"},
+            {id:48, name:"Queen of Cups", suit:"Cups", rank:"Queen", upright:"compassion, intuition, care", reversed:"emotional overwhelm"},
+            {id:49, name:"King of Cups", suit:"Cups", rank:"King", upright:"emotional balance, wisdom", reversed:"emotional suppression"},
+            {id:50, name:"Ace of Swords", suit:"Swords", rank:"Ace", upright:"clarity, truth, breakthrough", reversed:"confusion, lack of clarity"},
+            {id:51, name:"Two of Swords", suit:"Swords", rank:"Two", upright:"difficult choices, indecision", reversed:"confusion, stalemate"},
+            {id:52, name:"Three of Swords", suit:"Swords", rank:"Three", upright:"heartbreak, grief, suffering", reversed:"forgiveness, recovery"},
+            {id:53, name:"Four of Swords", suit:"Swords", rank:"Four", upright:"rest, restoration, contemplation", reversed:"restlessness, burnout"},
+            {id:54, name:"Five of Swords", suit:"Swords", rank:"Five", upright:"conflict, win at all costs", reversed:"forgiveness, reconciliation"},
+            {id:55, name:"Six of Swords", suit:"Swords", rank:"Six", upright:"transition, moving on", reversed:"emotional baggage"},
+            {id:56, name:"Seven of Swords", suit:"Swords", rank:"Seven", upright:"deception, strategy", reversed:"coming clean"},
+            {id:57, name:"Eight of Swords", suit:"Swords", rank:"Eight", upright:"entrapment, self-victimization", reversed:"freedom, new perspective"},
+            {id:58, name:"Nine of Swords", suit:"Swords", rank:"Nine", upright:"anxiety, hopelessness", reversed:"hope, reaching out"},
+            {id:59, name:"Ten of Swords", suit:"Swords", rank:"Ten", upright:"failure, collapse, defeat", reversed:"new beginning after rock bottom"},
+            {id:60, name:"Page of Swords", suit:"Swords", rank:"Page", upright:"curiosity, mental energy", reversed:"deception, manipulation"},
+            {id:61, name:"Knight of Swords", suit:"Swords", rank:"Knight", upright:"action, defending beliefs", reversed:"no direction, unpredictability"},
+            {id:62, name:"Queen of Swords", suit:"Swords", rank:"Queen", upright:"perceptiveness, clear mindedness", reversed:"cold hearted, bitterness"},
+            {id:63, name:"King of Swords", suit:"Swords", rank:"King", upright:"discipline, truth, logic", reversed:"manipulative, cruel"},
+            {id:64, name:"Ace of Pentacles", suit:"Pentacles", rank:"Ace", upright:"opportunity, prosperity, new venture", reversed:"lost opportunity"},
+            {id:65, name:"Two of Pentacles", suit:"Pentacles", rank:"Two", upright:"balancing priorities, adaptability", reversed:"loss of balance"},
+            {id:66, name:"Three of Pentacles", suit:"Pentacles", rank:"Three", upright:"teamwork, collaboration", reversed:"lack of teamwork"},
+            {id:67, name:"Four of Pentacles", suit:"Pentacles", rank:"Four", upright:"conservation, security", reversed:"greed, possessiveness"},
+            {id:68, name:"Five of Pentacles", suit:"Pentacles", rank:"Five", upright:"need, poverty, insecurity", reversed:"recovery, charity"},
+            {id:69, name:"Six of Pentacles", suit:"Pentacles", rank:"Six", upright:"generosity, sharing", reversed:"strings attached, stinginess"},
+            {id:70, name:"Seven of Pentacles", suit:"Pentacles", rank:"Seven", upright:"hard work, perseverance", reversed:"work without results"},
+            {id:71, name:"Eight of Pentacles", suit:"Pentacles", rank:"Eight", upright:"apprenticeship, skill building", reversed:"perfectionism, burnout"},
+            {id:72, name:"Nine of Pentacles", suit:"Pentacles", rank:"Nine", upright:"luxury, self-sufficiency", reversed:"overwork, isolation"},
+            {id:73, name:"Ten of Pentacles", suit:"Pentacles", rank:"Ten", upright:"legacy, family wealth", reversed:"family conflict, loss"},
+            {id:74, name:"Page of Pentacles", suit:"Pentacles", rank:"Page", upright:"opportunity, learning, manifestation", reversed:"procrastination, missed chances"},
+            {id:75, name:"Knight of Pentacles", suit:"Pentacles", rank:"Knight", upright:"responsibility, hard work, patience", reversed:"stubbornness, laziness"},
+            {id:76, name:"Queen of Pentacles", suit:"Pentacles", rank:"Queen", upright:"nurturing, practicality, abundance", reversed:"self-neglect, insecurity"},
+            {id:77, name:"King of Pentacles", suit:"Pentacles", rank:"King", upright:"abundance, discipline, success", reversed:"greed, materialism"}
+        ];
+
+        let scene, camera, renderer, table;
+        let deckGroup = new THREE.Group();
+        let currentDeck = [];
+        let drawnPositions = [];
+        let isAnimating = false;
+        let currentDrawIndex = 0;
+
+        const CARD_WIDTH = 2.85;
+        const CARD_HEIGHT = 4.15;
+        const CARD_THICKNESS = 0.07;
+        const TABLE_Z = -1.5;
+
+        const spreadPositions = [
+            {name:"1 • The Present", x:0, z:TABLE_Z, y:0.15, yRot:0},
+            {name:"2 • The Challenge", x:0, z:TABLE_Z+0.08, y:0.48, yRot:Math.PI/2},
+            {name:"3 • The Foundation", x:0, z:TABLE_Z-5.6, y:0.15, yRot:0},
+            {name:"4 • The Recent Past", x:-4.1, z:TABLE_Z, y:0.15, yRot:0},
+            {name:"5 • The Crown / Goal", x:0, z:TABLE_Z+5.6, y:0.15, yRot:0},
+            {name:"6 • The Near Future", x:4.1, z:TABLE_Z, y:0.15, yRot:0},
+            {name:"7 • Yourself", x:8.2, z:TABLE_Z-6.4, y:0.15, yRot:0},
+            {name:"8 • Environment", x:8.2, z:TABLE_Z-2, y:0.15, yRot:0},
+            {name:"9 • Hopes & Fears", x:8.2, z:TABLE_Z+2, y:0.15, yRot:0},
+            {name:"10 • The Outcome", x:8.2, z:TABLE_Z+6.4, y:0.15, yRot:0}
+        ];
+
+        function createCanvasTexture(isBack, cardData = null) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512; canvas.height = 768;
+            const ctx = canvas.getContext('2d');
+
+            if (isBack) {
+                ctx.fillStyle = '#0f2540';
+                ctx.fillRect(0,0,512,768);
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth = 32;
+                ctx.strokeRect(36,36,440,696);
+                ctx.fillStyle = '#d4af37';
+                ctx.font = 'bold 88px Cinzel';
+                ctx.textAlign = 'center';
+                ctx.fillText('✧ TAROT ✧', 256, 390);
+                ctx.lineWidth = 12;
+                ctx.strokeRect(86, 110, 340, 548);
+            } else {
+                ctx.fillStyle = '#1c1408';
+                ctx.fillRect(0,0,512,768);
+                const grad = ctx.createLinearGradient(0,0,512,768);
+                grad.addColorStop(0, '#3a2a1f');
+                grad.addColorStop(1, '#2a1f14');
+                ctx.fillStyle = grad;
+                ctx.fillRect(26,26,460,716);
+
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth = 26;
+                ctx.strokeRect(34,34,444,700);
+                ctx.lineWidth = 9;
+                ctx.strokeRect(52,52,408,664);
+
+                ctx.fillStyle = '#f5e8c7';
+                ctx.font = 'bold 42px Cinzel';
+                ctx.textAlign = 'center';
+
+                if (cardData.type === 'major') {
+                    ctx.fillText(cardData.name.toUpperCase(), 256, 118);
+                    ctx.font = '28px Playfair Display';
+                    ctx.fillText('MAJOR ARCANA', 256, 162);
+                    ctx.fillStyle = '#2a2118';
+                    ctx.fillRect(96, 200, 320, 380);
+                    ctx.strokeStyle = '#d4af37';
+                    ctx.lineWidth = 14;
+                    ctx.strokeRect(96,200,320,380);
+                    ctx.fillStyle = '#ffcc66';
+                    ctx.font = 'bold 120px Cinzel';
+                    ctx.fillText('✦', 256, 410);
+                } else {
+                    const suitSymbol = cardData.suit === 'Wands' ? '🔥' : cardData.suit === 'Cups' ? '🌊' : cardData.suit === 'Swords' ? '⚔️' : '🌿';
+                    const suitColor = cardData.suit === 'Wands' ? '#c94' : cardData.suit === 'Cups' ? '#48a' : cardData.suit === 'Swords' ? '#ddd' : '#4a6';
+                    
+                    ctx.fillStyle = suitColor;
+                    ctx.font = 'bold 138px Cinzel';
+                    ctx.fillText(cardData.rank[0]==='A' ? 'A' : cardData.rank.substring(0,2), 256, 210);
+                    ctx.font = 'bold 58px Cinzel';
+                    ctx.fillText(cardData.suit.toUpperCase(), 256, 300);
+                    
+                    ctx.fillStyle = '#111';
+                    ctx.fillRect(96, 340, 320, 300);
+                    ctx.strokeStyle = suitColor;
+                    ctx.lineWidth = 18;
+                    ctx.strokeRect(96,340,320,300);
+                    
+                    ctx.fillStyle = suitColor;
+                    ctx.font = 'bold 92px Arial';
+                    for (let i = 0; i < Math.min(10, parseInt(cardData.rank) || 1); i++) {
+                        const x = 170 + (i%3)*70;
+                        const y = 410 + Math.floor(i/3)*95;
+                        ctx.fillText(suitSymbol, x, y);
+                    }
+                }
+                ctx.fillStyle = '#f5e8c7';
+                ctx.font = 'bold 29px Playfair Display';
+                ctx.fillText(cardData.name, 256, 710);
+            }
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.anisotropy = 16;
+            return tex;
+        }
+
+        function createCardMesh(cardData, startFaceDown = true) {
+            const geo = new THREE.BoxGeometry(CARD_WIDTH, CARD_THICKNESS, CARD_HEIGHT);
+            const frontTex = createCanvasTexture(false, cardData);
+            const backTex = createCanvasTexture(true);
+            
+            const edgeMat = new THREE.MeshLambertMaterial({color:0x3a2a1f});
+            const frontMat = new THREE.MeshLambertMaterial({map:frontTex});
+            const backMat = new THREE.MeshLambertMaterial({map:backTex});
+            
+            const materials = [
+                edgeMat, edgeMat,    // +X -X
+                frontMat, backMat,   // +Y = FRONT (visible when flat), -Y = back
+                edgeMat, edgeMat     // +Z -Z
+            ];
+            
+            const mesh = new THREE.Mesh(geo, materials);
+            mesh.castShadow = mesh.receiveShadow = true;
+            mesh.userData = {cardData};
+            
+            // Deck cards start face-down (back visible)
+            if (startFaceDown) mesh.rotation.x = Math.PI;
+            
+            return mesh;
+        }
+
+        function createDeck() {
+            deckGroup.clear();
+            currentDeck = [];
+            tarotDeckData.forEach(data => {
+                const mesh = createCardMesh(data, true);
+                mesh.position.set(-9.8, 0.2 + Math.random()*0.6, TABLE_Z + 8.5 + Math.random()*0.6);
+                mesh.rotation.y = (Math.random()-0.5)*0.12;
+                deckGroup.add(mesh);
+                currentDeck.push({mesh, data, reversed: Math.random() > 0.48});
+            });
+            scene.add(deckGroup);
+        }
+
+        function shuffleDeck() {
+            document.getElementById('loading').style.display = 'block';
+            currentDeck.sort(() => Math.random()-0.5);
+            currentDeck.forEach((c,i) => {
+                c.reversed = Math.random() > 0.48;
+                const m = c.mesh;
+                m.position.set(-9.8, 0.2 + i*0.009, TABLE_Z + 8.5);
+                m.rotation.set(Math.PI, (i%7-3)*0.04, 0);
+            });
+            setTimeout(() => {
+                document.getElementById('loading').style.display = 'none';
+                currentDrawIndex = 0;
+                drawnPositions = [];
+                document.getElementById('draw-btn').disabled = false;
+                document.getElementById('interpret-btn').style.display = 'none';
+                document.getElementById('info-panel').style.display = 'none';
+            }, 850);
+        }
+
+        function animateDraw() {
+            if (isAnimating || currentDrawIndex >= 10) return;
+            isAnimating = true;
+            
+            const pos = spreadPositions[currentDrawIndex];
+            const cardObj = currentDeck.pop();
+            const mesh = cardObj.mesh;
+            
+            const start = mesh.position.clone();
+            const target = new THREE.Vector3(pos.x, pos.y, pos.z);
+            
+            const targetRotY = pos.yRot + (cardObj.reversed ? Math.PI : 0);  // FIX: reversed = 180° flip in plane via y rotation
+            
+            let progress = 0;
+            const startTime = Date.now();
+            const duration = 1350;
+            
+            function step() {
+                const t = Math.min((Date.now() - startTime) / duration, 1);
+                progress = 1 - Math.pow(1 - t, 3);
+                
+                mesh.position.x = start.x + (target.x - start.x) * progress;
+                mesh.position.y = start.y + 7.5 * Math.sin(progress * Math.PI);
+                mesh.position.z = start.z + (target.z - start.z) * progress * 0.8 + Math.sin(progress * Math.PI) * 4;
+                
+                mesh.rotation.x = Math.PI * (1 - progress); // from PI (back up) → 0 (front up)
+                mesh.rotation.y = targetRotY * progress;
+                mesh.rotation.z = 0;
+                
+                if (t < 1) {
+                    requestAnimationFrame(step);
+                } else {
+                    mesh.position.copy(target);
+                    mesh.rotation.set(0, targetRotY, 0); // front up, reversed flipped via y
+                
+                    drawnPositions.push({position:pos, card:cardObj.data, reversed:cardObj.reversed, mesh});
+                    showCardInfo(pos, cardObj.data, cardObj.reversed);
+                    currentDrawIndex++;
+                    isAnimating = false;
+                    
+                    if (currentDrawIndex < 10) {
+                        document.getElementById('draw-btn').disabled = false;
+                    } else {
+                        document.getElementById('draw-btn').disabled = true;
+                        document.getElementById('interpret-btn').style.display = 'block';
+                    }
+                }
+            }
+            step();
+        }
+
+        function showCardInfo(pos, card, reversed) {
+            const p = document.getElementById('info-panel');
+            document.getElementById('pos-name').textContent = pos.name;
+            document.getElementById('card-name').textContent = card.name;
+            const o = document.getElementById('orientation');
+            o.textContent = reversed ? 'REVERSED' : 'UPRIGHT';
+            o.style.color = reversed ? '#c66' : '#6c9';
+            document.getElementById('short-desc').textContent = reversed ? card.reversed : card.upright;
+            p.style.display = 'block';
+        }
+
+        function generateFullReading() {
+            let html = '';
+            let majorCount = 0, reversedCount = 0;
+            let suitCounts = {Wands:0, Cups:0, Swords:0, Pentacles:0};
+            
+            drawnPositions.forEach(entry => {
+                const orient = entry.reversed ? 'Reversed' : 'Upright';
+                const meaning = entry.reversed ? entry.card.reversed : entry.card.upright;
+                html += `
+                    <div class="reading-line">
+                        <strong>${entry.position.name}</strong><br>
+                        <span style="color:#ffcc66; font-size:17.5px">${entry.card.name} — ${orient}</span><br>
+                        <em>${meaning}</em>
+                    </div>`;
+                if (entry.card.type === 'major') majorCount++;
+                if (entry.reversed) reversedCount++;
+                if (entry.card.suit) suitCounts[entry.card.suit]++;
+            });
+            
+            const dominantSuit = Object.keys(suitCounts).reduce((a,b) => suitCounts[a] > suitCounts[b] ? a : b);
+            const revPct = Math.round(reversedCount / 10 * 100);
+            let synthesis = `This Celtic Cross reveals a powerful story with <strong>${majorCount} Major Arcana</strong> — significant life lessons. `;
+            synthesis += revPct > 45 ? `Many reversed cards (${revPct}%) indicate internal blocks. ` : `Mostly upright cards show forward momentum. `;
+            synthesis += `Dominant energy: <strong>${dominantSuit}</strong>. `;
+            synthesis += `<br><br><em>Card 10 is your key outcome.</em>`;
+            
+            html += `<div style="margin-top:32px; padding:22px; background:rgba(60,45,30,0.6); border-radius:10px; font-size:15px; line-height:1.65;">${synthesis}</div>`;
+            
+            document.getElementById('modal-scroll').innerHTML = html;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        let cameraAngle = .65;
+        let cameraDist = 23.5;
+        let cameraHeight = 16.5;
+        let panX = 1.8;
+        let panZ = -0.6;
+        
+        function updateCamera() {
+            const x = Math.sin(cameraAngle) * cameraDist;
+            const z = Math.cos(cameraAngle) * cameraDist;
+            camera.position.set(x + panX, cameraHeight, z + panZ + 5);
+            camera.lookAt(panX, -1.2, panZ + TABLE_Z);
+        }
+
+        function resetView() {
+            cameraAngle = .65; 
+            cameraDist = 23.5; 
+            cameraHeight = 16.5; 
+            panX = 1.8; panZ = -0.6;
+            updateCamera();
+        }
+
+        let touches = [];
+        let lastDist = 0;
+        
+        function handleTouchStart(e) {
+            touches = Array.from(e.touches);
+            if (touches.length === 2) lastDist = Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+        }
+        
+        function handleTouchMove(e) {
+            if (e.touches.length === 1) {
+                const dx = e.touches[0].clientX - touches[0].clientX;
+                cameraAngle += dx * 0.0088;
+                touches[0] = e.touches[0];
+                updateCamera();
+            } else if (e.touches.length === 2) {
+                const dx = (e.touches[0].clientX + e.touches[1].clientX)/2 - (touches[0].clientX + touches[1].clientX)/2;
+                const dy = (e.touches[0].clientY + e.touches[1].clientY)/2 - (touches[0].clientY + touches[1].clientY)/2;
+                panX += dx * 0.023;
+                panZ += dy * 0.023;
+                const newDist = Math.hypot(e.touches[0].clientX - touches[1].clientX, e.touches[0].clientY - touches[1].clientY);
+                cameraDist = Math.max(13, Math.min(42, cameraDist - (newDist - lastDist) * 0.062));
+                lastDist = newDist;
+                touches = Array.from(e.touches);
+                updateCamera();
+            }
+        }
+
+        function initThree() {
+            const canvas = document.getElementById('canvas');
+            renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2.2));
+            renderer.shadowMap.enabled = true;
+            
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x0a0a0a, 28, 65);
+            
+            camera = new THREE.PerspectiveCamera(46, innerWidth/innerHeight, 0.5, 100);
+            updateCamera();
+            
+            scene.add(new THREE.AmbientLight(0x999999, 0.65));
+            const sun = new THREE.DirectionalLight(0xffeedd, 1.25);
+            sun.position.set(18, 32, 14);
+            sun.castShadow = true;
+            sun.shadow.mapSize.width = 2048;
+            sun.shadow.mapSize.height = 2048;
+            scene.add(sun);
+            
+            const tg = new THREE.PlaneGeometry(54, 40);
+            const tm = new THREE.MeshLambertMaterial({color:0x2a2118});
+            table = new THREE.Mesh(tg, tm);
+            table.rotation.x = -Math.PI/2;
+            table.position.y = -0.03;
+            table.receiveShadow = true;
+            scene.add(table);
+            
+            createDeck();
+            shuffleDeck();
+            
+            window.addEventListener('resize', () => {
+                camera.aspect = innerWidth/innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(innerWidth, innerHeight);
+            });
+            
+            const el = renderer.domElement;
+            el.addEventListener('touchstart', handleTouchStart);
+            el.addEventListener('touchmove', handleTouchMove);
+            el.addEventListener('touchend', () => touches = []);
+            
+            let mouseDown = false, lastMouseX = 0, lastMouseY = 0;
+            el.addEventListener('mousedown', e => { mouseDown = true; lastMouseX = e.clientX; lastMouseY = e.clientY; });
+            el.addEventListener('mousemove', e => {
+                if (!mouseDown) return;
+                if (e.buttons === 1) cameraAngle += (e.clientX - lastMouseX) * 0.0038;
+                else if (e.buttons === 4) { panX += (e.clientX - lastMouseX) * 0.015; panZ += (e.clientY - lastMouseY) * 0.015; }
+                lastMouseX = e.clientX; lastMouseY = e.clientY;
+                updateCamera();
+            });
+            window.addEventListener('mouseup', () => mouseDown = false);
+            el.addEventListener('wheel', e => {
+                cameraDist = Math.max(13, Math.min(42, cameraDist + e.deltaY * 0.019));
+                updateCamera();
+            });
+            
+            document.getElementById('shuffle-btn').onclick = () => { if(!isAnimating) shuffleDeck(); };
+            document.getElementById('draw-btn').onclick = () => { if(!isAnimating) { document.getElementById('draw-btn').disabled=true; animateDraw(); }};
+            document.getElementById('interpret-btn').onclick = generateFullReading;
+            document.getElementById('reset-view-btn').onclick = resetView;
+            
+            const modalClose = document.getElementById('modal-close');
+            const modalCloseBtn = document.getElementById('modal-close-btn');
+            modalClose.addEventListener('click', closeModal);
+            modalCloseBtn.addEventListener('click', closeModal);
+            document.getElementById('modal').addEventListener('click', function(e) {
+                if (e.target === this) closeModal();
+            });
+            
+            renderer.setSize(innerWidth, innerHeight);
+            function loop() { requestAnimationFrame(loop); renderer.render(scene, camera); }
+            loop();
+            
+            setTimeout(resetView, 200);
+        }
+
+        window.onload = initThree;
+    </script>
+</body>
+</html>

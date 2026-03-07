@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Infinite Flowering Vine Garden • Magical Twilight</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <style>
+        body { margin: 0; overflow: hidden; background: #000; touch-action: none; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script>
+let scene, camera, renderer, clock;
+let vines = [];
+let clouds = [];
+let distantClouds = [];
+let sunMesh;
+let backgroundGroup;
+let stars;
+let fireflies = [];
+
+const CAMERA_RISE_SPEED = 1.65;
+const TARGET_FIREFLIES = 24;
+
+const SWAY_FREQUENCY = 0.18;
+const SWAY_AMPLITUDE_X = 0.72;
+const SWAY_AMPLITUDE_Z = 0.52;
+
+const PARALLAX_SENSITIVITY = 0.038;
+const PARALLAX_MAX_OFFSET = 11.0;
+const PARALLAX_EASING = 0.085;
+
+let touchTargetX = 0;
+let touchTargetZ = 0;
+let currentOffsetX = 0;
+let currentOffsetZ = 0;
+let isTouching = false;
+let lastTouchX = 0;
+let lastTouchY = 0;
+
+function init() {
+    scene = new THREE.Scene();
+    clock = new THREE.Clock();
+
+    scene.fog = new THREE.Fog(0x1e3a7a, 38, 210);
+
+    camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2200);
+    camera.position.set(0, -15, 28);
+
+    renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.6));
+    document.body.appendChild(renderer.domElement);
+
+    renderer.domElement.addEventListener('touchstart', onTouchStart, { passive: false });
+    renderer.domElement.addEventListener('touchmove', onTouchMove, { passive: false });
+    renderer.domElement.addEventListener('touchend', onTouchEnd);
+
+    const hemi = new THREE.HemisphereLight(0xa0d8ff, 0x3a8c4a, 0.8);
+    scene.add(hemi);
+
+    const dir = new THREE.DirectionalLight(0xffeecc, 1.0);
+    dir.position.set(18, 25, -15);
+    scene.add(dir);
+
+    backgroundGroup = new THREE.Group();
+    scene.add(backgroundGroup);
+
+    const skyGeo = new THREE.PlaneGeometry(1200, 800);
+    const skyMat = new THREE.ShaderMaterial({
+        uniforms: { topColor: { value: new THREE.Color(0x0a1f4a) }, bottomColor: { value: new THREE.Color(0x1e3a7a) } },
+        vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+        fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; varying vec2 vUv; void main() { gl_FragColor = vec4(mix(bottomColor, topColor, vUv.y), 1.0); }`,
+        side: THREE.DoubleSide, depthTest: false, depthWrite: false
+    });
+    const sky = new THREE.Mesh(skyGeo, skyMat);
+    sky.position.set(0, 12, -180); sky.rotation.y = Math.PI; sky.renderOrder = -4000;
+    backgroundGroup.add(sky);
+
+    const starCount = 620;
+    const starGeo = new THREE.BufferGeometry();
+    const positions = new Float32Array(starCount * 3);
+    for (let i = 0; i < starCount; i++) {
+        const radius = 185 + Math.random() * 115;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1) * 0.82;
+        positions[i*3]     = radius * Math.sin(phi) * Math.cos(theta);
+        positions[i*3 + 1] = radius * Math.sin(phi) * Math.sin(theta) + 95;
+        positions[i*3 + 2] = -75 - Math.random() * 20;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    const starMat = new THREE.PointsMaterial({
+        color: 0xe0f8ff, size: 2.8, transparent: true, opacity: 1.0,
+        depthTest: false, blending: THREE.NormalBlending, sizeAttenuation: false
+    });
+    stars = new THREE.Points(starGeo, starMat);
+    stars.renderOrder = -3000;
+    backgroundGroup.add(stars);
+
+    sunMesh = new THREE.Mesh(
+        new THREE.SphereGeometry(4.8, 48, 48),
+        new THREE.MeshBasicMaterial({ color: 0xfff070 })
+    );
+    sunMesh.position.set(14, 19, -42);
+    sunMesh.renderOrder = -2000;
+    backgroundGroup.add(sunMesh);
+
+    for (let i = 0; i < 10; i++) clouds.push(new Cloud(0));
+    for (let i = 0; i < 7; i++) distantClouds.push(new Cloud(1));
+
+    for (let i = 0; i < TARGET_FIREFLIES; i++) fireflies.push(new Firefly());
+
+    for (let i = 0; i < 15; i++) {
+        const startX = -12 + Math.random() * 24;
+        vines.push(new Vine(startX, -19));
+    }
+
+    window.addEventListener('resize', onResize);
+    animate();
+}
+
+function onTouchStart(e) {
+    if (e.touches.length === 1) {
+        isTouching = true;
+        lastTouchX = e.touches[0].clientX;
+        lastTouchY = e.touches[0].clientY;
+        e.preventDefault();
+    }
+}
+
+function onTouchMove(e) {
+    if (!isTouching || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const deltaX = touch.clientX - lastTouchX;
+    const deltaY = touch.clientY - lastTouchY;
+    touchTargetX -= deltaX * PARALLAX_SENSITIVITY;
+    touchTargetZ += deltaY * PARALLAX_SENSITIVITY;
+    touchTargetX = THREE.MathUtils.clamp(touchTargetX, -PARALLAX_MAX_OFFSET, PARALLAX_MAX_OFFSET);
+    touchTargetZ = THREE.MathUtils.clamp(touchTargetZ, -PARALLAX_MAX_OFFSET * 0.75, PARALLAX_MAX_OFFSET * 0.75);
+    lastTouchX = touch.clientX;
+    lastTouchY = touch.clientY;
+    e.preventDefault();
+}
+
+function onTouchEnd() { isTouching = false; }
+
+class Cloud {
+    constructor(layer) {
+        this.group = new THREE.Group();
+        const opacity = layer ? 0.65 : 0.90;
+        const mat = new THREE.MeshPhongMaterial({ color: 0xffffff, transparent: true, opacity, flatShading: true });
+        const puffCount = 6 + Math.floor(Math.random() * 5);
+        for (let i = 0; i < puffCount; i++) {
+            const size = 1.6 + Math.random() * 2.2;
+            const puff = new THREE.Mesh(new THREE.SphereGeometry(size, 7, 7), mat);
+            puff.position.set((i - puffCount/2) * 2.2 + Math.random() * 1.2, Math.random() * 1.8 - 0.6, (Math.random() - 0.5) * 1.8);
+            puff.scale.set(1.1, 0.75, 1.05);
+            this.group.add(puff);
+        }
+        this.group.position.set(-100 + Math.random() * 200, 10 + Math.random() * 16, layer ? -38 - Math.random() * 5 : -32 - Math.random() * 6);
+        this.speed = layer ? 0.006 + Math.random() * 0.008 : 0.014 + Math.random() * 0.012;
+        backgroundGroup.add(this.group);
+    }
+    update(delta) {
+        this.group.position.x += this.speed * delta * 52;
+        if (this.group.position.x > 120) this.group.position.x = -120;
+    }
+}
+
+class Firefly {
+    constructor() {
+        const mat = new THREE.MeshBasicMaterial({
+            color: 0xaaffff, transparent: true, opacity: 1.0,
+            blending: THREE.AdditiveBlending, depthTest: false, depthWrite: false
+        });
+        this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22, 10, 10), mat);
+        const camY = camera.position.y;
+        this.mesh.position.set(-32 + Math.random() * 64, camY + 20 + Math.random() * 50, -18 + Math.random() * 24);
+        this.baseY = this.mesh.position.y;
+        this.phase = Math.random() * Math.PI * 2;
+        this.speedX = (Math.random() - 0.5) * 1.3;
+        this.speedZ = (Math.random() - 0.5) * 1.0;
+        scene.add(this.mesh);
+    }
+    update(time) {
+        this.mesh.position.x += this.speedX * 0.018;
+        this.mesh.position.z += this.speedZ * 0.018;
+        this.mesh.position.y = this.baseY + Math.sin(time * 3.4 + this.phase) * 1.5;
+        if (Math.random() < 0.03) this.speedX = (Math.random() - 0.5) * 1.4;
+        if (Math.random() < 0.03) this.speedZ = (Math.random() - 0.5) * 1.1;
+        const pulse = 0.86 + Math.sin(time * 8.5 + this.phase) * 0.14;
+        this.mesh.scale.setScalar(pulse);
+    }
+}
+
+function createPetalMesh(color) {
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.bezierCurveTo(-0.48, 0.65, -0.88, 1.05, -0.32, 2.25);
+    shape.bezierCurveTo(-0.08, 3.05, 0.12, 3.05, 0.32, 2.25);
+    shape.bezierCurveTo(0.88, 1.05, 0.48, 0.65, 0, 0);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.07, bevelEnabled: true, bevelThickness: 0.04, bevelSize: 0.035, bevelSegments: 3 });
+    const pos = geo.attributes.position;
+    for (let i = 0; i < pos.count; i++) {
+        const y = pos.getY(i);
+        pos.setZ(i, pos.getZ(i) + Math.sin(y * 2.1) * 0.22 + Math.sin(y * 7) * 0.025);
+    }
+    geo.computeVertexNormals();
+    const mat = new THREE.MeshPhongMaterial({ color, shininess: 18, specular: 0x222222, side: THREE.DoubleSide });
+    const petal = new THREE.Mesh(geo, mat);
+    petal.scale.setScalar(0.29);
+    return petal;
+}
+
+function createStamen() {
+    const g = new THREE.Group();
+    const filament = new THREE.Mesh(new THREE.CylinderGeometry(0.014, 0.007, 0.9, 6), new THREE.MeshPhongMaterial({ color: 0xffee88 }));
+    filament.position.y = 0.45; g.add(filament);
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), new THREE.MeshPhongMaterial({ color: 0xffaa44, emissive: 0xff8800, emissiveIntensity: 0.4 }));
+    tip.position.y = 0.9; g.add(tip);
+    return g;
+}
+
+function createFlower() {
+    const flowerGroup = new THREE.Group();
+    const types = [
+        {petals:5,layers:2,color:0xff4488},
+        {petals:7,layers:2,color:0xff77aa},
+        {petals:6,layers:2,color:0x88ff66},
+        {petals:6,layers:2,color:0xbb55ff},
+        {petals:8,layers:2,color:0xffdd44}
+    ];
+    const type = types[Math.floor(Math.random() * types.length)];
+    const petalMeshes = [];
+    for (let layer = 0; layer < type.layers; layer++) {
+        const layerScale = 1 - layer * 0.22;
+        const layerHeight = layer * 0.14;
+        const offset = layer * 0.4;
+        for (let i = 0; i < type.petals; i++) {
+            const petal = createPetalMesh(type.color);
+            const angle = (i / type.petals) * Math.PI * 2 + offset + (Math.random() - 0.5) * 0.22;
+            petal.position.x = Math.cos(angle) * 0.38 * layerScale;
+            petal.position.z = Math.sin(angle) * 0.38 * layerScale;
+            petal.position.y = layerHeight;
+            petal.rotation.y = angle + (Math.random() - 0.5) * 0.2;
+            petal.rotation.x = 1.35 - layer * 0.35 + (Math.random() - 0.5) * 0.15;
+            petal.userData = { baseRotX: 1.35 - layer * 0.35, openRotX: 0.42 - layer * 0.13 + (Math.random() - 0.5) * 0.14 };
+            flowerGroup.add(petal);
+            petalMeshes.push(petal);
+        }
+    }
+    const center = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.28, 0.18, 24), new THREE.MeshPhongMaterial({ color: 0xffee66, shininess: 25, emissive: 0xffaa22, emissiveIntensity: 0.22 }));
+    center.rotation.x = Math.PI / 2; center.position.y = 0.13; flowerGroup.add(center);
+
+    for (let i = 0; i < 12 + Math.random() * 8; i++) {
+        const stamen = createStamen();
+        const a = i / 16 * Math.PI * 2;
+        stamen.position.set(Math.cos(a) * 0.22, 0.18, Math.sin(a) * 0.22);
+        stamen.rotation.y = a + (Math.random() - 0.5) * 0.55;
+        flowerGroup.add(stamen);
+    }
+    flowerGroup.userData = { petals: petalMeshes, bloom: 0, swayPhase: Math.random() * Math.PI * 2 };
+    flowerGroup.scale.setScalar(0.02);
+    return flowerGroup;
+}
+
+function createLeaf() {
+    const group = new THREE.Group();
+    const leafHue = 0.31 + (Math.random() - 0.5) * 0.09;
+    const leafSat = 0.68 + Math.random() * 0.22;
+    const leafLight = 0.32 + Math.random() * 0.16;
+    const leafColor = new THREE.Color().setHSL(leafHue, leafSat, leafLight).getHex();
+
+    const shape = new THREE.Shape();
+    shape.moveTo(0, 0);
+    shape.quadraticCurveTo(0.65, 1.9, 0, 3.7);
+    shape.quadraticCurveTo(-0.65, 1.9, 0, 0);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.045, bevelEnabled: true, bevelThickness: 0.035, bevelSize: 0.025 });
+    const mat = new THREE.MeshPhongMaterial({ color: leafColor, shininess: 5 + Math.random() * 8, side: THREE.DoubleSide });
+    const leaf = new THREE.Mesh(geo, mat);
+    leaf.rotation.x = Math.PI / 2; leaf.scale.set(0.24, 0.24, 0.24);
+    group.add(leaf);
+    group.add(leaf.clone().rotateZ(Math.PI));
+    group.userData = { swayPhase: Math.random() * Math.PI * 2 };
+    return group;
+}
+
+class Vine {
+    constructor(startX, startY = -19) {
+        this.points = [];
+        this.points.push(new THREE.Vector3(startX, startY, (Math.random() - 0.5) * 2.2));
+
+        const hue = 0.33 + (Math.random() - 0.5) * 0.13;
+        const saturation = 0.65 + Math.random() * 0.25;
+        const lightness = 0.28 + Math.random() * 0.22;
+        const vineColor = new THREE.Color().setHSL(hue, saturation, lightness).getHex();
+
+        this.personality = {
+            driftBiasX: (Math.random() - 0.5) * 4.8,
+            driftBiasZ: (Math.random() - 0.5) * 4.4,
+            curlAmpX: 0.8 + Math.random() * 1.4,
+            curlAmpZ: 0.6 + Math.random() * 1.1,
+            curlFreqX: 0.9 + Math.random() * 0.8,
+            curlFreqZ: 1.1 + Math.random() * 1.0,
+            phaseX: Math.random() * Math.PI * 2.2,
+            phaseZ: Math.random() * Math.PI * 2.2,
+            twistiness: 0.5 + Math.random() * 0.35,
+            flipChance: 0.08 + Math.random() * 0.05
+        };
+
+        const p = this.personality;
+        const initialTilt = (Math.random() - 0.5) * 0.85;
+        const dirX = Math.sin(initialTilt) * 0.6 + p.driftBiasX * 0.2;
+        const dirZ = Math.cos(initialTilt) * 0.6 + p.driftBiasZ * 0.2;
+
+        this.points.push(new THREE.Vector3(
+            startX + dirX + (Math.random() - 0.5) * 1.3,
+            startY + 2.8 + Math.random() * 0.7,
+            dirZ + (Math.random() - 0.5) * 1.5
+        ));
+
+        this.curve = new THREE.CatmullRomCurve3(this.points, false, 'catmullrom', 0.6);
+
+        this.material = new THREE.MeshPhongMaterial({
+            color: vineColor,
+            shininess: 5 + Math.random() * 9,
+            specular: 0x111111
+        });
+
+        this.maxPoints = 160;
+        this.tubularSegments = 160;
+        this.radius = 0.28;
+
+        this.geometry = new THREE.TubeGeometry(this.curve, this.tubularSegments, this.radius, 6, false);
+        this.mesh = new THREE.Mesh(this.geometry, this.material);
+        this.mesh.frustumCulled = false;
+        scene.add(this.mesh);
+
+        this.flowers = [];
+        this.leaves = [];
+        this.totalLength = 2.8;
+        this.nextFlowerDist = 7.0 + Math.random() * 6.5;
+        this.nextLeafDist   = 4.0 + Math.random() * 4.5;
+        this.growthAccumulator = 0;
+        this.growthSpeed = 1.6 + Math.random() * 1.3;
+
+        this.extensionProgress = 0;
+        this.extensionDir = new THREE.Vector3();
+        this.lastFullPoint = this.points[this.points.length - 1].clone();
+
+        // Initial geometry update
+        this.updateGeometry();
+    }
+
+    updateGeometry() {
+        if (this.geometry) this.geometry.dispose();
+        this.geometry = new THREE.TubeGeometry(this.curve, this.tubularSegments, this.radius, 6, false);
+        this.mesh.geometry = this.geometry;
+    }
+
+    addSegment(skipDistCheck = false) {
+        if (this.points.length >= this.maxPoints) return;
+
+        const last = this.points[this.points.length - 1];
+        const prev = this.points[this.points.length - 2] || last;
+        let dir = last.clone().sub(prev).normalize();
+
+        const p = this.personality;
+        const heightFactor = last.y * 0.16;
+
+        let curlFlip = 1;
+        if (Math.random() < p.flipChance) curlFlip = (Math.random() < 0.5) ? -1 : -2;
+
+        const curlX = Math.sin(heightFactor * p.curlFreqX + p.phaseX) * p.curlAmpX * curlFlip;
+        const curlZ = Math.cos(heightFactor * p.curlFreqZ + p.phaseZ) * p.curlAmpZ * curlFlip;
+
+        let newDir = new THREE.Vector3(curlX, 1.05 + Math.random() * 0.12, curlZ).normalize();
+        newDir.lerp(dir, p.twistiness).normalize();
+
+        const segLen = 1.0 + Math.random() * 0.7;
+
+        const newPoint = last.clone().addScaledVector(newDir, segLen);
+        newPoint.x += (Math.random() - 0.5) * 0.4;
+        newPoint.z += (Math.random() - 0.5) * 0.4;
+
+        this.points.push(newPoint);
+        this.totalLength += segLen;
+
+        this.curve = new THREE.CatmullRomCurve3(this.points);
+
+        this.extensionProgress = 0;
+        this.extensionDir.copy(newDir);
+        this.lastFullPoint.copy(newPoint);
+
+        this.updateGeometry();  // Rebuild after every new segment
+
+        if (skipDistCheck) return;
+
+        const tFlower = this.points.length < 20 ? 0.9 : 0.97;
+        const tLeaf   = this.points.length < 20 ? 0.85 : 0.95;
+
+        if (this.totalLength > this.nextFlowerDist) {
+            const flower = createFlower();
+            const pos = this.curve.getPointAt(tFlower);
+            flower.position.copy(pos);
+            flower.position.y += 0.8;
+            flower.position.x += (Math.random() - 0.5) * 1.3;
+            flower.position.z += (Math.random() - 0.5) * 1.0;
+            flower.rotation.y = Math.random() * Math.PI * 2;
+            scene.add(flower);
+            this.flowers.push(flower);
+            this.nextFlowerDist += 10.0 + Math.random() * 8.5;
+        }
+        if (this.totalLength > this.nextLeafDist) {
+            const leaf = createLeaf();
+            const pos = this.curve.getPointAt(tLeaf);
+            leaf.position.copy(pos);
+            leaf.position.y += 0.5;
+            leaf.rotation.y = Math.random() * Math.PI * 2;
+            leaf.rotation.x = (Math.random() - 0.5) * 0.7;
+            scene.add(leaf);
+            this.leaves.push(leaf);
+            this.nextLeafDist += 6.0 + Math.random() * 5.5;
+        }
+    }
+
+    update(delta, time) {
+        this.growthAccumulator += delta * this.growthSpeed;
+
+        if (this.extensionProgress < 1 && this.points.length > 2) {
+            this.extensionProgress = Math.min(1, this.extensionProgress + delta * this.growthSpeed * 1.4);
+            const tempTip = this.lastFullPoint.clone().addScaledVector(this.extensionDir, (this.extensionProgress - 1) * 0.9);
+            const tempPoints = this.points.slice(0, -1).concat(tempTip);
+            this.curve = new THREE.CatmullRomCurve3(tempPoints);
+        }
+
+        let addedSegment = false;
+        while (this.growthAccumulator >= 1 && this.points.length < this.maxPoints) {
+            this.addSegment();
+            this.growthAccumulator -= 1;
+            addedSegment = true;
+        }
+
+        for (let f of this.flowers) {
+            if (f.userData.bloom < 1) {
+                f.userData.bloom = Math.min(1, f.userData.bloom + delta * 1.8);
+                const bloom = f.userData.bloom;
+                f.scale.setScalar(bloom * 1.06);
+                for (let p of f.userData.petals) {
+                    p.rotation.x = p.userData.baseRotX * (1 - bloom) + p.userData.openRotX * bloom;
+                }
+            }
+            const sway = Math.sin(time * 1.8 + f.userData.swayPhase) * 0.07;
+            f.rotation.z = sway * 0.6;
+        }
+
+        for (let l of this.leaves) {
+            const sway = Math.sin(time * 2.2 + l.userData.swayPhase) * 0.11;
+            l.rotation.z = sway;
+        }
+
+        let trimmed = false;
+        while (this.points.length > 40 && this.points[0].y < camera.position.y - 140) {
+            this.points.shift();
+            trimmed = true;
+        }
+
+        if (trimmed) {
+            this.curve = new THREE.CatmullRomCurve3(this.points);
+            this.updateGeometry();
+        }
+
+        if (this.points.length > 0 && this.points[0].y < camera.position.y - 220) {
+            scene.remove(this.mesh);
+            this.flowers.forEach(f => scene.remove(f));
+            this.leaves.forEach(l => scene.remove(l));
+            const idx = vines.indexOf(this);
+            if (idx > -1) vines.splice(idx, 1);
+        }
+    }
+}
+
+function onResize() {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    const delta = Math.min(clock.getDelta(), 0.12);
+    const time = clock.getElapsedTime();
+
+    camera.position.y += CAMERA_RISE_SPEED * delta;
+
+    const autoSwayX = Math.sin(time * SWAY_FREQUENCY) * SWAY_AMPLITUDE_X;
+    const autoSwayZ = Math.cos(time * SWAY_FREQUENCY * 1.35) * SWAY_AMPLITUDE_Z;
+
+    currentOffsetX += (touchTargetX - currentOffsetX) * PARALLAX_EASING;
+    currentOffsetZ += (touchTargetZ - currentOffsetZ) * PARALLAX_EASING;
+
+    camera.position.x = autoSwayX + currentOffsetX;
+    camera.position.z = 28 + autoSwayZ + currentOffsetZ;
+
+    if (!isTouching) {
+        touchTargetX *= 0.93;
+        touchTargetZ *= 0.93;
+    }
+
+    camera.lookAt(0, camera.position.y + 13.5, 0);
+    backgroundGroup.position.y = camera.position.y;
+
+    clouds.forEach(c => c.update(delta));
+    distantClouds.forEach(c => c.update(delta));
+
+    vines.forEach(v => {
+        v.update(delta, time);
+    });
+
+    for (let i = fireflies.length - 1; i >= 0; i--) {
+        const f = fireflies[i];
+        f.update(time);
+        if (f.mesh.position.y < camera.position.y - 60) {
+            scene.remove(f.mesh);
+            fireflies.splice(i, 1);
+        }
+    }
+    while (fireflies.length < TARGET_FIREFLIES) fireflies.push(new Firefly());
+
+    if (stars) stars.material.opacity = 0.92 + Math.sin(time * 5.5) * 0.08;
+    if (sunMesh) sunMesh.scale.setScalar(1 + Math.sin(time * 1.45) * 0.016);
+
+    if (vines.length < 14 && Math.random() < 0.03) {
+        const startX = -18 + Math.random() * 36;
+        vines.push(new Vine(startX, camera.position.y - 120));
+    }
+
+    renderer.render(scene, camera);
+}
+
+init();
+</script>
+</body>
+</html>

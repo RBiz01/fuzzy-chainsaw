@@ -267,30 +267,43 @@
     let magnetActive = false;
     let magnetEndTime = 0;
 
-    // FULLSCREEN
+    // FULLSCREEN HELPERS
     function enterFullscreen() {
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen({ navigationUI: "hide" });
       else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
       else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
     }
+
+    function exitFullscreen() {
+      if (document.exitFullscreen) document.exitFullscreen();
+      else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+      else if (document.mozCancelFullScreen) document.mozCancelFullScreen();
+      else if (document.msExitFullscreen) document.msExitFullscreen();
+    }
+
     function ensureFullscreen() {
-      if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) return;
+      if (document.fullscreenElement || document.webkitFullscreenElement || 
+          document.mozFullScreenElement || document.msFullscreenElement) return;
       enterFullscreen();
     }
+
     document.addEventListener('touchstart', ensureFullscreen, { passive: false });
     document.addEventListener('fullscreenchange', ensureFullscreen);
     document.addEventListener('webkitfullscreenchange', ensureFullscreen);
     document.addEventListener('msfullscreenchange', ensureFullscreen);
 
-    // BACK BUTTON
-    history.pushState(null, null, location.href);
-    history.pushState(null, null, location.href);
+    // BACK BUTTON → only exit fullscreen, let browser handle navigation normally
     window.addEventListener('popstate', () => {
-      if (confirm('Exit Bouncy Adventure?')) {
-        window.location.href = 'about:blank';
-      } else {
-        history.pushState(null, null, location.href);
+      exitFullscreen();
+      // Optional: one pushState so double-back doesn't leave immediately (common mobile pattern)
+      // history.pushState(null, null, location.href);
+    });
+
+    // Also try to exit fullscreen when page is hidden (app switch, etc.)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        exitFullscreen();
       }
     });
 
@@ -301,7 +314,7 @@
       gameIsOver = false;
       score = 0;
       levelData.value = 1;
-      scene.background = new THREE.Color(levelColors[0]);   // ← FIXED: reset background on restart
+      scene.background = new THREE.Color(levelColors[0]);
       coinBarProgress = 0;
       diamondsThisLevel = 0;
       scoreEl.textContent = '0';
@@ -347,12 +360,12 @@
       }
     });
 
-    // LEVEL COLORS (moved up so we can use it for initial background)
+    // LEVEL COLORS
     const levelColors = [0x9166e8, 0x76949c, 0x88ddff, 0xffaaff, 0xaaffaa, 0xffdd88, 0xb04cad, 0x7b7e96, 0xaaffff];
 
     // Three.js
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(levelColors[0]);   // ← FIXED: start with first color in array
+    scene.background = new THREE.Color(levelColors[0]);
 
     const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 3000);
     camera.position.set(0, 0, 18);

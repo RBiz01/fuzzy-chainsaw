@@ -1,0 +1,809 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0a071f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta http-equiv="Permissions-Policy" content="accelerometer=*, gyroscope=*, screen-wake-lock=*">
+    
+    <title>FACE OFF!!</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+        :root {
+            --cyan: #00f5ff;
+            --magenta: #ff2ec4;
+            --blue: #00bfff;
+            --red: #ff3366;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        
+        body, html {
+            height: 100dvh;
+            width: 100dvw;
+            overflow: hidden;
+            touch-action: none;
+            font-family: 'Inter', system-ui, sans-serif;
+            background: #05050f;
+            color: white;
+        }
+        
+        #app {
+            position: fixed;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a071f 0%, #1a1433 100%);
+        }
+        
+        .screen {
+            display: none;
+            flex: 1;
+            flex-direction: column;
+            height: 100%;
+            transition: opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+        }
+        
+        .screen.active {
+            display: flex;
+            opacity: 1;
+        }
+        
+        .title {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 3.1rem;
+            font-weight: 700;
+            letter-spacing: -2.5px;
+            background: linear-gradient(90deg, #00f5ff, #ff2ec4);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            text-shadow: 0 0 40px rgba(0, 245, 255, 0.6);
+        }
+
+        .glass {
+            background: rgba(255,255,255,0.06);
+            border: 1.5px solid rgba(255,255,255,0.15);
+            backdrop-filter: blur(24px);
+            box-shadow: 0 8px 32px -12px rgba(0,0,0,0.6);
+        }
+
+        .word-card {
+            width: 100%;
+            max-width: 100%;
+            max-height: 88%;
+            background: linear-gradient(145deg, rgba(26,20,51,0.95), rgba(15,10,31,0.95));
+            border: 3px solid transparent;
+            border-image: linear-gradient(90deg, var(--cyan), var(--magenta)) 1;
+            border-radius: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 24px 20px;
+            box-shadow: 
+                0 20px 40px -15px rgba(0, 245, 255, 0.4),
+                inset 0 4px 20px rgba(255,255,255,0.08);
+            transition: all 0.45s cubic-bezier(0.23, 1, 0.32, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .word-card::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: radial-gradient(circle at 30% 20%, rgba(255,255,255,0.12), transparent 70%);
+            pointer-events: none;
+        }
+
+        .correct-flash {
+            animation: correctPop 0.65s cubic-bezier(0.34, 1.56, 0.64, 1);
+            border-image: linear-gradient(90deg, #22ff99, #00f5ff) 1 !important;
+        }
+        
+        @keyframes correctPop {
+            0%   { transform: scale(0.92) rotate(-4deg); }
+            40%  { transform: scale(1.18) rotate(3deg); }
+            100% { transform: scale(1) rotate(0deg); }
+        }
+
+        .timer-container {
+            position: relative;
+            width: 72px;
+            height: 72px;
+        }
+        
+        .timer-ring {
+            position: absolute;
+            inset: 0;
+            border-radius: 9999px;
+            background: conic-gradient(var(--cyan) 0% 100%, transparent 0%);
+            mask: radial-gradient(farthest-side, transparent calc(100% - 9px), black calc(100% - 8px));
+        }
+        
+        .timer {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 1.65rem;
+            font-weight: 700;
+            color: white;
+            text-shadow: 0 0 25px var(--cyan);
+        }
+
+        #countdown-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(5,5,15,0.94);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        #countdown-number {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14rem;
+            font-weight: 700;
+            line-height: 1;
+            color: #ffffff;
+            -webkit-text-stroke: 8px #ffeb3b;
+            text-shadow: 
+                0 0 20px #ffeb3b,
+                0 0 40px #ffeb3b,
+                0 0 70px #ff9800,
+                0 0 100px rgba(255, 235, 59, 0.6);
+            filter: drop-shadow(0 0 60px #ffeb3b);
+        }
+
+        button {
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            touch-action: manipulation;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #00f5ff, #ff2ec4);
+            color: #05050f;
+            font-family: 'Space Grotesk', sans-serif;
+            font-weight: 700;
+            font-size: 1.45rem;
+            letter-spacing: -0.5px;
+            padding: 22px 48px;
+            border-radius: 9999px;
+            border: none;
+            box-shadow: 
+                0 0 40px rgba(0, 245, 255, 0.6),
+                0 15px 30px -10px rgba(255, 46, 196, 0.5);
+            transition: all 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+            width: 100%;
+            max-width: 320px;
+            margin: 24px auto;
+            display: block;
+        }
+        
+        .btn-primary:hover {
+            transform: scale(1.05);
+            box-shadow: 
+                0 0 60px rgba(0, 245, 255, 0.8),
+                0 20px 40px -10px rgba(255, 46, 196, 0.7);
+        }
+        
+        .btn-primary:active {
+            transform: scale(0.96);
+        }
+
+        #home-screen {
+            background: linear-gradient(135deg, #0a071f, #1f1838);
+            justify-content: flex-start;
+            padding: 0;
+            gap: 16px;
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        #home-screen:active {
+            background: linear-gradient(135deg, #0a071f, #2a1f4a);
+            transition: background 0.18s;
+        }
+
+        .home-content {
+            text-align: center;
+            padding: 48px 20px 24px;
+        }
+
+        .category-card {
+            background: rgba(255,255,255,0.05);
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 24px;
+            padding: 24px 12px;
+            text-align: center;
+            transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+            box-shadow: 0 10px 30px -15px rgba(0,245,255,0.3);
+        }
+        
+        .category-card:hover {
+            transform: translateY(-8px) scale(1.03);
+            border-color: var(--cyan);
+        }
+
+        .game-header {
+            padding: 12px 18px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: relative;
+            height: 108px;
+        }
+        
+        .header-center {
+            text-align: center;
+            flex: 1;
+            position: relative;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PORTRAIT BLOCKER -->
+    <div id="portrait-blocker" style="position: fixed; inset: 0; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; gap: 24px;">
+        <div style="font-size: 6rem; animation: rotate 2s infinite linear;">↔️</div>
+        <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: 2.6rem; font-weight: 700; letter-spacing: -1px;">ROTATE YOUR PHONE</h1>
+        <p style="font-size: 1.2rem; opacity: 0.8;">FACE OFF works best in landscape mode</p>
+    </div>
+
+    <!-- MAIN APP -->
+    <div id="app">
+
+        <!-- HOME SCREEN -->
+        <div id="home-screen" class="screen active">
+
+            <div class="home-content">
+                <h1 class="title">FACE OFF</h1>
+                <p style="font-size: 1.05rem; opacity: 0.7; margin-top: 6px; letter-spacing: 3px;">TEAM BATTLE</p>
+
+                <button onclick="startGame(); event.stopPropagation();" class="btn-primary">
+                    START FACE OFF
+                </button>
+            </div>
+
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 180px;">
+                <div style="width: 10px; height: 10px; margin: 0 auto; background: linear-gradient(135deg, #00f5ff, #ff2ec4); border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 70px -8px #00f5ff, 0 30px 50px -15px #ff2ec4;">
+                    <span style="font-size: 6.8rem; filter: drop-shadow(0 0 25px rgba(255,255,255,0.9));"></span>
+                </div>
+            </div>
+
+            <div style="height: 48px;"></div>
+        </div>
+
+        <!-- CATEGORY SCREEN -->
+        <div id="category-screen" class="screen" style="padding: 28px 18px; background: linear-gradient(135deg, #0a071f, #1a1433);">
+            <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; text-align: center; margin-bottom: 28px; letter-spacing: -1px;">CHOOSE YOUR BATTLE</h2>
+            <div id="category-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; overflow-y: auto; padding-bottom: 30px;"></div>
+        </div>
+
+        <!-- GAME SCREEN -->
+        <div id="game-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433);">
+
+            <!-- TOP BAR -->
+            <div class="glass game-header">
+                <div id="team-header" style="display: flex; align-items: center; gap: 12px;"></div>
+                
+                <div class="header-center">
+                    <div id="timer-wrapper" class="timer-container" style="margin: 0 auto;">
+                        <div class="timer-ring" id="timer-ring"></div>
+                        <div id="timer" class="timer">1:00</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 28px;">
+                    <div style="text-align: center;">
+                        <div style="color: var(--blue); font-size: 10px; font-weight: 600;">BLUE</div>
+                        <div id="score-blue" style="font-family: 'Space Grotesk', sans-serif; font-size: 1.95rem; font-weight: 700;">0</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--red); font-size: 10px; font-weight: 600;">RED</div>
+                        <div id="score-red" style="font-family: 'Space Grotesk', sans-serif; font-size: 1.95rem; font-weight: 700;">0</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- WORD AREA -->
+            <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 18px; min-height: 0;">
+                <div id="word-container" class="word-card">
+                    <div id="current-word" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.65rem; font-weight: 700; line-height: 1.08; max-width: 100%;"></div>
+                </div>
+            </div>
+
+            <!-- INSTRUCTIONS -->
+            <div style="text-align: center; font-size: 12px; opacity: 0.65; padding: 8px 0 6px; letter-spacing: 0.5px;">
+                PHONE ON FOREHEAD<br>
+                <span style="color: #22ff99;">TILT DOWN = CORRECT</span> • 
+                <span style="color: #ff6b6b;">TILT UP = PASS</span>
+            </div>
+
+            <!-- BOTTOM BAR -->
+            <div class="glass" style="text-align: center; padding: 16px 20px; font-size: 13px; color: var(--cyan);">
+                <div id="words-count">0 CORRECT</div>
+            </div>
+        </div>
+
+        <!-- BIG CENTERED COUNTDOWN OVERLAY -->
+        <div id="countdown-overlay">
+            <div id="countdown-number">3</div>
+        </div>
+
+        <!-- TIME'S UP OVERLAY -->
+        <div id="timesup-overlay" style="position: fixed; inset: 0; background: rgba(185,28,28,0.94); z-index: 9999; display: none; align-items: center; justify-content: center;">
+            <div id="timesup-text" style="font-family: 'Space Grotesk', sans-serif; font-size: 9rem; font-weight: 700; line-height: 1; color: #ffffff; -webkit-text-stroke: 8px #ffeb3b; text-shadow: 0 0 20px #ffeb3b, 0 0 40px #ffeb3b, 0 0 70px #ff9800, 0 0 100px rgba(255, 235, 59, 0.6); filter: drop-shadow(0 0 60px #ffeb3b);">TIME'S UP</div>
+        </div>
+
+        <!-- SUMMARY -->
+        <div id="summary-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433); padding: 32px 20px; text-align: center;">
+            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                <div id="summary-team" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.9rem; font-weight: 700;"></div>
+                <div id="summary-score">0</div>
+                <button onclick="nextRound()" class="btn-primary" style="margin-top: 32px; font-size: 1.35rem; padding: 18px 56px;">NEXT ROUND →</button>
+            </div>
+        </div>
+
+        <!-- FINAL SCREEN -->
+        <div id="final-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433); padding: 32px 20px;">
+            <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                <div id="winner-title" class="title" style="font-size: 3.8rem;"></div>
+                
+                <div class="glass" style="margin-top: 48px; width: 100%; max-width: 320px; padding: 26px 24px; border-radius: 24px;">
+                    <div style="display: flex; justify-content: space-between; font-size: 1.45rem; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <span style="color: var(--blue);">BLUE</span>
+                        <span id="final-blue" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700;">0</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 1.45rem; padding: 16px 0;">
+                        <span style="color: var(--red);">RED</span>
+                        <span id="final-red" style="font-family: 'Space Grotesk', sans-serif; font-weight: 700;">0</span>
+                    </div>
+                </div>
+
+                <button onclick="restartGame()" class="btn-primary" style="margin-top: 64px; width: 100%; max-width: 300px; padding: 20px;">
+                    PLAY AGAIN
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="confetti-canvas" style="position: fixed; inset: 0; pointer-events: none; z-index: 99999;"></canvas>
+
+    <script>
+        // FULL WORD LISTS – complete
+        const wordLists = {
+            "Zoo": ["Lion","Tiger","Leopard","Cheetah","Jaguar","African Elephant","Asian Elephant","Giraffe","Zebra","Hippopotamus","White Rhinoceros","Black Rhinoceros","Gorilla","Chimpanzee","Orangutan","Bonobo","Giant Panda","Red Panda","Koala","Red Kangaroo","Wallaby","Emu","Ostrich","Emperor Penguin","King Penguin","Polar Bear","Grizzly Bear","Black Bear","Sloth Bear","Gray Wolf","Arctic Wolf","Red Fox","Arctic Fox","Meerkat","Ring-tailed Lemur","Howler Monkey","Spider Monkey","Capuchin Monkey","Mandrill","Baboon","Spotted Hyena","Warthog","Malayan Tapir","Giant Anteater","Three-toed Sloth","Nine-banded Armadillo","North American Porcupine","Hedgehog","River Otter","Sea Otter","Harbor Seal","California Sea Lion","Walrus","Bottlenose Dolphin","American Alligator","Nile Crocodile","Green Iguana","Komodo Dragon","Galápagos Tortoise","Leatherback Sea Turtle","Bactrian Camel","Llama","Alpaca","American Bison","Yak","Reindeer","Moose","Red Deer","Impala","Thomson's Gazelle","Okapi","Aardvark","Platypus","Short-beaked Echidna","Tasmanian Devil","Quokka","Sugar Glider","Large Flying Fox","Capybara","Paca","Agouti","Guinea Pig","Chinchilla","Fennec Fox","Serval","Caracal","Ocelot","Snow Leopard","Clouded Leopard","Amur Leopard","Sumatran Tiger","Bengal Tiger","White Tiger","African Lion","Asiatic Lion","Siberian Tiger","Flamingo","Peacock","Scarlet Macaw","Blue-and-yellow Macaw","Toco Toucan","Bald Eagle","Snowy Owl","Harris's Hawk","King Cobra","Ball Python","Green Anaconda","Bearded Dragon","Panther Chameleon"],
+            "Animals": ["Lion","Tiger","Leopard","Cheetah","Jaguar","Elephant","Giraffe","Zebra","Hippopotamus","Rhinoceros","Gorilla","Chimpanzee","Orangutan","Panda","Koala","Kangaroo","Penguin","Polar Bear","Grizzly Bear","Wolf","Fox","Dog","Cat","Rabbit","Snake","Frog","Monkey","Bear","Deer","Octopus","Shark","Eagle","Owl","Horse","Cow","Pig","Sheep","Goat","Chicken","Duck","Turkey","Goose","Parrot","Peacock","Flamingo","Crocodile","Alligator","Turtle","Tortoise","Lizard","Iguana","Chameleon","Komodo Dragon","Sloth","Armadillo","Anteater","Porcupine","Hedgehog","Otter","Seal","Sea Lion","Walrus","Dolphin","Whale","Bat","Flying Fox","Lemur","Meerkat","Hyena","Jackal","Coyote","Bison","Yak","Camel","Llama","Alpaca","Moose","Reindeer","Elk","Caribou","Antelope","Gazelle","Impala","Okapi","Tapir","Warthog","Baboon","Mandrill","Howler Monkey","Spider Monkey","Capuchin","Macaque","Gibbon","Siamang","Tarsier","Aye-aye","Pangolin","Aardvark","Platypus","Echidna","Tasmanian Devil","Quokka","Sugar Glider","Capybara","Chinchilla","Guinea Pig","Hamster","Gerbil","Mouse","Rat","Squirrel","Chipmunk","Beaver","Raccoon","Skunk","Badger","Weasel","Ferret","Mink","Fox","Arctic Fox","Fennec Fox"],
+            "Sports": ["Soccer","Basketball","Football","Tennis","Golf","Swimming","Boxing","Hockey","Volleyball","Cricket","Rugby","Skateboarding","Surfing","Cycling","Skiing","Archery","Fencing","Baseball","Karate","Yoga","Running","Marathon","Triathlon","Weightlifting","Gymnastics","Diving","Wrestling","Judo","Taekwondo","Muay Thai","Kickboxing","MMA","Snowboarding","Ice Skating","Figure Skating","Speed Skating","Bobsleigh","Luge","Skeleton","Curling","Table Tennis","Badminton","Squash","Racquetball","Handball","Water Polo","Rowing","Canoeing","Kayaking","Sailing","Windsurfing","Kite Surfing","Climbing","Bouldering","Parkour","BMX","Motocross","Formula 1","NASCAR","Rally Racing","Horse Racing","Polo","Equestrian","Fencing","Modern Pentathlon","Biathlon","Cross Country","Track and Field","Shot Put","Discus","Javelin","Hammer Throw","Long Jump","High Jump","Pole Vault","Hurdles","Steeplechase","Decathlon","Heptathlon","Bowling","Darts","Snooker","Billiards","Chess","Esports","American Football","Canadian Football","Australian Rules Football","Gaelic Football","Hurling","Lacrosse","Field Hockey","Softball","T-Ball","Ultimate Frisbee","Pickleball","Paddle Tennis","Beach Volleyball","Sepak Takraw","Kabaddi","Sumo","Jiu-Jitsu","Aikido","Kendo","Capoeira","Parkour","Freerunning"],
+            "Movies": ["Inception","Titanic","Avengers","Jurassic Park","Star Wars","The Matrix","Harry Potter","Frozen","Toy Story","Jaws","Indiana Jones","Back to the Future","Finding Nemo","Shrek","Spider-Man","Batman","Wonder Woman","Iron Man","Black Panther","The Dark Knight","Interstellar","Dune","Oppenheimer","Barbie","Everything Everywhere All at Once","Top Gun","Mission Impossible","James Bond","The Godfather","Pulp Fiction","Goodfellas","The Shawshank Redemption","Forrest Gump","Gladiator","Braveheart","Saving Private Ryan","Schindler's List","The Lord of the Rings","The Hobbit","Pirates of the Caribbean","Deadpool","Joker","La La Land","The Greatest Showman","Bohemian Rhapsody","Rocketman","A Star is Born","The Lion King","Aladdin","Beauty and the Beast","Moana","Encanto","Coco","Inside Out","Up","WALL-E","Ratatouille","Monsters Inc","Cars","Planes","Tangled","Brave","Mulan","The Little Mermaid","Cinderella","Snow White","Pinocchio","Dumbo","Bambi","Fantasia","101 Dalmatians","Mary Poppins","Chitty Chitty Bang Bang","Willy Wonka","Charlie and the Chocolate Factory","The Wizard of Oz","E.T.","Close Encounters","Jurassic World","King Kong","Godzilla","Pacific Rim","Transformers","Terminator","Alien","Predator","The Exorcist","It","The Conjuring","Hereditary","Midsommar","Get Out","Us","Nope","The Shape of Water","La La Land","Whiplash","Birdman","The Revenant","Django Unchained","Inglourious Basterds","Once Upon a Time in Hollywood","The Irishman","Killers of the Flower Moon","Oppenheimer","Dune Part Two","The Batman","Joker Folie à Deux","Deadpool & Wolverine"],
+            "Song Titles": ["Bohemian Rhapsody","Shape of You","Billie Jean","Hotel California","Hey Jude","Thriller","Yesterday","Let It Be","Smells Like Teen Spirit","Rolling in the Deep","Old Town Road","Despacito","Uptown Funk","Blinding Lights","Levitating","Watermelon Sugar","As It Was","Bad Guy","Stay","Heat Waves","Kiss Me More","Peaches","Save Your Tears","Industry Baby","Montero","WAP","Savage Love","Dynamite","Butter","Permission to Dance","Happy","Can't Stop the Feeling","Shake It Off","Blank Space","Bad Blood","Anti-Hero","Cruel Summer","Lavender Haze","Flowers","Unholy","Kill Bill","Last Night","Flowers","Creep","Wonderwall","Don't Look Back in Anger","Yellow","Viva La Vida","Hallelujah","Someone Like You","Hello","Skyfall","Shallow","A Million Dreams","The Greatest Show","This Is Me","Rewrite the Stars","Perfect","Thinking Out Loud","Photograph","Castle on the Hill","Bad Habits","Shivers","Afterglow","Dancing with a Stranger","Shape of You","Galway Girl","Perfect Duet","I Don't Care","South of the Border","Beautiful People","Cross Me","Take Me Back to London","Own It","Remember the Name","Way 2 Sexy","Girls Want Girls","Knife Talk","Moth to a Flame","Sacrifice","Out of Time","Gasoline","Dawn FM","Starboy","Blinding Lights","Save Your Tears","Heartless","The Hills","Can't Feel My Face","Earned It","Die For You","Call Out My Name","After Hours","Alone Again","Too Late","Hardest to Love","Scared to Live","Snowchild","Escape from LA","Heartless","Faith","Blinding Lights","In Your Eyes","Save Your Tears","Repeat After Me","Until I Bleed","Wanderlust","Loser","Party Monster","Six Feet Under","Love Me","Often","The Morning","House of Balloons","Wicked Games","High for This","What You Need","Coming Down","Montreal","Outside","XO","The Zone"],
+            "TV Shows": ["Friends","The Office","Breaking Bad","Stranger Things","Game of Thrones","The Simpsons","The Crown","Squid Game","The Mandalorian","Succession","Ted Lasso","The Boys","House of the Dragon","The Last of Us","The Bear","Wednesday","The White Lotus","Andor","Severance","The Rehearsal","Succession","Barry","Fleabag","Chernobyl","The Queen's Gambit","Bridgerton","The Witcher","The Umbrella Academy","Arcane","Invincible","The Sandman","House of the Dragon","Rings of Power","The Wheel of Time","Foundation","Silo","Fallout","The Boys","Gen V","Reacher","The Night Agent","Yellowstone","1923","1883","Only Murders in the Building","The Bear","Abbott Elementary","Reservation Dogs","What We Do in the Shadows","Atlanta","Insecure","Barry","Veep","Silicon Valley","Curb Your Enthusiasm","Seinfeld","Curb Your Enthusiasm","Arrested Development","Community","Parks and Recreation","Brooklyn Nine-Nine","The Good Place","Schitt's Creek","Ted Lasso","The Marvelous Mrs. Maisel","Fleabag","Killing Eve","Succession","The Crown","The Queen's Gambit","Bridgerton","The Witcher","Stranger Things","The Umbrella Academy","Arcane","Invincible","The Sandman","House of the Dragon","Rings of Power","The Wheel of Time","Foundation","Silo","Fallout","The Boys","Gen V","Reacher","The Night Agent","Yellowstone","1923","1883","Only Murders in the Building","The Bear","Abbott Elementary","Reservation Dogs","What We Do in the Shadows","Atlanta","Insecure","Barry","Veep","Silicon Valley","Curb Your Enthusiasm","Seinfeld"],
+            "Famous People": ["Elon Musk","Taylor Swift","Leonardo DiCaprio","Oprah Winfrey","Michael Jackson","Beyoncé","Tom Cruise","Dwayne Johnson","Cristiano Ronaldo","Lionel Messi","Barack Obama","Steve Jobs","Bill Gates","Jeff Bezos","Mark Zuckerberg","Serena Williams","LeBron James","Michael Jordan","Kobe Bryant","Tom Hanks","Meryl Streep","Brad Pitt","Angelina Jolie","Johnny Depp","Will Smith","Jada Pinkett Smith","Denzel Washington","Morgan Freeman","Samuel L. Jackson","Robert Downey Jr.","Chris Hemsworth","Scarlett Johansson","Emma Watson","Daniel Radcliffe","Rupert Grint","Adele","Ed Sheeran","Ariana Grande","Rihanna","Drake","Lady Gaga","Bruno Mars","Billie Eilish","Harry Styles","The Weeknd","Justin Bieber","Selena Gomez","Kylie Jenner","Kim Kardashian","Khloé Kardashian","Kendall Jenner","Kourtney Kardashian","Travis Scott","Pete Davidson","Kanye West","Jay-Z","Beyoncé","Cardi B","Megan Thee Stallion","Nicki Minaj","Doja Cat","Olivia Rodrigo","Sabrina Carpenter","Lewis Hamilton","Max Verstappen","Roger Federer","Rafael Nadal","Novak Djokovic","Simone Biles","Naomi Osaka","Katie Ledecky","Usain Bolt","Pelé","Diego Maradona","Muhammad Ali","Mike Tyson","Conor McGregor","Floyd Mayweather","Canelo Álvarez","Tiger Woods","Phil Mickelson","Serena Williams","Venus Williams","Stephen Curry","Kevin Durant","Giannis Antetokounmpo","Nikola Jokić","Luka Dončić","Patrick Mahomes","Tom Brady","Aaron Rodgers","Joe Burrow","Travis Kelce","Taylor Swift","Travis Kelce","Elon Musk","Jeff Bezos","Mark Zuckerberg","Bill Gates","Warren Buffett","Tim Cook","Satya Nadella","Sundar Pichai","Jensen Huang","Sam Altman","Demis Hassabis","Vitalik Buterin","Changpeng Zhao","Gensler","Jerome Powell"],
+            "Famous Singers": ["Taylor Swift","Beyoncé","Adele","Ed Sheeran","Ariana Grande","Rihanna","Drake","Lady Gaga","Bruno Mars","Billie Eilish","Harry Styles","The Weeknd","Justin Bieber","Selena Gomez","Katy Perry","Miley Cyrus","Dua Lipa","Olivia Rodrigo","Sabrina Carpenter","Doja Cat","Nicki Minaj","Cardi B","Megan Thee Stallion","Post Malone","Travis Scott","Kendrick Lamar","J. Cole","Drake","Eminem","Snoop Dogg","Jay-Z","Kanye West","Lil Wayne","Future","21 Savage","Travis Scott","Bad Bunny","J Balvin","Shakira","Jennifer Lopez","Ricky Martin","Enrique Iglesias","Luis Fonsi","Daddy Yankee","Karol G","Rosalía","Shawn Mendes","Camila Cabello","Charlie Puth","John Legend","Sam Smith","Lewis Capaldi","George Michael","Freddie Mercury","Elton John","Paul McCartney","John Lennon","Michael Jackson","Prince","Whitney Houston","Mariah Carey","Celine Dion","Madonna","Britney Spears","Christina Aguilera","Janet Jackson","Tina Turner","Aretha Franklin","Diana Ross","Stevie Wonder","Ray Charles","Frank Sinatra","Dean Martin","Elvis Presley","Johnny Cash","Bob Dylan","Bruce Springsteen","David Bowie","Queen","The Beatles","Rolling Stones","Led Zeppelin","Pink Floyd","AC/DC","Guns N' Roses","Metallica","Nirvana","Foo Fighters","Coldplay","U2","Radiohead","Oasis","Blur","Gorillaz","Daft Punk","Calvin Harris","David Guetta","Martin Garrix","Marshmello","Alan Walker","Avicii","Kygo","Zedd","Skrillex","Diplo","Major Lazer","The Chainsmokers","Imagine Dragons","Twenty One Pilots","Panic! at the Disco","Fall Out Boy","Green Day","Linkin Park","Evanescence","Within Temptation","Nightwish","Epica"],
+            "Food": ["Pizza","Sushi","Tacos","Burger","Pad Thai","Falafel","Croissant","Biryani","Dim Sum","Paella","Ramen","Burrito","Kebab","Pho","Lasagna","Spaghetti","Sashimi","Tempura","Fried Rice","Stir Fry","Curry","Butter Chicken","Naan","Tikka Masala","Samosa","Dosa","Idli","Vada","Pancakes","Waffles","French Toast","Omelette","Scrambled Eggs","Bacon","Sausage","Hash Browns","Avocado Toast","Bagel","Croissant","Muffin","Donut","Cinnamon Roll","Cheesecake","Tiramisu","Crème Brûlée","Chocolate Cake","Ice Cream","Gelato","Macarons","Churros","Baklava","Cannoli","Apple Pie","Brownies","Cookies","Cupcake","Eclair","Profiteroles","Tarte Tatin","Soufflé","Crème Caramel","Flan","Panna Cotta","Mango Lassi","Bubble Tea","Smoothie","Milkshake","Lemonade","Iced Tea","Coffee","Espresso","Latte","Cappuccino","Mocha","Hot Chocolate","Chai","Matcha","Bobba","Falafel Wrap","Shawarma","Gyro","Pita","Hummus","Baba Ganoush","Tabouli","Fattoush","Greek Salad","Caesar Salad","Cobb Salad","Caprese","Bruschetta","Antipasto","Calzone","Stromboli","Quesadilla","Enchilada","Chimichanga","Nachos","Guacamole","Salsa","Empanada","Arepa","Pupusa","Tamale","Carnitas","Barbacoa","Birria","Pozole","Menudo","Ceviche","Arepas","Ajiaco","Sancocho","Feijoada","Moqueca","Vatapá","Pão de Queijo","Coxinha","Brigadeiro","Pastel","Churrasco","Asado","Empanadas","Milanesa","Locro","Humita","Dulce de Leche","Alfajores","Chimichurri","Choripán","Provoleta"],
+            "Disney and Pixar Characters": ["Mickey Mouse","Minnie Mouse","Donald Duck","Goofy","Pluto","Simba","Mufasa","Scar","Nala","Timon","Pumbaa","Elsa","Anna","Olaf","Kristoff","Sven","Moana","Maui","Hei Hei","Woody","Buzz Lightyear","Mr. Potato Head","Slinky Dog","Rex","Jessie","Bo Peep","Lightning McQueen","Mater","Sally","Doc Hudson","Ramone","Flo","Mike Wazowski","Sulley","Boo","Randall","Nemo","Dory","Marlin","Bruce","Gill","Bloat","Squirt","Crush","Russell","Carl Fredricksen","Dug","Kevin","Wall-E","EVE","Ratatouille","Remy","Linguini","Colette","Anton Ego","Toy Story","Buzz","Woody","Forky","Bo Peep","Aladdin","Jasmine","Genie","Abu","Jafar","Iago","Mulan","Mushu","Li Shang","Rapunzel","Flynn Rider","Pascal","Maximus","Tangled","Ariel","Prince Eric","Ursula","Flounder","Sebastian","Belle","Beast","Gaston","Lumière","Cogsworth","Mrs. Potts","Chip","Pocahontas","John Smith","Meeko","Flit","Hercules","Megara","Phil","Pegasus","Hades","Merida","Queen Elinor","King Fergus","The Witch","Brave","Tiana","Prince Naveen","Louis","Ray","Dr. Facilier","Mama Odie","Frozen","Elsa","Anna","Olaf","Kristoff","Sven","Maleficent","Aurora","Prince Phillip","Flora","Fauna","Merryweather","Cinderella","Prince Charming","Fairy Godmother","Jaq","Gus","Lady Tremaine","Snow White","Prince","Doc","Grumpy","Happy","Sleepy","Bashful","Sneezy","Dopey","Pinocchio","Jiminy Cricket","Geppetto","Blue Fairy","Dumbo","Timothy Q. Mouse","Bambi","Thumper","Flower","Faline","Peter Pan","Wendy","Tinker Bell","Captain Hook","Mr. Smee","Aladdin","Jasmine","Genie","Jafar","Iago","Hercules","Meg","Phil","Pegasus","Hades","Mulan","Mushu","Shang","Tarzan","Jane","Kerchak","Kala","Clayton","Lilo","Stitch","Nani","David","Dr. Jumba","Pleakley","The Incredibles","Mr. Incredible","Elastigirl","Violet","Dash","Jack-Jack","Frozone","Syndrome","Edna Mode","Ratatouille","Remy","Emile","Linguini","Colette","Anton Ego"],
+            "Mythical Creatures": ["Dragon","Unicorn","Phoenix","Mermaid","Centaur","Griffin","Pegasus","Minotaur","Kraken","Sphinx","Werewolf","Vampire","Fairy","Elf","Dwarf","Orc","Goblin","Troll","Giant","Cyclops","Hydra","Cerberus","Chimera","Medusa","Basilisk","Cockatrice","Harpy","Siren","Nymph","Satyr","Faun","Dryad","Leprechaun","Banshee","Wendigo","Yeti","Bigfoot","Loch Ness Monster","Chupacabra","Manticore","Roc","Thunderbird","Quetzalcoatl","Fenrir","Jörmungandr","Valkyrie","Naga","Kitsune","Oni","Tengu","Kappa","Yokai","Djinn","Genie","Ifrit","Golem","Elemental","Phoenix","Salamander","Undine","Sylph","Gnome","Imp","Demon","Angel","Seraphim","Cherub","Gargoyle","Wyvern","Drake","Wyrm","Behemoth","Leviathan","Bahamut","Tiamat","Anubis","Ra","Osiris","Thor","Odin","Loki","Freya","Valkyrie","Minotaur","Cyclops","Harpy","Siren","Medusa","Basilisk","Cerberus","Chimera","Hydra","Sphinx","Pegasus","Griffin","Centaur","Unicorn","Dragon","Phoenix","Mermaid","Kraken","Yeti","Bigfoot","Loch Ness Monster","Chupacabra","Manticore","Roc","Thunderbird","Quetzalcoatl","Fenrir","Jörmungandr","Naga","Kitsune","Oni","Tengu","Kappa","Djinn","Golem","Elemental","Salamander","Undine","Sylph","Gnome","Imp","Demon","Angel","Seraphim","Cherub","Gargoyle","Wyvern","Drake","Wyrm","Behemoth","Leviathan","Bahamut","Tiamat","Anubis","Ra","Osiris","Thor","Odin","Loki","Freya","Valkyrie","Banshee","Wendigo","Yokai","Ifrit","Satyr","Faun","Dryad","Leprechaun"],
+            "Circus": ["Clown","Acrobat","Tightrope Walker","Trapeze Artist","Lion Tamer","Elephant Rider","Juggler","Fire Eater","Sword Swallower","Unicycle Rider","Stilt Walker","Ringmaster","Strongman","Contortionist","Magician","Escape Artist","Human Cannonball","Plate Spinner","Hula Hooper","Balloon Artist","Face Painter","Cotton Candy Seller","Popcorn Vendor","Carousel","Ferris Wheel","Big Top Tent","Trapeze","High Wire","Flying Trapeze","Cannon","Hoop","Juggling Pins","Torch","Sword","Lion","Tiger","Bear","Monkey","Elephant","Horse","Dog","Parrot","Seal","Penguin","Unicorn Act","Fire Hoop","Knife Throwing","Dagger Act","Wheel of Death","Cage of Death","Motorcycle Globe","Human Pyramid","Tower of Chairs","Balance Beam","Rope Ladder","Silk Aerial","Lyra","Hammock","Spanish Web","Cloud Swing","Rings","Trapeze Bar","Safety Net","Spotlight","Drum Roll","Fanfare","Marching Band","Calliope","Organ","Clown Car","Pie Fight","Water Bucket","Seltzer Bottle","Big Shoes","Red Nose","Wig","Makeup","Costume","Sequins","Feathers","Confetti","Balloons","Streamers","Banners","Flags","Pennants","Ticket Booth","Cotton Candy Machine","Popcorn Machine","Hot Dog Stand","Lemonade","Circus Peanuts","Peanuts","Caramel Apple","Funnel Cake","Churro","Corn Dog","Pretzel","Nachos","Slushie","Snow Cone","Fried Dough","Elephant Ear","Fried Pickle","Corn on the Cob","Cotton Candy","Popcorn","Peanuts","Circus Peanut","Animal Trainer","Ringmaster Top Hat","Whip","Chair","Hoop","Ball","Cone","Unicycle","Bicycle","Motorcycle","Clown Bike","Mini Car","Stilts","Ladder","Pole","Rope","Net","Safety Harness"]
+        };
+
+        let currentCategory = "";
+        let remainingWords = [];
+        let currentTeam = 1, roundNumber = 1;
+        let scoreBlue = 0, scoreRed = 0, roundScore = 0;
+        let timerInterval = null, timeLeft = 60;
+        let gameActive = false, tiltCooldown = false;
+        let wakeLock = null;
+        let synth = null;
+
+        async function initAudio() {
+            await Tone.start();
+            synth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0.3, release: 0.3 }
+            }).toDestination();
+        }
+
+        function playCountdownBeep(number) {
+            if (!synth) return;
+            let note = "C4";
+            if (number === 3) note = "C4";
+            else if (number === 2) note = "D4";
+            else if (number === 1) note = "E4";
+            else if (number === "GO") note = "G5";
+            synth.triggerAttackRelease(note, "8n", Tone.now(), 0.8);
+        }
+
+        function playCorrectSound() {
+            if (!synth) return;
+            synth.triggerAttackRelease("E5", "16n");
+            setTimeout(() => synth.triggerAttackRelease("G5", "16n"), 80);
+        }
+
+        function playPassSound() {
+            if (!synth) return;
+            synth.triggerAttackRelease("C3", "8n", Tone.now(), 0.6);
+        }
+
+        function playTimesUpSound() {
+            if (!synth) return;
+            const now = Tone.now();
+            synth.triggerAttackRelease("C5", "2n", now, 0.9);
+            synth.triggerAttackRelease("A4", "2n", now + 0.3, 0.8);
+            synth.triggerAttackRelease("F4", "2n", now + 0.6, 0.7);
+            synth.triggerAttackRelease("C4", "2n", now + 0.9, 0.6);
+        }
+
+        function handleTilt(e) {
+            const gamma = Math.max(-90, Math.min(90, e.gamma || 0));
+            if (!gameActive || tiltCooldown) return;
+
+            if (gamma >= 2 && gamma <= 35) {
+                processCorrect();
+                tiltCooldown = true;
+                setTimeout(() => tiltCooldown = false, 2000);
+            } else if (gamma >= -40 && gamma <= 0) {
+                processPass();
+                tiltCooldown = true;
+                setTimeout(() => tiltCooldown = false, 2000);
+            }
+        }
+
+        async function enableTilt() {
+            if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
+                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+            }
+            window.addEventListener('deviceorientation', handleTilt, { passive: true });
+        }
+
+        async function requestWakeLock() {
+            if (!('wakeLock' in navigator)) return;
+            try { wakeLock = await navigator.wakeLock.request('screen'); } catch (e) {}
+        }
+
+        async function releaseWakeLock() {
+            if (wakeLock) { try { await wakeLock.release(); } catch (e) {} wakeLock = null; }
+        }
+
+        async function forceFullscreen() {
+            try {
+                const el = document.documentElement;
+                if (!document.fullscreenElement) {
+                    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: "hide" });
+                    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+                }
+            } catch (e) {}
+        }
+
+        function checkOrientation() {
+            const blocker = document.getElementById("portrait-blocker");
+            blocker.style.display = (window.innerWidth > window.innerHeight) ? "none" : "flex";
+        }
+
+        function updateSize() {
+            const app = document.getElementById("app");
+            if (window.visualViewport) {
+                const vv = window.visualViewport;
+                app.style.top = `${vv.offsetTop}px`;
+                app.style.left = `${vv.offsetLeft}px`;
+                app.style.width = `${vv.width}px`;
+                app.style.height = `${vv.height - 6}px`;
+            }
+        }
+
+        function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+
+        function createCategoryCards() {
+            const grid = document.getElementById("category-grid");
+            grid.innerHTML = "";
+            Object.keys(wordLists).forEach(cat => {
+                const div = document.createElement("div");
+                div.className = "category-card glass";
+                div.innerHTML = `
+                    <div style="font-size: 3.8rem; margin-bottom: 12px;">${getEmoji(cat)}</div>
+                    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 1.25rem; font-weight: 700;">${cat}</div>
+                `;
+                div.onclick = () => selectCategory(cat);
+                grid.appendChild(div);
+            });
+        }
+
+        function getEmoji(c) {
+            const e = {
+                "Animals":"🦁","Sports":"⚽","Movies":"🎬","Song Titles":"🎵","TV Shows":"📺",
+                "Famous People":"👑","Famous Singers":"🎤","Zoo":"🦒",
+                "Food":"🍔","Disney and Pixar Characters":"🏰","Mythical Creatures":"🐉","Circus":"🎪"
+            };
+            return e[c] || "🔥";
+        }
+
+        function selectCategory(cat) {
+            currentCategory = cat;
+            document.getElementById("category-screen").classList.remove("active");
+            document.getElementById("game-screen").classList.add("active");
+            startNewRound();
+        }
+
+        async function startGame() {
+            await forceFullscreen();
+            await initAudio();
+            enableTilt();
+            document.getElementById("home-screen").classList.remove("active");
+            document.getElementById("category-screen").classList.add("active");
+            createCategoryCards();
+            setTimeout(updateSize, 300);
+        }
+
+        function updateHeader() {
+            const teamName = currentTeam === 1 ? "BLUE" : "RED";
+            const color = currentTeam === 1 ? "var(--blue)" : "var(--red)";
+            document.getElementById("team-header").innerHTML = `
+                <div style="width: 52px; height: 52px; background: ${color}; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 28px; box-shadow: 0 0 25px ${color}30;">👥</div>
+                <div>
+                    <div style="font-size: 10px; opacity: 0.6;">TEAM</div>
+                    <div style="font-family: 'Space Grotesk', sans-serif; font-size: 1.85rem; font-weight: 700; color: ${color};">${teamName}</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: ${color}; margin-top: 2px;">ROUND ${roundNumber}/3</div>
+                </div>
+            `;
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timeLeft = 60;
+            updateTimer();
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                updateTimer();
+                if (timeLeft <= 0) endRound();
+            }, 1000);
+        }
+
+        function updateTimer() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            document.getElementById("timer").textContent = `${m}:${s<10?'0':''}${s}`;
+            const percent = (timeLeft / 60) * 100;
+            document.getElementById("timer-ring").style.background = `conic-gradient(var(--cyan) ${percent}%, transparent ${percent}%)`;
+        }
+
+        function showNextWord() {
+            if (remainingWords.length === 0) {
+                remainingWords = shuffle([...wordLists[currentCategory]]);
+            }
+            document.getElementById("current-word").textContent = remainingWords[0];
+        }
+
+        function processCorrect() {
+            if (!gameActive) return;
+            roundScore++;
+            document.getElementById("words-count").textContent = `${roundScore} CORRECT`;
+            remainingWords.shift();
+            playCorrectSound();
+            const wc = document.getElementById("word-container");
+            wc.classList.add("correct-flash");
+            launchMiniConfetti();
+            setTimeout(() => {
+                wc.classList.remove("correct-flash");
+                showNextWord();
+            }, 650);
+        }
+
+        function processPass() {
+            if (!gameActive) return;
+            playPassSound();
+            const current = remainingWords.shift();
+            remainingWords.push(current);
+            showNextWord();
+        }
+
+        function startNewRound() {
+            roundScore = 0;
+            gameActive = false;
+            requestWakeLock();
+            updateHeader();
+            document.getElementById("current-word").textContent = "";
+            document.getElementById("words-count").textContent = "0 CORRECT";
+
+            remainingWords = shuffle([...wordLists[currentCategory]]);
+
+            const overlay = document.getElementById("countdown-overlay");
+            const numberEl = document.getElementById("countdown-number");
+            overlay.style.display = "flex";
+            let c = 3;
+            numberEl.textContent = c;
+            playCountdownBeep(3);
+
+            const int = setInterval(() => {
+                c--;
+                numberEl.textContent = c || "GO";
+                playCountdownBeep(c || "GO");
+                if (c <= 0) {
+                    clearInterval(int);
+                    setTimeout(() => {
+                        overlay.style.display = "none";
+                        gameActive = true;
+                        showNextWord();
+                        startTimer();
+                    }, 500);
+                }
+            }, 800);
+        }
+
+        function endRound() {
+            gameActive = false;
+            releaseWakeLock();
+            clearInterval(timerInterval);
+            if (currentTeam === 1) scoreBlue += roundScore; else scoreRed += roundScore;
+            document.getElementById("score-blue").textContent = scoreBlue;
+            document.getElementById("score-red").textContent = scoreRed;
+
+            playTimesUpSound();
+
+            const to = document.getElementById("timesup-overlay");
+            to.style.display = "flex";
+            setTimeout(() => { to.style.display = "none"; showSummary(); }, 2200);
+        }
+
+        function showSummary() {
+            document.getElementById("game-screen").classList.remove("active");
+            const s = document.getElementById("summary-screen");
+            s.classList.add("active");
+            const teamName = currentTeam === 1 ? `<span style="color:var(--blue)">BLUE TEAM</span>` : `<span style="color:var(--red)">RED TEAM</span>`;
+            document.getElementById("summary-team").innerHTML = teamName;
+            document.getElementById("summary-score").textContent = roundScore;
+        }
+
+        function nextRound() {
+            document.getElementById("summary-screen").classList.remove("active");
+            if (currentTeam === 1) currentTeam = 2;
+            else { currentTeam = 1; roundNumber++; }
+            
+            if (roundNumber > 3) showFinal();
+            else {
+                document.getElementById("game-screen").classList.add("active");
+                startNewRound();
+            }
+        }
+
+        function showFinal() {
+            document.getElementById("summary-screen").classList.remove("active");
+            releaseWakeLock();
+            const fs = document.getElementById("final-screen");
+            fs.classList.add("active");
+            document.getElementById("final-blue").textContent = scoreBlue;
+            document.getElementById("final-red").textContent = scoreRed;
+
+            const wt = document.getElementById("winner-title");
+            if (scoreBlue > scoreRed) wt.innerHTML = `BLUE <span style="color:var(--blue)">WINS</span>`;
+            else if (scoreRed > scoreBlue) wt.innerHTML = `RED <span style="color:var(--red)">WINS</span>`;
+            else wt.textContent = "IT'S A TIE";
+
+            if (scoreBlue !== scoreRed) launchConfetti(2800);
+        }
+
+        function launchConfetti(duration = 2200) {
+            const c = document.getElementById("confetti-canvas");
+            c.width = window.innerWidth; c.height = window.innerHeight;
+            const ctx = c.getContext("2d");
+            let particles = [];
+            class P {
+                constructor() {
+                    this.x = Math.random() * c.width;
+                    this.y = Math.random() * c.height - 100;
+                    this.size = Math.random() * 13 + 7;
+                    this.speed = Math.random() * 7 + 5;
+                    this.angle = Math.random() * Math.PI * 2;
+                    this.color = ["#00f5ff","#ff2ec4","#a78bfa"][Math.floor(Math.random()*3)];
+                    this.rot = Math.random() * 0.1 - 0.05;
+                }
+                update() { this.y += this.speed; this.angle += this.rot; }
+                draw() {
+                    ctx.save();
+                    ctx.translate(this.x, this.y);
+                    ctx.rotate(this.angle);
+                    ctx.fillStyle = this.color;
+                    ctx.fillRect(-this.size/2, -this.size/3, this.size, this.size*0.6);
+                    ctx.restore();
+                }
+            }
+            for (let i = 0; i < 200; i++) particles.push(new P());
+            function anim() {
+                ctx.clearRect(0,0,c.width,c.height);
+                particles = particles.filter(p => { p.update(); p.draw(); return p.y < c.height + 50; });
+                if (particles.length) requestAnimationFrame(anim);
+            }
+            anim();
+            setTimeout(() => { particles = []; ctx.clearRect(0,0,c.width,c.height); }, duration);
+        }
+
+        function launchMiniConfetti() {
+            const temp = document.createElement("canvas");
+            temp.style.cssText = "position:fixed;inset:0;pointer-events:none;z-index:99999";
+            document.body.appendChild(temp);
+            const ctx = temp.getContext("2d");
+            temp.width = window.innerWidth; temp.height = window.innerHeight;
+            let ps = [];
+            for (let i = 0; i < 42; i++) {
+                ps.push({
+                    x: window.innerWidth/2 + Math.random()*160-80,
+                    y: window.innerHeight*0.6,
+                    sx: Math.random()*7-3.5,
+                    sy: -Math.random()*15-8,
+                    size: Math.random()*8+4,
+                    c: ["#00f5ff","#a78bfa"][Math.floor(Math.random()*2)],
+                    life: 50
+                });
+            }
+            function mini() {
+                ctx.clearRect(0,0,temp.width,temp.height);
+                let alive = false;
+                ps.forEach(p => {
+                    p.x += p.sx; p.y += p.sy; p.sy += 0.4; p.life--;
+                    ctx.fillStyle = p.c;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                    if (p.life > 0) alive = true;
+                });
+                if (alive) requestAnimationFrame(mini);
+                else temp.remove();
+            }
+            mini();
+        }
+
+        function restartGame() {
+            releaseWakeLock();
+            location.reload();
+        }
+
+        function init() {
+            function resizeHandler() {
+                updateSize();
+                checkOrientation();
+            }
+            
+            window.addEventListener('resize', resizeHandler);
+            if (window.visualViewport) window.visualViewport.addEventListener('resize', resizeHandler);
+            
+            window.addEventListener('orientationchange', () => {
+                setTimeout(resizeHandler, 150);
+                setTimeout(resizeHandler, 400);
+            });
+            
+            document.addEventListener('visibilitychange', () => {
+                if (document.visibilityState === "visible") {
+                    setTimeout(resizeHandler, 200);
+                    setTimeout(forceFullscreen, 500);
+                }
+            });
+
+            document.getElementById("home-screen").addEventListener("click", function(e) {
+                if (e.target.tagName !== "BUTTON") {
+                    startGame();
+                }
+            });
+            
+            updateSize();
+            checkOrientation();
+            document.getElementById("home-screen").classList.add("active");
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>

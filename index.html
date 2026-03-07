@@ -90,16 +90,11 @@
       z-index: 1;
     }
 
-    .video-overlay {
+    .header-text {
       position: relative;
-      z-index: 2;
+      z-index: 3;
       padding: 2.5rem 3rem;
-      background: rgba(10, 0, 21, 0.48);
-      border-radius: 20px;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(0, 240, 255, 0.15);
-      max-width: 92%;
+      pointer-events: none;
     }
 
     h1 {
@@ -111,7 +106,12 @@
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-shadow: 0 0 30px rgba(0,240,255,0.7), 0 0 70px rgba(255,0,234,0.5);
+      text-shadow: 
+        0 0 30px rgba(0,240,255,0.9),
+        0 0 70px rgba(255,0,234,0.7),
+        0 0 100px rgba(0,240,255,0.5),
+        3px 3px 0 #000, -3px -3px 0 #000,
+        3px -3px 0 #000, -3px 3px 0 #000;
       animation: glitch 4s infinite alternate;
       margin: 0;
       line-height: 0.95;
@@ -128,8 +128,23 @@
       margin-top: 1rem;
       font-size: clamp(1.3rem, 5vw, 1.9rem);
       color: #88ffff;
-      opacity: 0.92;
+      opacity: 0.95;
       letter-spacing: 0.09em;
+      text-shadow: 
+        0 0 20px rgba(0,240,255,0.9),
+        0 0 40px rgba(255,0,234,0.6),
+        2px 2px 0 #000, -2px -2px 0 #000,
+        2px -2px 0 #000, -2px 2px 0 #000;
+    }
+
+    /* Very subtle optional tint over video for better text contrast */
+    .video-header::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(10, 0, 21, 0.15); /* ~15% dark tint – remove or lower to 0.08 if too dark */
+      z-index: 2;
+      pointer-events: none;
     }
 
     .links-grid {
@@ -206,9 +221,8 @@
         height: 55vh;
         min-height: 360px;
       }
-      .video-overlay {
+      .header-text {
         padding: 1.8rem 2rem;
-        background: rgba(10, 0, 21, 0.62);
       }
     }
 
@@ -236,8 +250,8 @@
           <source src="https://rbiz01.github.io/fuzzy-chainsaw/IntroVideo.mp4" type="video/mp4">
           Your browser does not support the video tag.
         </video>
-        
-        <div class="video-overlay">
+
+        <div class="header-text">
           <h1>FUZZY-CHAINSAW</h1>
           <div class="subtitle">next-gen // decentralized // chaos engine</div>
         </div>

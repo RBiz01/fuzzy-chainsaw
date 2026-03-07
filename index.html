@@ -78,19 +78,24 @@
       object-fit: cover;
       object-position: center;
       z-index: 1;
+      /* ── GPU compositing hack (forces hardware acceleration) ── */
+      transform: translate3d(0, 0, 0);
+      will-change: transform;
     }
 
     .video-overlay {
       position: absolute;
       inset: 0;
       z-index: 2;
-      background: rgba(10, 0, 21, 0.001);  /* nearly invisible but present for autoplay reliability */
-      border: none;
-      backdrop-filter: none;
-      -webkit-backdrop-filter: none;
+      background: rgba(10, 0, 21, 0.015);   /* slightly stronger than 0.001 so the layer sticks */
       pointer-events: none;
-      border-radius: 0;
-      padding: 0;
+
+      /* ── MAGIC COMPOSITING TRIGGERS (this is what makes the GitHub video play) ── */
+      backdrop-filter: blur(0.5px);
+      -webkit-backdrop-filter: blur(0.5px);
+      filter: brightness(1.01);
+      transform: translateZ(0);
+      will-change: transform;
     }
 
     /* Ensure no text is visible */
@@ -196,13 +201,14 @@
           muted 
           loop 
           playsinline
+          preload="metadata"
         >
           <source src="https://rbiz01.github.io/fuzzy-chainsaw/IntroVideo.mp4" type="video/mp4">
           Your browser does not support the video tag.
         </video>
         
         <div class="video-overlay">
-          <h1>Fuzzy-Chainsaw</h1>
+          <h1></h1>
           <div class="subtitle"></div>
         </div>
       </div>

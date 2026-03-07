@@ -56,7 +56,7 @@
       min-height: 100vh;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: center;           /* ← centers everything horizontally */
       padding: 2rem 1rem;
       background: linear-gradient(to bottom, rgba(10,0,21,0.4), rgba(0,0,0,0.6));
     }
@@ -64,12 +64,12 @@
     /* ── VIDEO HEADER – fixed to never collapse ─────────────────────────────────────── */
     .video-header {
       position: relative;
-      width: 50%;
-      aspect-ratio: 3 / 2;
+      width: 100%;
+      aspect-ratio: 4 / 3;
       overflow: hidden;
       margin-bottom: 5rem;
-      min-height: 420px;                 /* ← THIS FORCES THE HEADER TO SHOW */
-      background: #120022;               /* ← fallback color so you always see the area */
+      min-height: 420px;
+      background: #120022;
     }
 
     .header-video {
@@ -80,7 +80,7 @@
       object-fit: cover;
       object-position: center;
       z-index: 1;
-      display: block;                    /* ensures video renders */
+      display: block;
       transform: translate3d(0, 0, 0);
       will-change: transform;
     }
@@ -91,8 +91,6 @@
       z-index: 2;
       background: rgba(10, 0, 21, 0.035);
       pointer-events: none;
-
-      /* ── GPU compositing hack (makes the video actually play on GitHub Pages) ── */
       backdrop-filter: blur(0.8px);
       -webkit-backdrop-filter: blur(0.8px);
       filter: brightness(1.02);
@@ -100,10 +98,16 @@
       will-change: transform;
     }
 
-    /* Ensure no text is visible */
-    .video-overlay h1,
-    .video-overlay .subtitle {
-      display: none;
+    /* NEW: Centered title above the games */
+    .section-title {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 2.8rem;
+      text-align: center;
+      margin: 2rem 0 3rem;
+      color: #00f0ff;
+      text-shadow: 0 0 25px rgba(0,240,255,0.9);
+      letter-spacing: 4px;
+      width: 100%;
     }
 
     .links-grid {
@@ -112,6 +116,8 @@
       gap: 1.6rem;
       width: 100%;
       max-width: 1100px;
+      margin: 0 auto;                    /* ← perfect centering */
+      justify-content: center;           /* ← centers cards on wide screens */
       padding: 0 1rem;
       margin-bottom: 4rem;
     }
@@ -178,11 +184,10 @@
     @media (max-width: 768px) {
       .video-header {
         aspect-ratio: 4 / 5;
-        min-height: 520px;               /* taller fallback on mobile */
+        min-height: 520px;
       }
-      .container {
-        padding: 1rem;
-      }
+      .section-title { font-size: 2.2rem; }
+      .container { padding: 1rem; }
     }
 
     @media (max-width: 500px) {
@@ -205,61 +210,55 @@
           loop 
           playsinline
           preload="metadata"
-          poster=""   <!-- temporary placeholder – remove later -->
+          poster=""
         >
           <source src="https://rbiz01.github.io/fuzzy-chainsaw/IntroVideo.mp4" type="video/mp4">
           Your browser does not support the video tag.
         </video>
         
         <div class="video-overlay">
-          <h1>   </h1>
+          <h1></h1>
           <div class="subtitle"></div>
         </div>
       </div>
     </header>
 
+    <!-- Centered title (easy to customize or remove) -->
+    <h2 class="section-title">CHOOSE YOUR CHAOS</h2>
+
     <div class="links-grid">
-      
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/bounce.html" class="card">
         <div class="card-title">Bounce</div>
         <div class="card-desc">Jump to your Highest!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/bags.html" class="card">
         <div class="card-title">Bags</div>
         <div class="card-desc">Flicking Fun!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/faceoff.html" class="card">
         <div class="card-title">Face Off</div>
         <div class="card-desc">Team Guessing Game!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/mouseraces.html" class="card">
         <div class="card-title">Mouse Mayhem</div>
         <div class="card-desc">Who's the Fastest Mouse!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/spacerunner.html" class="card">
         <div class="card-title">Space Runner</div>
         <div class="card-desc">How Far Can You Get!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/tetris.html" class="card">
         <div class="card-title">Tetris</div>
         <div class="card-desc">Just the Classic!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/vines.html" class="card">
         <div class="card-title">Vines</div>
         <div class="card-desc">Watch Them Grow!</div>
       </a>
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/tarot.html" class="card">
         <div class="card-title">Tarot Reading</div>
         <div class="card-desc">Let Me Read Your Cards!</div>
       </a>
-
     </div>      
     
     <footer>

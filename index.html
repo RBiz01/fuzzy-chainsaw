@@ -62,37 +62,74 @@
       background: linear-gradient(to bottom, rgba(10,0,21,0.4), rgba(0,0,0,0.6));
     }
 
-    header {
+    /* ── Video Header ─────────────────────────────────────────────── */
+    .video-header {
+      position: relative;
+      width: 100%;
+      height: 65vh;
+      min-height: 420px;
+      max-height: 720px;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       text-align: center;
-      margin: 3rem 0 4rem;
+      margin-bottom: 5rem;
+    }
+
+    .header-video {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      min-width: 100%;
+      min-height: 100%;
+      width: auto;
+      height: auto;
+      transform: translate(-50%, -50%);
+      object-fit: cover;
+      z-index: 1;
+    }
+
+    .video-overlay {
+      position: relative;
+      z-index: 2;
+      padding: 2.5rem 3rem;
+      background: rgba(10, 0, 21, 0.48);
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      max-width: 92%;
     }
 
     h1 {
       font-family: 'Orbitron', sans-serif;
-      font-size: clamp(2.8rem, 9vw, 6.5rem);
+      font-size: clamp(3rem, 11vw, 8rem);
       font-weight: 700;
       letter-spacing: 0.15em;
       background: linear-gradient(90deg, #00f0ff, #ff00ea, #00f0ff);
       -webkit-background-clip: text;
       background-clip: text;
       color: transparent;
-      text-shadow: 0 0 30px rgba(0,240,255,0.6), 0 0 60px rgba(255,0,234,0.4);
+      text-shadow: 0 0 30px rgba(0,240,255,0.7), 0 0 70px rgba(255,0,234,0.5);
       animation: glitch 4s infinite alternate;
+      margin: 0;
+      line-height: 0.95;
     }
 
     @keyframes glitch {
       0%, 100% { transform: translate(0); }
-      2%  { transform: translate(-2px, 2px); }
-      4%  { transform: translate(2px, -2px); }
-      6%  { transform: translate(-1px, 1px); }
+      2%  { transform: translate(-3px, 3px); }
+      4%  { transform: translate(3px, -3px); }
+      6%  { transform: translate(-2px, 2px); }
     }
 
     .subtitle {
-      margin-top: 0.8rem;
-      font-size: clamp(1.1rem, 4vw, 1.5rem);
+      margin-top: 1rem;
+      font-size: clamp(1.3rem, 5vw, 1.9rem);
       color: #88ffff;
-      opacity: 0.9;
-      letter-spacing: 0.08em;
+      opacity: 0.92;
+      letter-spacing: 0.09em;
     }
 
     .links-grid {
@@ -164,6 +201,17 @@
       opacity: 0.7;
     }
 
+    @media (max-width: 768px) {
+      .video-header {
+        height: 55vh;
+        min-height: 360px;
+      }
+      .video-overlay {
+        padding: 1.8rem 2rem;
+        background: rgba(10, 0, 21, 0.62);
+      }
+    }
+
     @media (max-width: 500px) {
       h1 { letter-spacing: 0.08em; }
       .links-grid { gap: 1.2rem; }
@@ -177,8 +225,23 @@
 
   <div class="container">
     <header>
-      <h1>FUZZY-CHAINSAW</h1>
-      <div class="subtitle">next-gen // decentralized // chaos engine</div>
+      <div class="video-header">
+        <video 
+          class="header-video"
+          autoplay 
+          muted 
+          loop 
+          playsinline
+        >
+          <source src="introVideo.mp4" type="video/mp4">
+          Your browser does not support the video tag.
+        </video>
+        
+        <div class="video-overlay">
+          <h1>FUZZY-CHAINSAW</h1>
+          <div class="subtitle">next-gen // decentralized // chaos engine</div>
+        </div>
+      </div>
     </header>
 
     <div class="links-grid">
@@ -188,57 +251,43 @@
         <div class="card-desc">Jump to your Highest!</div>
       </a>
 
-
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/bags.html" class="card">
         <div class="card-title">Bags</div>
         <div class="card-desc">Flicking Fun!</div>
       </a>
-
-
 
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/faceoff.html" class="card">
         <div class="card-title">Face Off</div>
         <div class="card-desc">Team Guessing Game!</div>
       </a>
 
-
- 
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/mouseraces.html" class="card">
         <div class="card-title">Mouse Mayhem</div>
         <div class="card-desc">Who's the Fastest Mouse!</div>
       </a>
-
-
 
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/spacerunner.html" class="card">
         <div class="card-title">Space Runner</div>
         <div class="card-desc">How Far Can You Get!</div>
       </a>
 
-
- 
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/tetris.html" class="card">
         <div class="card-title">Tetris</div>
         <div class="card-desc">Just the Classic!</div>
       </a>
-
 
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/vines.html" class="card">
         <div class="card-title">Vines</div>
         <div class="card-desc">Watch Them Grow!</div>
       </a>
 
-   
       <a href="https://rbiz01.github.io/fuzzy-chainsaw/tarot.html" class="card">
         <div class="card-title">Tarot Reading</div>
         <div class="card-desc">Let Me Read Your Cards!</div>
       </a>
 
-
     </div>      
-            
-      
-
+    
     <footer>
       © 2026 Fuzzy-ChainSaw • Running on pure vibe & quantum entropy
     </footer>
@@ -260,7 +309,6 @@
       star.style.left = `${Math.random() * 100}vw`;
       star.style.top = `${Math.random() * 100}vh`;
       
-      // Randomize animation duration & delay
       const duration = Math.random() * 5 + 4;
       star.style.animationDuration = `${duration}s, ${80 + Math.random() * 80}s`;
       star.style.animationDelay = `${Math.random() * -80}s`;

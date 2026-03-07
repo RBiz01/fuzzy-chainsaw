@@ -93,7 +93,6 @@
         </div>
 
         <div id="topAudioControls">
-            <div class="audio-btn" id="musicToggle" onclick="toggleMusic()">♪ MUSIC ON</div>
             <div class="audio-btn" id="sfxToggle" onclick="toggleSFX()">SFX ON</div>
         </div>
 
@@ -131,7 +130,6 @@
         let lastDropTime = 0;
         let isGameOver = false;
         let particles = [];
-        let musicOn = true;
         let sfxOn = true;
         let previewCtx;
         let moveLeftInterval = null, moveRightInterval = null;
@@ -376,79 +374,26 @@
         }
 
         function gameOver(){
-            isGameOver=true; Tone.Transport.stop();
+            isGameOver=true;
             document.getElementById('gameOverScreen').style.display='block';
             document.getElementById('finalScore').textContent=score.toString().padStart(6,'0');
         }
 
         function restartGame(){location.reload();}
 
-        // =============== TONE.JS – MUSIC + SFX ===============
-        let pianoSynth, bassSynth, sfxSynth;
+        // =============== TONE.JS – SFX ONLY ===============
+        let sfxSynth;
 
-        function initMusic() {
-            pianoSynth = new Tone.PolySynth(Tone.Synth, {
-                oscillator: { type: "square" },
-                envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8 }
-            }).toDestination();
-            pianoSynth.volume.value = -25;   // 40% lower volume
-
-            bassSynth = new Tone.Synth({
-                oscillator: { type: "sine" },
-                envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 }
-            }).toDestination();
-            bassSynth.volume.value = -25;   // 40% lower
-
+        function initAudio() {
             sfxSynth = new Tone.Synth({
                 oscillator: { type: "triangle" },
                 envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
             }).toDestination();
-
-            Tone.Transport.bpm.value = 180;
         }
 
-        const pianoPattern = ["A4","C5","D5","E5","F5","E5","D5","C5","A4","C5","D5","E5","F5","E5","D5","C5",
-                              "A4","C5","D5","E5","F5","E5","D5","C5","A4","C5","D5","E5","F5","E5","D5","C5",
-                              "G4","A4","C5","D5","E5","D5","C5","A4","G4","A4","C5","D5","E5","D5","C5","A4"];
-
-        const bassPattern = ["A2","A2","G2","G2","F2","F2","E2","E2","A2","A2","G2","G2","F2","F2","E2","E2",
-                             "A2","A2","G2","G2","F2","F2","E2","E2","A2","A2","G2","G2","F2","F2","E2","E2"];
-
-        function startMusic() {
-            if (Tone.Transport.state === "started") return;
-            Tone.Transport.stop();
-            Tone.Transport.cancel();
-
-            new Tone.Sequence((time, note) => {
-                pianoSynth.triggerAttackRelease(note, "4n", time);
-            }, pianoPattern, "4n").start(0);
-
-            new Tone.Sequence((time, note) => {
-                bassSynth.triggerAttackRelease(note, "2n", time);
-            }, bassPattern, "4n").start(0);
-
-            Tone.Transport.start();
-        }
-
-        function stopMusic() {
-            Tone.Transport.stop();
-        }
-
-        function toggleMusic(){
-            musicOn = !musicOn;
-            document.getElementById('musicToggle').textContent = musicOn ? '♪ MUSIC ON' : '♪ MUSIC OFF';
-            if (musicOn) startMusic();
-            else stopMusic();
-        }
-
-        function toggleSFX(){
-            sfxOn = !sfxOn;
-            document.getElementById('sfxToggle').textContent = sfxOn ? 'SFX ON' : 'SFX OFF';
-        }
-
-        // SFX now uses Tone.js (no more raw audioCtx)
         function playNote(freq, duration, type = 'triangle', vol = 0.24) {
             if (!sfxOn) return;
+            sfxSynth.oscillator.type = type;
             sfxSynth.triggerAttackRelease(freq, duration/1000, undefined, vol);
         }
 
@@ -458,14 +403,14 @@
             for(let i=0;i<7;i++) setTimeout(()=>playNote(base+i*92,55,'triangle',0.45),i*38);
         }
 
+        function toggleSFX(){
+            sfxOn = !sfxOn;
+            document.getElementById('sfxToggle').textContent = sfxOn ? 'SFX ON' : 'SFX OFF';
+        }
+
         function startGame(){
             initScene();
-            initMusic();
-
-            const stopMusic=()=>{Tone.Transport.stop();};
-            const resumeMusic=()=>{if(musicOn) startMusic();};
-            document.addEventListener('visibilitychange',()=>document.hidden?stopMusic():resumeMusic());
-            window.addEventListener('pagehide',stopMusic);
+            initAudio();
 
             document.addEventListener('keydown',e=>{
                 if(isGameOver)return;
@@ -485,7 +430,6 @@
             window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
             shuffleBag(); nextPieceType=getNextPieceType(); drawPreview(); spawnPiece(); updateUI();
-            if (musicOn) startMusic();
             requestAnimationFrame(gameLoop);
         }
 

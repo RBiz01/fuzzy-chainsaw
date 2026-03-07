@@ -1,0 +1,1003 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>SPACERUNNER ∞ • Babylon.js</title>
+    <style>
+        html, body { overflow: hidden; width: 100%; height: 100%; margin: 0; padding: 0; background: #000; font-family: Arial, sans-serif; }
+        #renderCanvas { width: 100%; height: 100%; touch-action: none; position: absolute; top: 0; left: 0; z-index: 1; }
+        #error { 
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: #ff4444; background: rgba(0,0,0,0.9); padding: 25px 35px; border-radius: 12px; display: none;
+            text-align: center; max-width: 80%; z-index: 100; font-size: 18px; border: 3px solid #440000;
+        }
+        #joystickContainer {
+            position: absolute; bottom: 30px; left: 30px; width: 140px; height: 140px; z-index: 20; pointer-events: auto;
+        }
+        #joystickOuter {
+            width: 100%; height: 100%; border-radius: 50%; background: rgba(255,255,255,0.12); border: 5px solid rgba(255,255,255,0.45);
+            position: relative; touch-action: manipulation; box-shadow: 0 0 25px rgba(100,180,255,0.4);
+        }
+        #joystickInner {
+            position: absolute; width: 58px; height: 58px; border-radius: 50%; background: rgba(100,180,255,0.75);
+            border: 4px solid rgba(255,255,255,0.95); left: 50%; top: 50%; transform: translate(-50%,-50%);
+            transition: transform 0.08s ease-out; display: flex; align-items: center; justify-content: center; font-size: 26px;
+            box-shadow: 0 0 15px rgba(255,255,255,0.6);
+        }
+        #fireControl {
+            position: absolute; bottom: 32px; right: 32px; width: 108px; height: 108px; border-radius: 50%;
+            background: rgba(255,60,60,0.22); border: 5px solid rgba(255,110,110,0.7); color: #fff; font-size: 42px;
+            display: flex; align-items: center; justify-content: center; z-index: 20; user-select: none;
+            touch-action: manipulation; transition: all 0.12s ease; box-shadow: 0 0 30px rgba(255,80,80,0.5);
+        }
+        #fireControl:active { background: rgba(255,110,110,0.75); border-color: #ffdddd; transform: scale(0.92); }
+        
+        #uiContainer {
+            position: absolute; top: 12px; left: 16px; z-index: 30; pointer-events: none;
+            background: rgba(4, 7, 24, 0.68); 
+            padding: 6px 18px 7px 18px; 
+            border-radius: 999px; 
+            border: 1px solid rgba(100, 170, 255, 0.3);
+            box-shadow: 0 6px 22px rgba(0,0,0,0.65);
+            display: flex; flex-direction: column; align-items: flex-start; gap: 5px;
+            color: #fff; font-weight: 700; font-family: 'Courier New', monospace;
+            text-transform: uppercase; letter-spacing: 1.2px; white-space: nowrap;
+        }
+        #topRow { 
+            display: flex; align-items: center; gap: 16px; font-size: 14.8px; 
+        }
+        #levelText { color: #88ddff; }
+        #scoreText, #bulletText { display: flex; align-items: center; gap: 4px; }
+        #powerText { 
+            font-size: 12.5px; margin-left: 4px; 
+            text-shadow: 0 0 12px #c084fc; animation: powerPulse 1.4s infinite alternate;
+        }
+        @keyframes powerPulse { from { opacity: 0.7; } to { opacity: 1; } }
+        
+        #highScoreText { 
+            position: absolute; top: 54px; left: 20px; 
+            font-size: 12.2px; color: #88eeff; opacity: 0.85; letter-spacing: 1.8px;
+        }
+        
+        #healthBar { 
+            width: 158px; height: 9px; background: rgba(12,16,32,0.9); border: 1px solid #446688; 
+            border-radius: 999px; overflow: hidden; box-shadow: inset 0 2px 4px rgba(0,0,0,0.7);
+        }
+        #healthFill { 
+            height: 100%; background: linear-gradient(90deg, #ff3366, #ffaa33); 
+            box-shadow: 0 0 12px #ff4d66; transition: width 0.28s ease;
+        }
+
+        #audioControls {
+            position: absolute; top: 165px; right: 22px; z-index: 40; 
+            display: flex; flex-direction: column; gap: 14px;
+        }
+        .toggle-btn {
+            width: 42px; height: 42px; background: rgba(255,255,255,0.13); border: 3px solid rgba(255,255,255,0.55);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 23px;
+            cursor: pointer; transition: all 0.2s ease; user-select: none; backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+        .toggle-btn.off { opacity: 0.32; border-color: #777; background: rgba(70,70,70,0.4); transform: scale(0.92); }
+
+        #gameOver, #levelComplete, #pausedScreen {
+            position: absolute; left: 50%; transform: translateX(-50%); font-weight: 900;
+            text-shadow: 0 0 25px #000; display: none; z-index: 60; pointer-events: none; text-align: center; line-height: 1.05;
+        }
+        #gameOver { color: #ff3366; top: 46%; font-size: 72px; }
+        #levelComplete { 
+            color: #44ff88; 
+            top: 28%;          
+            font-size: 36px;   
+            opacity: 0.5;      
+        }
+        #pausedScreen { color: #ffdd44; top: 46%; font-size: 58px; }
+
+        #restartButton, #resumeButton {
+            position: absolute; bottom: 115px; left: 50%; transform: translateX(-50%); padding: 16px 46px; font-size: 25px;
+            background: rgba(90,160,255,0.95); border: 4px solid #fff; border-radius: 999px; color: white; cursor: pointer;
+            font-weight: bold; z-index: 70; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.7); transition: all 0.15s;
+        }
+        #restartButton:hover, #resumeButton:hover { background: rgba(120,190,255,1); }
+
+        @media (max-width: 720px) {
+            #uiContainer { padding: 5px 14px 6px 14px; }
+            #topRow { font-size: 13.8px; gap: 13px; }
+            #healthBar { width: 142px; }
+            #audioControls { top: 140px; }
+        }
+    </style>
+</head>
+<body>
+    <canvas id="renderCanvas"></canvas>
+    <div id="error">Failed to start game — refresh page</div>
+    
+    <div id="uiContainer">
+        <div id="topRow">
+            <div id="levelText">LV 01</div>
+            <div id="scoreText">🪙 00000</div>
+            <div id="bulletText">⚡ 08</div>
+            <div id="powerText"></div>
+        </div>
+        <div id="healthBar"><div id="healthFill"></div></div>
+    </div>
+    <div id="highScoreText">HIGH 00000</div>
+
+    <div id="audioControls">
+        <div id="musicToggle" class="toggle-btn">🎵</div>
+        <div id="sfxToggle" class="toggle-btn">🔊</div>
+    </div>
+
+    <div id="gameOver">GAME OVER</div>
+    <div id="levelComplete">SECTOR CLEARED!</div>
+    <div id="pausedScreen">PAUSED</div>
+    
+    <button id="restartButton">RESTART MISSION</button>
+    <button id="resumeButton">RESUME FLIGHT</button>
+
+    <div id="joystickContainer">
+        <div id="joystickOuter">
+            <div id="joystickInner">✦</div>
+        </div>
+    </div>
+    <div id="fireControl">⚡</div>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script>
+        const canvas = document.getElementById("renderCanvas");
+        const errorDiv = document.getElementById("error");
+        const joystickContainer = document.getElementById("joystickContainer");
+        const joystickOuter = document.getElementById("joystickOuter");
+        const joystickInner = document.getElementById("joystickInner");
+        const fireControl = document.getElementById("fireControl");
+        const healthFill = document.getElementById("healthFill");
+        const levelText = document.getElementById("levelText");
+        const scoreText = document.getElementById("scoreText");
+        const bulletText = document.getElementById("bulletText");
+        const powerText = document.getElementById("powerText");
+        const highScoreText = document.getElementById("highScoreText");
+        const gameOverDiv = document.getElementById("gameOver");
+        const levelCompleteDiv = document.getElementById("levelComplete");
+        const pausedScreen = document.getElementById("pausedScreen");
+        const restartButton = document.getElementById("restartButton");
+        const resumeButton = document.getElementById("resumeButton");
+        const musicToggle = document.getElementById("musicToggle");
+        const sfxToggle = document.getElementById("sfxToggle");
+
+        let engine = new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true, powerPreference: "high-performance" });
+        let scene, camera, ship, leftEngine, rightEngine;
+        let devicePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        engine.setHardwareScalingLevel(1 / devicePixelRatio);
+
+        let currentLevel = 0;
+        let score = 0;
+        let highScore = localStorage.getItem("spacerunnerHS") ? parseInt(localStorage.getItem("spacerunnerHS")) : 0;
+        let timeInLevel = 0;
+        let health = 100;
+        let bullets = 8;
+        let savedBullets = 8;
+        let isGameOver = false;
+        let isPaused = false;
+        let tripleShotActive = false;
+        let tripleShotEndTime = 0;
+        let magnetActive = false;
+        let magnetEndTime = 0;
+        let joystickActive = false;
+        let joystickInputX = 0;
+        let joystickInputY = 0;
+        let shakeIntensity = 0;
+
+        let audioContext;
+        let music;
+        let isMusicEnabled = true;
+        let isSfxEnabled = true;
+        let engineHumOsc, engineHumGain;
+
+        let obstacles = [];
+        let coins = [];
+        let ammos = [];
+        let powerups = [];
+        let magnets = [];
+        let projectiles = [];
+        let stars = [];
+        let crosshairCenter, crosshairHBar, crosshairVBar, crosshairCircle, crosshairLeft, crosshairRight;
+
+        let masterStar, starsGroup, masterStaticStar, staticStarsGroup;
+
+        const obstaclePalette = [
+            new BABYLON.Color3(0.48, 0.34, 0.22),
+            new BABYLON.Color3(0.55, 0.55, 0.55),
+            new BABYLON.Color3(0.32, 0.32, 0.32),
+            new BABYLON.Color3(0.18, 0.27, 0.48),
+            new BABYLON.Color3(0.28, 0.18, 0.45),
+            new BABYLON.Color3(0.62, 0.36, 0.18)
+        ];
+
+        function getLevelConfig(level) {
+            return {
+                spawnRate: Math.min(0.024 + level * 0.0072, 0.135),
+                obstacleSpeed: 1.45 + level * 0.135,
+                maxObstacles: Math.floor(11 + level * 1.9),
+                damage: 21 + level * 4.5,
+                scoreGoal: 220 + level * 295,
+                coinSpawnRate: 0.0055 + level * 0.00075,
+                healAmount: 16,
+                ammoSpawnRate: 0.0042 + level * 0.00065,
+                ammoAmount: 5,
+                tripleShotSpawnRate: 0.00085 + level * 0.00016,
+                magnetSpawnRate: 0.00048 + level * 0.0001,
+                tripleShotDuration: 8200
+            };
+        }
+
+        function updateUI() {
+            levelText.textContent = `LV ${String(currentLevel + 1).padStart(2, '0')}`;
+            scoreText.innerHTML = `🪙 ${Math.floor(score).toString().padStart(5, '0')}`;
+            highScoreText.textContent = `HIGH ${highScore.toString().padStart(5, '0')}`;
+            
+            if (tripleShotActive) {
+                bulletText.innerHTML = `⚡ <span style="font-size:0.92em">∞</span>`;
+                powerText.textContent = "TRIPLE SHOT";
+                powerText.style.color = "#c084fc";
+            } else if (magnetActive) {
+                bulletText.innerHTML = `⚡ ${bullets}`;
+                powerText.textContent = "MAGNET";
+                powerText.style.color = "#00ffcc";
+            } else {
+                bulletText.innerHTML = `⚡ ${bullets}`;
+                powerText.textContent = "";
+            }
+            healthFill.style.width = `${Math.max(0, health)}%`;
+        }
+
+        function initAudio() {
+            if (audioContext) return;
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            
+            music = new BABYLON.Sound("bgMusic", 
+                "https://opengameart.org/sites/default/files/Heroic%20Demise%20%28New%29_0.mp3", 
+                scene, 
+                () => { 
+                    console.log("%c✅ Music loaded & ready", "color:#0f0;font-weight:bold"); 
+                }, 
+                {
+                    loop: true, 
+                    autoplay: false,
+                    volume: 0.20
+                }
+            );
+
+            engineHumOsc = audioContext.createOscillator();
+            engineHumGain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            engineHumOsc.type = 'sawtooth';
+            engineHumOsc.frequency.value = 62;
+            filter.type = 'lowpass';
+            filter.frequency.value = 310;
+            engineHumGain.gain.value = 0.07;
+            engineHumOsc.connect(filter).connect(engineHumGain).connect(audioContext.destination);
+            engineHumOsc.start();
+        }
+
+        function playLaser() {
+            if (!isSfxEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            const filter = audioContext.createBiquadFilter();
+            
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(1580, now);
+            osc.frequency.exponentialRampToValueAtTime(380, now + 0.19);
+            filter.type = 'lowpass';
+            filter.frequency.value = 2600;
+            gain.gain.setValueAtTime(0.48, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.26);
+            
+            osc.connect(filter).connect(gain).connect(audioContext.destination);
+            osc.start(now);
+            osc.stop(now + 0.32);
+        }
+
+        function playExplosion() {
+            if (!isSfxEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const bufferSize = audioContext.sampleRate * 0.75;
+            const buffer = audioContext.createBuffer(1, bufferSize, audioContext.sampleRate);
+            const output = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) output[i] = Math.random() * 2 - 1;
+            
+            const noise = audioContext.createBufferSource();
+            noise.buffer = buffer;
+            const filter = audioContext.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(1350, now);
+            filter.frequency.exponentialRampToValueAtTime(65, now + 0.85);
+            const gain = audioContext.createGain();
+            gain.gain.setValueAtTime(1.05, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.92);
+            
+            noise.connect(filter).connect(gain).connect(audioContext.destination);
+            noise.start(now);
+        }
+
+        function playCollect(isPower = false) {
+            if (!isSfxEnabled || !audioContext) return;
+            const now = audioContext.currentTime;
+            const notes = isPower ? [920, 1180, 1480, 1760] : [680, 860, 1120, 1360];
+            notes.forEach((f, i) => {
+                setTimeout(() => {
+                    const o = audioContext.createOscillator();
+                    const g = audioContext.createGain();
+                    o.type = 'sine';
+                    o.frequency.value = f;
+                    g.gain.value = 0.35;
+                    g.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.38);
+                    o.connect(g).connect(audioContext.destination);
+                    o.start();
+                    o.stop(audioContext.currentTime + 0.42);
+                }, i * 48);
+            });
+        }
+
+        function updateEngineHum(speedFactor) {
+            if (!engineHumGain) return;
+            const targetF = 58 + speedFactor * 42;
+            const targetG = 0.06 + speedFactor * 0.14;
+            engineHumOsc.frequency.setTargetAtTime(targetF, audioContext.currentTime, 0.1);
+            engineHumGain.gain.setTargetAtTime(Math.min(0.26, targetG), audioContext.currentTime, 0.12);
+        }
+
+        function toggleMusic() {
+            isMusicEnabled = !isMusicEnabled;
+            musicToggle.classList.toggle('off', !isMusicEnabled);
+            if (music) {
+                if (isMusicEnabled) {
+                    music.play();
+                } else {
+                    music.pause();
+                }
+            }
+        }
+        function toggleSfx() {
+            isSfxEnabled = !isSfxEnabled;
+            sfxToggle.classList.toggle('off', !isSfxEnabled);
+        }
+
+        musicToggle.addEventListener('click', toggleMusic);
+        sfxToggle.addEventListener('click', toggleSfx);
+
+        function createExplosionParticles(pos) {
+            const ps = new BABYLON.ParticleSystem("explosion", 180, scene);
+            ps.emitter = pos.clone();
+            ps.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/flare.png", scene);
+            ps.minSize = 0.6; ps.maxSize = 2.8;
+            ps.minLifeTime = 0.25; ps.maxLifeTime = 0.85;
+            ps.emitRate = 420;
+            ps.minEmitPower = 12; ps.maxEmitPower = 38;
+            ps.direction1 = new BABYLON.Vector3(-1, -1, -1);
+            ps.direction2 = new BABYLON.Vector3(1, 1, 1);
+            ps.color1 = new BABYLON.Color4(1, 0.6, 0.1, 1);
+            ps.color2 = new BABYLON.Color4(1, 0.2, 0.0, 1);
+            ps.colorDead = new BABYLON.Color4(0.1, 0.1, 0.1, 0);
+            ps.gravity = new BABYLON.Vector3(0, -18, 0);
+            ps.start();
+            setTimeout(() => ps.dispose(), 1200);
+        }
+
+        function nextLevel() {
+            currentLevel++;
+            timeInLevel = 0;
+            levelCompleteDiv.style.display = "block";
+            setTimeout(() => { levelCompleteDiv.style.display = "none"; }, 1600);
+            updateUI();
+        }
+
+        function showGameOver() {
+            isGameOver = true;
+            gameOverDiv.style.display = "block";
+            restartButton.style.display = "block";
+            if (score > highScore) {
+                highScore = Math.floor(score);
+                localStorage.setItem("spacerunnerHS", highScore);
+            }
+        }
+
+        function createShipAndCrosshair() {
+            ship = new BABYLON.TransformNode("ship", scene);
+
+            const metalMat = new BABYLON.StandardMaterial("metal", scene); metalMat.diffuseColor = new BABYLON.Color3(0.6,0.6,0.7); metalMat.specularPower = 150;
+            const darkMat = new BABYLON.StandardMaterial("dark", scene); darkMat.diffuseColor = new BABYLON.Color3(0.2,0.2,0.25);
+            const accentMat = new BABYLON.StandardMaterial("accent", scene); accentMat.diffuseColor = new BABYLON.Color3(0.8,0.2,0.1);
+            const engineMat = new BABYLON.StandardMaterial("engine", scene); engineMat.diffuseColor = new BABYLON.Color3(0.9,0.4,0.1); engineMat.emissiveColor = new BABYLON.Color3(0.98,0.65,0.25);
+            const canopyMat = new BABYLON.StandardMaterial("canopy", scene); canopyMat.diffuseColor = new BABYLON.Color3(0.1,0.5,1); canopyMat.alpha = 0.4; canopyMat.specularPower = 250;
+
+            const fuselage = BABYLON.MeshBuilder.CreateCylinder("fus", {height:3.5,diameterTop:0.4,diameterBottom:0.8,tessellation:16},scene);
+            fuselage.rotation.x = Math.PI / 2; fuselage.material = metalMat; fuselage.parent = ship; fuselage.renderingGroupId = 1;
+            const nose = BABYLON.MeshBuilder.CreateCylinder("nose", {height:1.2,diameterTop:0,diameterBottom:0.4,tessellation:12},scene);
+            nose.rotation.x = Math.PI / 2; nose.position.z = 1.8; nose.material = accentMat; nose.parent = ship; nose.renderingGroupId = 1;
+            const canopy = BABYLON.MeshBuilder.CreateSphere("canopy", {diameter:0.7,segments:16,slice:0.6},scene);
+            canopy.position.set(0,0.22,1.2); canopy.scaling.set(1.4,0.9,1.8); canopy.material = canopyMat; canopy.parent = ship; canopy.renderingGroupId = 1;
+            const mainWing = BABYLON.MeshBuilder.CreateBox("wing", {width:3,height:0.1,depth:1},scene);
+            mainWing.position.z = -0.3; mainWing.material = darkMat; mainWing.parent = ship; mainWing.renderingGroupId = 1;
+            leftEngine = BABYLON.MeshBuilder.CreateCylinder("le", {height:1.2,diameter:0.35,tessellation:12},scene);
+            leftEngine.rotation.x = Math.PI / 2; leftEngine.position.set(-0.4,-0.2,-2); leftEngine.material = engineMat; leftEngine.parent = ship; leftEngine.renderingGroupId = 1;
+            rightEngine = leftEngine.clone(); rightEngine.position.x = 0.4; rightEngine.parent = ship; rightEngine.renderingGroupId = 1;
+            ship.rotation.y = Math.PI / 2;
+
+            const crosshairGroup = new BABYLON.TransformNode("chGroup", scene); crosshairGroup.parent = ship;
+            const distance = 28;
+            crosshairCircle = BABYLON.MeshBuilder.CreateTorus("chCircle", {diameter:5.2, thickness:0.18, tessellation:64}, scene);
+            crosshairCircle.position.z = distance; crosshairCircle.rotation.x = Math.PI / 2; crosshairCircle.material = circleMat; crosshairCircle.renderingGroupId = 2; crosshairCircle.parent = crosshairGroup;
+            crosshairCenter = BABYLON.MeshBuilder.CreateSphere("chCenter", {diameter:0.32}, scene); crosshairCenter.position.z = distance; crosshairCenter.material = crosshairMat; crosshairCenter.renderingGroupId = 2; crosshairCenter.parent = crosshairGroup;
+            crosshairHBar = BABYLON.MeshBuilder.CreateBox("chH", {width:2.6,height:0.16,depth:0.12},scene); crosshairHBar.position.z = distance; crosshairHBar.material = crosshairMat; crosshairHBar.renderingGroupId = 2; crosshairHBar.parent = crosshairGroup;
+            crosshairVBar = BABYLON.MeshBuilder.CreateBox("chV", {width:0.16,height:2.6,depth:0.12},scene); crosshairVBar.position.z = distance; crosshairVBar.material = crosshairMat; crosshairVBar.renderingGroupId = 2; crosshairVBar.parent = crosshairGroup;
+            crosshairLeft = BABYLON.MeshBuilder.CreateCylinder("chL", {height:0.9,diameter:0.22},scene);
+            crosshairLeft.rotation.z = Math.PI/2; crosshairLeft.position.set(-2.4,0,distance); crosshairLeft.material = tripleMat; crosshairLeft.renderingGroupId = 2; crosshairLeft.parent = crosshairGroup; crosshairLeft.setEnabled(false);
+            crosshairRight = crosshairLeft.clone(); crosshairRight.position.x = 2.4; crosshairRight.parent = crosshairGroup; crosshairRight.setEnabled(false);
+
+            function createEngineExhaust(parent, offsetX) {
+                const ex = new BABYLON.ParticleSystem("ex", 280, scene);
+                ex.emitter = parent;
+                ex.particleTexture = new BABYLON.Texture("https://www.babylonjs-playground.com/textures/fire.jpg", scene);
+                ex.minEmitBox = new BABYLON.Vector3(offsetX, -0.5, 0); ex.maxEmitBox = new BABYLON.Vector3(offsetX, -1, 0);
+                ex.direction1 = new BABYLON.Vector3(-0.07,-0.05,-1); ex.direction2 = new BABYLON.Vector3(0.07,0.05,-1);
+                ex.minSize = 0.012; ex.maxSize = 0.016; ex.minLifeTime = 0.3; ex.maxLifeTime = 0.42;
+                ex.emitRate = 48; ex.gravity = new BABYLON.Vector3(0,-0.3,0);
+                ex.addColorGradient(0, new BABYLON.Color4(1,0.98,0.65,0.6));
+                ex.addColorGradient(0.25, new BABYLON.Color4(1,0.72,0.28,0.4));
+                ex.addColorGradient(1, new BABYLON.Color4(0.4,0.4,0.45,0));
+                ex.start();
+                return ex;
+            }
+            createEngineExhaust(leftEngine, -0.2);
+            createEngineExhaust(rightEngine, 0.2);
+        }
+
+        function createStaticStars() {
+            if (staticStarsGroup) staticStarsGroup.dispose();
+            staticStarsGroup = new BABYLON.TransformNode("static", scene);
+            staticStarsGroup.parent = ship;
+
+            if (masterStaticStar) masterStaticStar.dispose();
+            masterStaticStar = BABYLON.MeshBuilder.CreateSphere("masterStatic", {diameter:1,segments:4},scene);
+            masterStaticStar.material = new BABYLON.StandardMaterial("starMat", scene);
+            masterStaticStar.material.emissiveColor = new BABYLON.Color3(1,1,1);
+            masterStaticStar.material.disableLighting = true;
+            masterStaticStar.renderingGroupId = 0;
+            masterStaticStar.setEnabled(false);
+
+            const staticStarCount = 2200;
+            const staticRadius = 620;
+            for (let i = 0; i < staticStarCount; i++) {
+                const phi = Math.acos(-1 + (2*i+1)/staticStarCount);
+                const theta = Math.sqrt(staticStarCount * Math.PI) * phi;
+                let x = Math.cos(theta) * Math.sin(phi) * staticRadius;
+                let y = Math.sin(theta) * Math.sin(phi) * staticRadius;
+                let z = Math.cos(phi) * staticRadius;
+                const offset = staticRadius * 0.18;
+                x += (Math.random()-0.5)*2*offset;
+                y += (Math.random()-0.5)*2*offset;
+                z += (Math.random()-0.5)*2*offset;
+                const scale = (0.5 + Math.random()*0.7) * (0.6 + Math.random()*0.7);
+                const inst = masterStaticStar.createInstance(`s${i}`);
+                inst.position.set(x,y,z); inst.scaling.setAll(scale); inst.parent = staticStarsGroup;
+            }
+        }
+
+        function createMovingStars() {
+            if (starsGroup) starsGroup.dispose();
+            starsGroup = new BABYLON.TransformNode("moving", scene);
+            starsGroup.parent = ship;
+
+            if (masterStar) masterStar.dispose();
+            masterStar = BABYLON.MeshBuilder.CreateDisc("mStar", {radius:1, tessellation:3, sideOrientation:BABYLON.Mesh.DOUBLESIDE}, scene);
+            masterStar.material = new BABYLON.StandardMaterial("starMat", scene);
+            masterStar.material.emissiveColor = new BABYLON.Color3(1,1,1);
+            masterStar.material.disableLighting = true;
+            masterStar.renderingGroupId = 1;
+            masterStar.setEnabled(false);
+
+            updateStarsForLevel(0);
+        }
+
+        function updateStarsForLevel(lvl) {
+            stars.forEach(s => s.dispose()); stars = [];
+            const farDistance = 220;
+            const baseStarCount = 420;
+            for (let i = 0; i < baseStarCount; i++) {
+                const phi = Math.acos(-1 + (2*i+1)/baseStarCount);
+                const theta = Math.sqrt(baseStarCount * Math.PI) * phi;
+                const r = farDistance * (0.6 + Math.random()*0.4);
+                const inst = masterStar.createInstance("s"+i);
+                inst.position.set(Math.cos(theta)*Math.sin(phi)*r, Math.sin(theta)*Math.sin(phi)*r*0.8, Math.cos(phi)*r + 30 + Math.random()*70);
+                inst.parent = starsGroup;
+                inst.baseRadius = 0.33 + Math.random()*0.04;
+                inst.scaling.setAll(inst.baseRadius * (0.65 + Math.random()*0.8));
+                stars.push(inst);
+            }
+        }
+
+        function createScene() {
+            scene = new BABYLON.Scene(engine);
+            scene.clearColor = new BABYLON.Color4(0.004, 0.008, 0.028, 1);
+
+            camera = new BABYLON.ArcRotateCamera("cam", Math.PI, Math.PI / 2.75, 15.2, new BABYLON.Vector3(0, 1.1, 0), scene);
+            camera.attachControl(canvas, true);
+            camera.minZ = 0.1; camera.maxZ = 1200;
+            camera.lowerBetaLimit = 0.22; camera.upperBetaLimit = Math.PI / 1.32;
+            camera.lowerRadiusLimit = 8.5; camera.upperRadiusLimit = 52;
+
+            new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0,1,0), scene).intensity = 0.95;
+            new BABYLON.DirectionalLight("d", new BABYLON.Vector3(-2.5,-3.5,-4.5), scene).intensity = 0.75;
+
+            const coinMat = new BABYLON.StandardMaterial("coinMat", scene); coinMat.diffuseColor = new BABYLON.Color3(1,0.84,0); coinMat.specularColor = new BABYLON.Color3(1,1,0.8); coinMat.emissiveColor = new BABYLON.Color3(0.3,0.2,0);
+            const ammoMat = new BABYLON.StandardMaterial("ammoMat", scene); ammoMat.diffuseColor = new BABYLON.Color3(0.1,0.5,1); ammoMat.emissiveColor = new BABYLON.Color3(0.1,0.2,0.4);
+            bulletMat = new BABYLON.StandardMaterial("bulletMat", scene); bulletMat.diffuseColor = new BABYLON.Color3(1,0.22,0.22); bulletMat.emissiveColor = new BABYLON.Color3(0.6,0.15,0.15);
+            const powerMat = new BABYLON.StandardMaterial("powerMat", scene); powerMat.diffuseColor = new BABYLON.Color3(0.7,0.4,1); powerMat.emissiveColor = new BABYLON.Color3(0.5,0.2,0.9);
+            magnetMat = new BABYLON.StandardMaterial("magnetMat", scene); magnetMat.diffuseColor = new BABYLON.Color3(0.15, 0.05, 0.85); magnetMat.emissiveColor = new BABYLON.Color3(0.55, 0.15, 1.0);
+
+            crosshairMat = new BABYLON.StandardMaterial("cross", scene); crosshairMat.emissiveColor = new BABYLON.Color3(0.3,1,0.4); crosshairMat.alpha = 0.6; crosshairMat.disableLighting = true;
+            circleMat = crosshairMat.clone(); circleMat.emissiveColor = new BABYLON.Color3(0.4,1,0.5); circleMat.alpha = 0.45;
+            tripleMat = crosshairMat.clone(); tripleMat.emissiveColor = new BABYLON.Color3(0.4,0.9,0.5); tripleMat.alpha = 1;
+
+            createShipAndCrosshair();
+            createStaticStars();
+            createMovingStars();
+
+            function spawnObstacle() {
+                const config = getLevelConfig(currentLevel);
+                if (obstacles.length >= config.maxObstacles) return;
+
+                const baseRadius = 1.25 + currentLevel * 0.38;
+                const radius = baseRadius * (0.82 + Math.random() * 0.72);
+
+                const obs = BABYLON.MeshBuilder.CreateIcoSphere("obs", {radius, subdivisions: 1 + Math.floor(currentLevel / 3)}, scene);
+                obs.position.set(130 + Math.random() * 60, (Math.random() - 0.5) * 22, (Math.random() - 0.5) * 28);
+                
+                const baseColor = obstaclePalette[Math.floor(Math.random() * obstaclePalette.length)];
+                const mat = new BABYLON.StandardMaterial("obsMat", scene);
+                mat.diffuseColor = baseColor;
+                mat.specularColor = new BABYLON.Color3(0.65, 0.65, 0.72);
+                mat.specularPower = 65;
+                mat.emissiveColor = baseColor.scale(0.12);
+                obs.material = mat;
+
+                obs.renderingGroupId = 1;
+                obs.rotationSpeed = new BABYLON.Vector3(
+                    (Math.random()-0.5)*0.08*(1+currentLevel*0.15),
+                    (Math.random()-0.5)*0.09*(1+currentLevel*0.15),
+                    (Math.random()-0.5)*0.06*(1+currentLevel*0.15)
+                );
+                obs.collisionRadius = radius * 0.78;
+                obstacles.push(obs);
+            }
+
+            function spawnCoin() {
+                const radius = 1.2;
+                const coin = BABYLON.MeshBuilder.CreateCylinder("coin", {height:0.1, diameter:2.4, tessellation:32}, scene);
+                coin.position.set(130 + Math.random() * 60, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 12);
+                coin.material = coinMat;
+                coin.renderingGroupId = 1;
+                coin.rotation.x = Math.PI / 2;
+                coin.rotationSpeed = (Math.random() + 0.5) * 0.1;
+                coin.collisionRadius = radius;
+                coins.push(coin);
+            }
+
+            function spawnAmmo() {
+                const radius = 1.55;
+                const ammo = BABYLON.MeshBuilder.CreateCylinder("ammo", {height:0.85, diameter:1.75, tessellation:20}, scene);
+                ammo.position.set(130 + Math.random() * 60, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 12);
+                ammo.material = ammoMat;
+                ammo.renderingGroupId = 1;
+                ammo.rotation.x = Math.PI / 2;
+                ammo.rotationSpeed = (Math.random() + 0.5) * 0.08;
+                ammo.collisionRadius = radius;
+                ammos.push(ammo);
+            }
+
+            function spawnTripleShot() {
+                const radius = 5.3;
+                const pu = BABYLON.MeshBuilder.CreateCylinder("triple", {height:0.6, diameter:3.0, tessellation:24}, scene);
+                pu.position.set(130 + Math.random() * 60, (Math.random() - 0.5) * 7, (Math.random() - 0.5) * 12);
+                pu.material = powerMat;
+                pu.renderingGroupId = 1;
+                pu.rotation.x = Math.PI / 2;
+                pu.rotationSpeed = (Math.random() + 0.5) * 0.12;
+                pu.collisionRadius = radius;
+                powerups.push(pu);
+            }
+
+            function spawnMagnet() {
+                const radius = 3.4;
+                const mag = BABYLON.MeshBuilder.CreateTorus("magnet", {diameter:5.8, thickness:0.7, tessellation:64}, scene);
+                mag.position.set(130 + Math.random() * 60, (Math.random() - 0.5) * 8.5, (Math.random() - 0.5) * 13);
+                mag.material = magnetMat;
+                mag.renderingGroupId = 1;
+                mag.rotation.x = Math.PI / 2;
+                mag.rotationSpeed = (Math.random() + 0.6) * 0.18;
+                mag.collisionRadius = radius;
+                magnets.push(mag);
+            }
+
+            scene.registerBeforeRender(() => {
+                if (isGameOver || isPaused) return;
+
+                const delta = engine.getDeltaTime() / 1000;
+                const now = Date.now();
+                timeInLevel += delta;
+                score += delta * 1020 * (0.0038 + currentLevel * 0.002);
+
+                const config = getLevelConfig(currentLevel);
+                if (score >= config.scoreGoal) nextLevel();
+
+                if (tripleShotActive && now > tripleShotEndTime) {
+                    tripleShotActive = false;
+                    bullets = savedBullets;
+                    crosshairLeft.setEnabled(false);
+                    crosshairRight.setEnabled(false);
+                    updateUI();
+                }
+                if (magnetActive && now > magnetEndTime) {
+                    magnetActive = false;
+                    updateUI();
+                }
+
+                const starSpeed = 0.65 + currentLevel * 0.45;
+
+                stars.forEach(s => {
+                    s.position.z -= starSpeed * (engine.getDeltaTime() / 16.6);
+                    if (s.position.z < -90) {
+                        const a = Math.random() * Math.PI * 2;
+                        const r = 48 + Math.random() * 135;
+                        s.position.set(Math.cos(a)*r, Math.sin(a)*r*0.75, 220 + Math.random()*92);
+                    }
+                });
+
+                if (Math.random() < config.spawnRate) spawnObstacle();
+                if (Math.random() < config.coinSpawnRate) spawnCoin();
+                if (Math.random() < config.ammoSpawnRate) spawnAmmo();
+                if (Math.random() < config.tripleShotSpawnRate) spawnTripleShot();
+                if (Math.random() < config.magnetSpawnRate) spawnMagnet();
+
+                const moveVec = new BABYLON.Vector3(-config.obstacleSpeed * (engine.getDeltaTime()/16.6), 0, 0);
+
+                for (let i = obstacles.length-1; i >= 0; i--) {
+                    const o = obstacles[i];
+                    o.position.addInPlace(moveVec);
+                    o.rotation.addInPlace(o.rotationSpeed.scale(delta * 60));
+                    if (o.position.x < -42) { o.dispose(); obstacles.splice(i,1); continue; }
+                    if (BABYLON.Vector3.Distance(o.position, ship.position) < o.collisionRadius + 1.15) {
+                        takeDamage(config.damage + Math.random()*16);
+                        o.dispose(); obstacles.splice(i,1);
+                    }
+                }
+
+                for (let i = coins.length-1; i >= 0; i--) {
+                    const c = coins[i];
+                    c.position.addInPlace(moveVec);
+                    c.rotation.y += c.rotationSpeed * (delta * 60);
+
+                    if (magnetActive && now < magnetEndTime) {
+                        const toShip = ship.position.subtract(c.position);
+                        const dist = toShip.length();
+                        if (dist < 92 && dist > 4) {
+                            const pull = toShip.normalize().scale(26 * (92 - dist) / 92 * (engine.getDeltaTime()/16.6));
+                            c.position.addInPlace(pull);
+                        }
+                    }
+
+                    if (c.position.x < -42) { c.dispose(); coins.splice(i,1); continue; }
+                    if (BABYLON.Vector3.Distance(c.position, ship.position) < c.collisionRadius + 1.15) {
+                        restoreHealth(config.healAmount + Math.random()*5);
+                        c.dispose(); coins.splice(i,1);
+                    }
+                }
+
+                for (let i = ammos.length-1; i >= 0; i--) {
+                    const a = ammos[i];
+                    a.position.addInPlace(moveVec);
+                    a.rotation.y += a.rotationSpeed * (delta * 60);
+
+                    if (magnetActive && now < magnetEndTime) {
+                        const toShip = ship.position.subtract(a.position);
+                        const dist = toShip.length();
+                        if (dist < 92 && dist > 4) {
+                            const pull = toShip.normalize().scale(26 * (92 - dist) / 92 * (engine.getDeltaTime()/16.6));
+                            a.position.addInPlace(pull);
+                        }
+                    }
+
+                    if (a.position.x < -42) { a.dispose(); ammos.splice(i,1); continue; }
+                    if (BABYLON.Vector3.Distance(a.position, ship.position) < a.collisionRadius + 1.15) {
+                        collectAmmo(config.ammoAmount);
+                        a.dispose(); ammos.splice(i,1);
+                    }
+                }
+
+                for (let i = powerups.length-1; i >= 0; i--) {
+                    const p = powerups[i];
+                    p.position.addInPlace(moveVec);
+                    p.rotation.y += p.rotationSpeed * (delta * 60);
+                    if (p.position.x < -42) { p.dispose(); powerups.splice(i,1); continue; }
+                    if (BABYLON.Vector3.Distance(p.position, ship.position) < p.collisionRadius + 1.15) {
+                        activateTripleShot();
+                        p.dispose(); powerups.splice(i,1);
+                    }
+                }
+
+                for (let i = magnets.length-1; i >= 0; i--) {
+                    const m = magnets[i];
+                    m.position.addInPlace(moveVec);
+                    m.rotation.y += m.rotationSpeed * (delta * 60);
+                    if (m.position.x < -42) { m.dispose(); magnets.splice(i,1); continue; }
+                    if (BABYLON.Vector3.Distance(m.position, ship.position) < m.collisionRadius + 1.15) {
+                        activateMagnet();
+                        m.dispose(); magnets.splice(i,1);
+                    }
+                }
+
+                const bs = 12.4;
+                for (let i = projectiles.length-1; i >= 0; i--) {
+                    const p = projectiles[i];
+                    p.position.addInPlace(p.direction.scale(bs * (engine.getDeltaTime()/16.6)));
+                    if (BABYLON.Vector3.Distance(p.position, ship.position) > 340) { p.dispose(); projectiles.splice(i,1); continue; }
+                    let hit = false;
+                    for (let j = obstacles.length-1; j >= 0; j--) {
+                        if (BABYLON.Vector3.Distance(p.position, obstacles[j].position) < p.collisionRadius + obstacles[j].collisionRadius) {
+                            createExplosionParticles(obstacles[j].position);
+                            playExplosion();
+                            obstacles[j].dispose(); obstacles.splice(j,1);
+                            hit = true; break;
+                        }
+                    }
+                    if (hit) { p.dispose(); projectiles.splice(i,1); }
+                }
+
+                let inputX = joystickInputX;
+                let inputY = -joystickInputY;
+
+                if (keys['arrowleft'] || keys['a']) inputX = Math.max(inputX - 0.3, -1);
+                if (keys['arrowright'] || keys['d']) inputX = Math.min(inputX + 0.3, 1);
+                if (keys['arrowup'] || keys['w']) inputY = Math.min(inputY + 0.3, 1);
+                if (keys['arrowdown'] || keys['s']) inputY = Math.max(inputY - 0.3, -1);
+
+                const bob = Math.sin(Date.now() * 0.00135) * (0.12 + currentLevel * 0.013);
+                const tz = -inputX * (6.6 - currentLevel * 0.1);
+                const ty = bob + inputY * 3.9;
+
+                ship.position.z = BABYLON.Scalar.Lerp(ship.position.z, tz, 0.26);
+                ship.position.y = BABYLON.Scalar.Lerp(ship.position.y, ty, 0.22);
+                ship.rotation.z = BABYLON.Scalar.Lerp(ship.rotation.z, -inputX * 0.62, 0.18);
+                ship.rotation.x = BABYLON.Scalar.Lerp(ship.rotation.x, inputY * 0.32, 0.18);
+
+                updateEngineHum(Math.abs(inputX) + Math.abs(inputY) * 0.6);
+
+                const sideOffset = Math.abs(ship.position.z);
+                let targetRadius = 12.5 + sideOffset * 1.15 + Math.abs(inputY) * 7.5;
+                camera.radius = BABYLON.Scalar.Lerp(camera.radius, targetRadius, 0.17);
+
+                if (shakeIntensity > 0.02) {
+                    const shakeX = (Math.random() - 0.5) * shakeIntensity * 1.8;
+                    const shakeY = (Math.random() - 0.5) * shakeIntensity * 1.4;
+                    camera.position.x = shakeX;
+                    camera.position.y = shakeY;
+                    shakeIntensity *= 0.82;
+                } else {
+                    camera.position.x = camera.position.y = 0;
+                }
+
+                updateUI();
+            });
+
+            return scene;
+        }
+
+        function resetGame() {
+            currentLevel = 0; score = 0; timeInLevel = 0;
+            health = 100; bullets = 8; savedBullets = 8;
+            isGameOver = false; isPaused = false;
+            tripleShotActive = false; tripleShotEndTime = 0;
+            magnetActive = false; magnetEndTime = 0;
+            shakeIntensity = 0;
+            joystickInputX = joystickInputY = 0;
+
+            gameOverDiv.style.display = "none";
+            levelCompleteDiv.style.display = "none";
+            pausedScreen.style.display = "none";
+            restartButton.style.display = "none";
+            resumeButton.style.display = "none";
+
+            if (ship) ship.dispose();
+            ship = leftEngine = rightEngine = null;
+
+            [obstacles, coins, ammos, powerups, magnets, projectiles].forEach(arr => {
+                arr.forEach(m => m?.dispose());
+                arr.length = 0;
+            });
+
+            [crosshairCenter, crosshairHBar, crosshairVBar, crosshairCircle, crosshairLeft, crosshairRight].forEach(m => m?.dispose());
+
+            createShipAndCrosshair();
+            createStaticStars();
+            createMovingStars();
+
+            updateUI();
+        }
+
+        restartButton.addEventListener('click', resetGame);
+        resumeButton.addEventListener('click', () => { isPaused = false; pausedScreen.style.display = "none"; resumeButton.style.display = "none"; });
+
+        function updateJoystickPosition(clientX, clientY) {
+            const rect = joystickContainer.getBoundingClientRect();
+            const cx = rect.left + rect.width / 2;
+            const cy = rect.top + rect.height / 2;
+            let dx = clientX - cx;
+            let dy = clientY - cy;
+            const dist = Math.hypot(dx, dy);
+            const max = 42;
+            if (dist > max) {
+                const angle = Math.atan2(dy, dx);
+                joystickInputX = Math.cos(angle);
+                joystickInputY = Math.sin(angle);
+            } else {
+                joystickInputX = dx / max;
+                joystickInputY = dy / max;
+            }
+            joystickInner.style.transform = `translate(${dx-29}px, ${dy-29}px)`;
+        }
+        function resetJoystick() {
+            joystickInputX = joystickInputY = 0;
+            joystickInner.style.transform = 'translate(-50%, -50%)';
+        }
+
+        function unlockAudio() {
+            initAudio();
+            
+            if (audioContext && audioContext.state === 'suspended') {
+                audioContext.resume().then(() => {
+                    if (music && isMusicEnabled) music.play();
+                });
+            } else if (music && isMusicEnabled) {
+                music.play();
+            }
+        }
+        document.addEventListener('touchstart', unlockAudio, { once: true });
+        document.addEventListener('click', unlockAudio, { once: true });
+
+        ['touchstart','mousedown'].forEach(evt => joystickOuter.addEventListener(evt, e => {
+            e.preventDefault();
+            joystickActive = true;
+            const t = e.touches ? e.touches[0] : e;
+            updateJoystickPosition(t.clientX, t.clientY);
+            unlockAudio();
+        }));
+
+        ['touchmove','mousemove'].forEach(evt => joystickOuter.addEventListener(evt, e => {
+            if (!joystickActive) return;
+            e.preventDefault();
+            const t = e.touches ? e.touches[0] : e;
+            updateJoystickPosition(t.clientX, t.clientY);
+        }));
+
+        ['touchend','touchcancel','mouseup','mouseleave'].forEach(evt => joystickOuter.addEventListener(evt, () => {
+            joystickActive = false;
+            resetJoystick();
+        }));
+
+        fireControl.addEventListener('touchstart', e => { 
+            e.preventDefault(); 
+            fireBullet(); 
+            unlockAudio();
+        });
+        fireControl.addEventListener('mousedown', e => { 
+            e.preventDefault(); 
+            fireBullet(); 
+            unlockAudio();
+        });
+
+        const keys = {};
+        window.addEventListener('keydown', e => {
+            keys[e.key.toLowerCase()] = true;
+            if (e.key === " " || e.key === "Spacebar") { e.preventDefault(); fireBullet(); }
+            if (e.key.toLowerCase() === "p") {
+                isPaused = !isPaused;
+                pausedScreen.style.display = isPaused ? "block" : "none";
+                resumeButton.style.display = isPaused ? "block" : "none";
+            }
+        });
+        window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+        function fireBullet() {
+            if (isGameOver || isPaused) return;
+            if (!tripleShotActive && bullets <= 0) return;
+            if (!tripleShotActive) bullets--;
+            
+            playLaser();
+            
+            const forward = ship.getDirection(BABYLON.Vector3.Forward()).normalize();
+            const posBase = ship.position.clone().add(forward.scale(2.6));
+            
+            const createProj = (offset) => {
+                const b = BABYLON.MeshBuilder.CreateSphere("bullet", {diameter:0.85}, scene);
+                b.position = posBase.clone().add(offset);
+                b.material = bulletMat;
+                b.renderingGroupId = 1;
+                b.direction = forward.clone().add(offset.scale(0.38)).normalize();
+                b.collisionRadius = 7.8;
+                projectiles.push(b);
+            };
+            
+            createProj(BABYLON.Vector3.Zero());
+            if (tripleShotActive) {
+                const right = BABYLON.Vector3.Cross(forward, BABYLON.Vector3.Up()).normalize();
+                createProj(right.scale(0.32));
+                createProj(right.scale(-0.32));
+            }
+            updateUI();
+        }
+
+        function restoreHealth(amount) { health = Math.min(100, health + amount); playCollect(false); updateUI(); }
+        function collectAmmo(amount) { bullets = Math.min(20, bullets + amount); savedBullets = bullets; playCollect(false); updateUI(); }
+        function activateTripleShot() {
+            if (tripleShotActive) return;
+            savedBullets = bullets;
+            tripleShotActive = true;
+            tripleShotEndTime = Date.now() + getLevelConfig(currentLevel).tripleShotDuration;
+            crosshairLeft.setEnabled(true);
+            crosshairRight.setEnabled(true);
+            playCollect(true);
+            updateUI();
+        }
+        function activateMagnet() {
+            if (magnetActive) return;
+            magnetActive = true;
+            magnetEndTime = Date.now() + 5000;
+            playCollect(true);
+            updateUI();
+        }
+        function takeDamage(amount) {
+            if (isGameOver || isPaused) return;
+            health = Math.max(0, health - amount);
+            shakeIntensity = 1.2;
+            playExplosion();
+            updateUI();
+            if (health <= 0) { isGameOver = true; showGameOver(); }
+        }
+
+        try {
+            scene = createScene();
+            // initAudio(); ← REMOVED (now triggered by user interaction)
+            updateUI();
+            highScoreText.textContent = `HIGH ${highScore.toString().padStart(5, '0')}`;
+            engine.runRenderLoop(() => scene.render());
+        } catch (err) {
+            console.error(err);
+            errorDiv.style.display = "block";
+            errorDiv.innerHTML = "Game failed to load<br>" + err.message;
+        }
+
+        window.addEventListener("resize", () => engine.resize());
+
+        // === MUSIC CLEANUP: stops when tab/page closes or is hidden ===
+        window.addEventListener('beforeunload', () => {
+            if (music) {
+                music.stop();
+                music.dispose();
+            }
+            if (audioContext) audioContext.close();
+        });
+
+        document.addEventListener('visibilitychange', () => {
+            if (!music) return;
+            if (document.hidden) {
+                if (isMusicEnabled) music.pause();
+            } else {
+                if (isMusicEnabled) music.play();
+            }
+        });
+    </script>
+</body>
+</html>

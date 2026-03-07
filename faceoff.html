@@ -256,61 +256,60 @@
             flex: 1;
             position: relative;
         }
+
+        #tilt-warning {
+            text-align: center;
+            font-size: 14px;
+            color: #ffcc00;
+            background: rgba(0,0,0,0.4);
+            padding: 12px 16px;
+            margin: 8px 16px;
+            border-radius: 12px;
+            line-height: 1.4;
+            display: none;
+        }
     </style>
 </head>
 <body>
 
-    <!-- PORTRAIT BLOCKER -->
     <div id="portrait-blocker" style="position: fixed; inset: 0; z-index: 9999; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 40px; gap: 24px;">
         <div style="font-size: 6rem; animation: rotate 2s infinite linear;">↔️</div>
         <h1 style="font-family: 'Space Grotesk', sans-serif; font-size: 2.6rem; font-weight: 700; letter-spacing: -1px;">ROTATE YOUR PHONE</h1>
         <p style="font-size: 1.2rem; opacity: 0.8;">FACE OFF works best in landscape mode</p>
     </div>
 
-    <!-- MAIN APP -->
     <div id="app">
 
-        <!-- HOME SCREEN -->
         <div id="home-screen" class="screen active">
-
             <div class="home-content">
                 <h1 class="title">FACE OFF</h1>
                 <p style="font-size: 1.05rem; opacity: 0.7; margin-top: 6px; letter-spacing: 3px;">TEAM BATTLE</p>
-
                 <button onclick="startGame(); event.stopPropagation();" class="btn-primary">
                     START FACE OFF
                 </button>
             </div>
-
             <div style="flex: 1; display: flex; align-items: center; justify-content: center; min-height: 180px;">
                 <div style="width: 10px; height: 10px; margin: 0 auto; background: linear-gradient(135deg, #00f5ff, #ff2ec4); border-radius: 9999px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 70px -8px #00f5ff, 0 30px 50px -15px #ff2ec4;">
                     <span style="font-size: 6.8rem; filter: drop-shadow(0 0 25px rgba(255,255,255,0.9));"></span>
                 </div>
             </div>
-
             <div style="height: 48px;"></div>
         </div>
 
-        <!-- CATEGORY SCREEN -->
         <div id="category-screen" class="screen" style="padding: 28px 18px; background: linear-gradient(135deg, #0a071f, #1a1433);">
             <h2 style="font-family: 'Space Grotesk', sans-serif; font-size: 2rem; font-weight: 700; text-align: center; margin-bottom: 28px; letter-spacing: -1px;">CHOOSE YOUR BATTLE</h2>
             <div id="category-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; flex: 1; overflow-y: auto; padding-bottom: 30px;"></div>
         </div>
 
-        <!-- GAME SCREEN -->
         <div id="game-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433);">
-
-            <!-- TOP BAR -->
             <div class="glass game-header">
                 <div id="team-header" style="display: flex; align-items: center; gap: 12px;"></div>
-                
                 <div class="header-center">
                     <div id="timer-wrapper" class="timer-container" style="margin: 0 auto;">
                         <div class="timer-ring" id="timer-ring"></div>
                         <div id="timer" class="timer">1:00</div>
                     </div>
                 </div>
-
                 <div style="display: flex; gap: 28px;">
                     <div style="text-align: center;">
                         <div style="color: var(--blue); font-size: 10px; font-weight: 600;">BLUE</div>
@@ -323,37 +322,37 @@
                 </div>
             </div>
 
-            <!-- WORD AREA -->
+            <div id="tilt-warning">
+                <strong>Tilt not responding?</strong><br>
+                Go to Chrome menu → Settings → Site settings → Motion Sensors → Allow for this site.<br>
+                Then reload the page.
+            </div>
+
             <div style="flex: 1; display: flex; align-items: center; justify-content: center; padding: 0 18px; min-height: 0;">
                 <div id="word-container" class="word-card">
                     <div id="current-word" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.65rem; font-weight: 700; line-height: 1.08; max-width: 100%;"></div>
                 </div>
             </div>
 
-            <!-- INSTRUCTIONS -->
             <div style="text-align: center; font-size: 12px; opacity: 0.65; padding: 8px 0 6px; letter-spacing: 0.5px;">
                 PHONE ON FOREHEAD<br>
                 <span style="color: #22ff99;">TILT DOWN = CORRECT</span> • 
                 <span style="color: #ff6b6b;">TILT UP = PASS</span>
             </div>
 
-            <!-- BOTTOM BAR -->
             <div class="glass" style="text-align: center; padding: 16px 20px; font-size: 13px; color: var(--cyan);">
                 <div id="words-count">0 CORRECT</div>
             </div>
         </div>
 
-        <!-- BIG CENTERED COUNTDOWN OVERLAY -->
         <div id="countdown-overlay">
             <div id="countdown-number">3</div>
         </div>
 
-        <!-- TIME'S UP OVERLAY -->
         <div id="timesup-overlay" style="position: fixed; inset: 0; background: rgba(185,28,28,0.94); z-index: 9999; display: none; align-items: center; justify-content: center;">
             <div id="timesup-text" style="font-family: 'Space Grotesk', sans-serif; font-size: 9rem; font-weight: 700; line-height: 1; color: #ffffff; -webkit-text-stroke: 8px #ffeb3b; text-shadow: 0 0 20px #ffeb3b, 0 0 40px #ffeb3b, 0 0 70px #ff9800, 0 0 100px rgba(255, 235, 59, 0.6); filter: drop-shadow(0 0 60px #ffeb3b);">TIME'S UP</div>
         </div>
 
-        <!-- SUMMARY -->
         <div id="summary-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433); padding: 32px 20px; text-align: center;">
             <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;">
                 <div id="summary-team" style="font-family: 'Space Grotesk', sans-serif; font-size: 2.9rem; font-weight: 700;"></div>
@@ -362,7 +361,6 @@
             </div>
         </div>
 
-        <!-- FINAL SCREEN -->
         <div id="final-screen" class="screen" style="background: linear-gradient(135deg, #0a071f, #1a1433); padding: 32px 20px;">
             <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
                 <div id="winner-title" class="title" style="font-size: 3.8rem;"></div>
@@ -388,7 +386,6 @@
     <canvas id="confetti-canvas" style="position: fixed; inset: 0; pointer-events: none; z-index: 99999;"></canvas>
 
     <script>
-        // FULL WORD LISTS – complete
         const wordLists = {
             "Zoo": ["Lion","Tiger","Leopard","Cheetah","Jaguar","African Elephant","Asian Elephant","Giraffe","Zebra","Hippopotamus","White Rhinoceros","Black Rhinoceros","Gorilla","Chimpanzee","Orangutan","Bonobo","Giant Panda","Red Panda","Koala","Red Kangaroo","Wallaby","Emu","Ostrich","Emperor Penguin","King Penguin","Polar Bear","Grizzly Bear","Black Bear","Sloth Bear","Gray Wolf","Arctic Wolf","Red Fox","Arctic Fox","Meerkat","Ring-tailed Lemur","Howler Monkey","Spider Monkey","Capuchin Monkey","Mandrill","Baboon","Spotted Hyena","Warthog","Malayan Tapir","Giant Anteater","Three-toed Sloth","Nine-banded Armadillo","North American Porcupine","Hedgehog","River Otter","Sea Otter","Harbor Seal","California Sea Lion","Walrus","Bottlenose Dolphin","American Alligator","Nile Crocodile","Green Iguana","Komodo Dragon","Galápagos Tortoise","Leatherback Sea Turtle","Bactrian Camel","Llama","Alpaca","American Bison","Yak","Reindeer","Moose","Red Deer","Impala","Thomson's Gazelle","Okapi","Aardvark","Platypus","Short-beaked Echidna","Tasmanian Devil","Quokka","Sugar Glider","Large Flying Fox","Capybara","Paca","Agouti","Guinea Pig","Chinchilla","Fennec Fox","Serval","Caracal","Ocelot","Snow Leopard","Clouded Leopard","Amur Leopard","Sumatran Tiger","Bengal Tiger","White Tiger","African Lion","Asiatic Lion","Siberian Tiger","Flamingo","Peacock","Scarlet Macaw","Blue-and-yellow Macaw","Toco Toucan","Bald Eagle","Snowy Owl","Harris's Hawk","King Cobra","Ball Python","Green Anaconda","Bearded Dragon","Panther Chameleon"],
             "Animals": ["Lion","Tiger","Leopard","Cheetah","Jaguar","Elephant","Giraffe","Zebra","Hippopotamus","Rhinoceros","Gorilla","Chimpanzee","Orangutan","Panda","Koala","Kangaroo","Penguin","Polar Bear","Grizzly Bear","Wolf","Fox","Dog","Cat","Rabbit","Snake","Frog","Monkey","Bear","Deer","Octopus","Shark","Eagle","Owl","Horse","Cow","Pig","Sheep","Goat","Chicken","Duck","Turkey","Goose","Parrot","Peacock","Flamingo","Crocodile","Alligator","Turtle","Tortoise","Lizard","Iguana","Chameleon","Komodo Dragon","Sloth","Armadillo","Anteater","Porcupine","Hedgehog","Otter","Seal","Sea Lion","Walrus","Dolphin","Whale","Bat","Flying Fox","Lemur","Meerkat","Hyena","Jackal","Coyote","Bison","Yak","Camel","Llama","Alpaca","Moose","Reindeer","Elk","Caribou","Antelope","Gazelle","Impala","Okapi","Tapir","Warthog","Baboon","Mandrill","Howler Monkey","Spider Monkey","Capuchin","Macaque","Gibbon","Siamang","Tarsier","Aye-aye","Pangolin","Aardvark","Platypus","Echidna","Tasmanian Devil","Quokka","Sugar Glider","Capybara","Chinchilla","Guinea Pig","Hamster","Gerbil","Mouse","Rat","Squirrel","Chipmunk","Beaver","Raccoon","Skunk","Badger","Weasel","Ferret","Mink","Fox","Arctic Fox","Fennec Fox"],
@@ -412,6 +409,7 @@
         let gameActive = false, tiltCooldown = false;
         let wakeLock = null;
         let synth = null;
+        let gotTiltEvent = false;
 
         async function initAudio() {
             await Tone.start();
@@ -455,6 +453,10 @@
             const gamma = Math.max(-90, Math.min(90, e.gamma || 0));
             if (!gameActive || tiltCooldown) return;
 
+            if (e.gamma !== null && !gotTiltEvent) {
+                gotTiltEvent = true;
+            }
+
             if (gamma >= 2 && gamma <= 35) {
                 processCorrect();
                 tiltCooldown = true;
@@ -467,10 +469,25 @@
         }
 
         async function enableTilt() {
-            if (typeof DeviceOrientationEvent !== "undefined" && typeof DeviceOrientationEvent.requestPermission === "function") {
-                try { await DeviceOrientationEvent.requestPermission(); } catch (e) {}
+            gotTiltEvent = false;
+
+            if (typeof DeviceOrientationEvent !== "undefined") {
+                if (typeof DeviceOrientationEvent.requestPermission === "function") {
+                    try {
+                        const permission = await DeviceOrientationEvent.requestPermission();
+                        if (permission !== "granted") {
+                            console.warn("Orientation permission not granted");
+                            return;
+                        }
+                    } catch (err) {
+                        console.warn("requestPermission failed", err);
+                    }
+                }
+
+                window.addEventListener('deviceorientation', handleTilt, { passive: true });
+            } else {
+                console.warn("DeviceOrientationEvent not supported");
             }
-            window.addEventListener('deviceorientation', handleTilt, { passive: true });
         }
 
         async function requestWakeLock() {
@@ -616,6 +633,9 @@
         function startNewRound() {
             roundScore = 0;
             gameActive = false;
+            gotTiltEvent = false;
+            document.getElementById("tilt-warning").style.display = "none";
+
             requestWakeLock();
             updateHeader();
             document.getElementById("current-word").textContent = "";
@@ -641,6 +661,12 @@
                         gameActive = true;
                         showNextWord();
                         startTimer();
+
+                        setTimeout(() => {
+                            if (!gotTiltEvent && gameActive) {
+                                document.getElementById("tilt-warning").style.display = "block";
+                            }
+                        }, 6000);
                     }, 500);
                 }
             }, 800);

@@ -92,21 +92,19 @@
     .video-overlay {
       position: relative;
       z-index: 2;
-      width: 100%;                /* full width of header */
-      height: 100%;               /* full height — covers video completely but invisibly */
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: transparent;    /* ← key: no background */
-      border: none;               /* no border */
-      backdrop-filter: none;      /* no blur */
-      -webkit-backdrop-filter: none;
-      padding: 0;                 /* no inner spacing */
-      pointer-events: none;       /* clicks pass through */
+      width: 100%;                  /* full width to match video area */
+      max-width: none;              /* no capping */
+      height: 100%;                 /* full height coverage */
+      background: rgba(10, 0, 21, 0.001);  /* ~99.9% transparent (tiny tint to preserve quirk) */
+      border-radius: 20px;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 240, 255, 0.15);
+      padding: 0;                   /* no inner padding to maximize width coverage */
+      pointer-events: none;         /* clicks pass through */
     }
 
-    /* If you ever want to bring text back, remove display:none below */
+    /* Hide any potential text content */
     .video-overlay h1,
     .video-overlay .subtitle {
       display: none;
@@ -186,6 +184,9 @@
         height: 55vh;
         min-height: 360px;
       }
+      .video-overlay {
+        background: rgba(10, 0, 21, 0.001); /* same faint tint on mobile */
+      }
     }
 
     @media (max-width: 500px) {
@@ -213,6 +214,7 @@
         </video>
         
         <div class="video-overlay">
+          <!-- Empty / hidden content – overlay is present but nearly invisible -->
           <h1></h1>
           <div class="subtitle"></div>
         </div>

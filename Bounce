@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="theme-color" content="#000000"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <title>Bouncy Adventure – Instant Play</title>
+  <style>
+    body { 
+      margin:0; 
+      overflow:hidden; 
+      background:#000; 
+      font-family:Arial, sans-serif; 
+      touch-action:none; 
+      height:100vh; 
+      width:100vw;
+    }
+    #ui { 
+      position:absolute; top:10px; left:10px; right:10px; 
+      color:white; font-size:24px; pointer-events:none; z-index:50; 
+      display:flex; justify-content:space-between; 
+      text-shadow:2px 2px 4px rgba(0,0,0,0.8); 
+    }
+    #ui .score-section { display:flex; flex-direction:column; gap:2px; }
+    #highScore { font-size:18px; color:#ffd700; font-weight:bold; }
+    #deathOverlay { 
+      position:fixed; inset:0; 
+      background:linear-gradient(180deg,#88ddff 0%,#44aaff 100%); 
+      color:#222; font-size:32px; 
+      display:flex; flex-direction:column; align-items:center; justify-content:center; 
+      z-index:300; text-align:center; padding:20px; opacity:0; pointer-events:none; 
+      transition:opacity 0.6s ease; user-select:none; 
+    }
+    #deathOverlay.visible { opacity:1; pointer-events:auto; }
+    #restartBtn { 
+      font-size:28px; font-weight:bold; padding:20px 40px; 
+      background:linear-gradient(45deg,#ff4444,#cc0000); color:white; border:none; 
+      border-radius:15px; cursor:pointer; box-shadow:0 8px 20px rgba(0,0,0,0.3); 
+      transition:all 0.2s; margin-top:20px; min-width:200px; 
+    }
+    #restartBtn:active { transform:scale(0.96); }
+    #musicToggle { 
+      position:absolute; bottom:25px; right:25px; 
+      font-size:36px; cursor:pointer; z-index:60; 
+      text-shadow:2px 2px 4px rgba(0,0,0,0.8); 
+      transition:transform 0.2s; 
+    }
+    #musicToggle:active { transform:scale(0.9); }
+
+    #newHighScore {
+      position:absolute;
+      top:50%;
+      left:50%;
+      transform:translate(-50%, -50%);
+      font-size: clamp(36px, 7vw, 56px);
+      font-weight:bold;
+      color:#ffd700;
+      text-shadow: 0 0 15px #ff0, 0 0 30px #ff0, 0 0 50px #f80, 0 0 80px #f80;
+      white-space:nowrap;
+      max-width: 92vw;
+      text-align: center;
+      padding: 0 12px;
+      pointer-events:none;
+      z-index:250;
+      opacity:0;
+      display:none;
+    }
+    #newHighScore.show {
+      display:block;
+      animation: newHighPop 3.5s forwards;
+    }
+    @keyframes newHighPop {
+      0%   { transform:translate(-50%, -50%) scale(0.2); opacity:0; }
+      12%  { transform:translate(-50%, -50%) scale(1.35); opacity:1; }
+      28%  { transform:translate(-50%, -50%) scale(0.92); }
+      48%  { transform:translate(-50%, -50%) scale(1.12); }
+      68%  { transform:translate(-50%, -50%) scale(0.96); }
+      88%  { transform:translate(-50%, -50%) scale(1.04); }
+      100% { transform:translate(-50%, -50%) scale(1.0); opacity:0; }
+    }
+
+    canvas { display:block; }
+  </style>
+</head>
+<body>
+
+  <div id="deathOverlay">
+    <div style="font-size:64px; color:#ff4444; font-weight:bold; margin-bottom:10px; text-shadow:3px 3px 6px rgba(0,0,0,0.8);">💀 YOU DIED 💀</div>
+    <div style="font-size:32px; margin-bottom:30px;">GAME OVER</div>
+    <div style="font-size:24px; margin-bottom:40px; color:#444;">Final Score: <span id="finalScore">0</span></div>
+    <button id="restartBtn">RESTART</button>
+  </div>
+
+  <div id="ui">
+    <div class="score-section">
+      <div>⭐ Score: <span id="score">0</span></div>
+      <div id="highScore">🏆 High: <span id="highScoreValue">0</span></div>
+    </div>
+    <div>Level: <span id="level">1</span></div>
+  </div>
+
+  <!-- COIN PROGRESS BAR – LOWER LEFT -->
+  <div id="coinBarUI" style="position:absolute; bottom:25px; left:25px; width:200px; z-index:60;">
+    <div style="height:14px; background:#222; border-radius:7px; overflow:hidden; border:2px solid #ff0;">
+      <div id="coinBarFill" style="height:100%; width:0%; background:linear-gradient(to right, #ff0, #f80); transition:width 0.2s ease-out;"></div>
+    </div>
+  </div>
+
+  <!-- NEW HIGH SCORE ANIMATION -->
+  <div id="newHighScore">NEW HIGH SCORE!</div>
+
+  <div id="musicToggle">🎵</div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+  <script>
+    // Audio
+    let audioReady = false;
+    let bouncePitchIndex = 0;
+    let musicStarted = false;
+    let musicPlaying = true;
+
+    const bounceSynth = new Tone.Synth({ oscillator: { type: "square4", partials: [1, 0.2, 0.1] }, envelope: { attack: 0.005, decay: 0.08, sustain: 0.0, release: 0.4 } }).toDestination();
+    const jumpSynth   = new Tone.Synth({ oscillator: { type: "triangle8" }, envelope: { attack: 0.01, decay: 0.12, sustain: 0.0, release: 0.3 } }).toDestination();
+    const coinSynth   = new Tone.Synth({ oscillator: { type: "sine" }, envelope: { attack: 0.005, decay: 0.2, sustain: 0.1, release: 0.6 } }).connect(new Tone.FeedbackDelay("8n", 0.35).toDestination());
+    const deathSynth  = new Tone.Synth({ oscillator: { type: "sawtooth" }, envelope: { attack: 0.02, decay: 0.4, sustain: 0.0, release: 1.2 } }).toDestination();
+
+    function getBouncePitch() {
+      const pitches = ['C4','D4','Eb4','F4','G4','Ab4','Bb4','C5'];
+      bouncePitchIndex = (bouncePitchIndex + 1) % pitches.length;
+      return pitches[bouncePitchIndex];
+    }
+
+    function startAudio() {
+      if (!audioReady) {
+        Tone.start().then(() => {
+          audioReady = true;
+          startBackgroundMusic();
+          ensureFullscreen();
+        });
+      }
+    }
+
+    function startBackgroundMusic() {
+      if (musicStarted) return;
+      musicStarted = true;
+
+      Tone.Transport.bpm.value = 70;
+
+      const reverb = new Tone.Reverb({ decay: 2.8, wet: 0.38 }).toDestination();
+
+      const piano = new Tone.PolySynth(Tone.Synth, {
+        oscillator: { type: "fatsquare" },
+        envelope: { attack: 0.012, decay: 0.22, sustain: 0.65, release: 1.6 }
+      }).connect(reverb);
+      piano.volume.value = -28;
+
+      const pianoPattern = [
+        ["C4","G4"], ["C5","G4"], ["C4","G4"], ["C5","G4"], ["C4","G4"], ["C5","G4"], ["C4","G3"], ["C5","G3"],
+        ["D4","G4"], ["D5","G4"], ["D4","G4"], ["D5","G4"], ["D4","G4"], ["D5","G4"], ["D4","G3"], ["D5","G3"],
+        ["C4","E4"], ["A4","E4"], ["C4","E4"], ["A4","E4"], ["C4","E4"], ["A4","E4"], ["C4","E3"], ["A4","E3"],
+        ["C4","F4"], ["A4","F4"], ["C4","F4"], ["A4","F4"], ["C4","F4"], ["A4","F4"], ["C4","F3"], ["A4","F3"]
+      ];
+
+      let pianoStep = 0;
+      new Tone.Loop(time => {
+        const notes = pianoPattern[pianoStep % pianoPattern.length];
+        piano.triggerAttackRelease(notes, "16n", time);
+        pianoStep++;
+      }, "16n").start(0);
+
+      const bass = new Tone.Synth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.03, decay: 0.3, sustain: 0.5, release: 0.8 }
+      }).toDestination();
+      bass.volume.value = -28;
+
+      const bassRiff = ["C2","D2","E2","G3","A2","B2","A2","B2","C2","D2","E2","G3","A2","B2","A2","B2"];
+      let bassIdx = 0;
+      new Tone.Loop(time => {
+        bass.triggerAttackRelease(bassRiff[bassIdx], "8n", time);
+        bassIdx = (bassIdx + 1) % bassRiff.length;
+      }, "8n").start(0);
+
+      const kick  = new Tone.MembraneSynth().toDestination();
+      const snare = new Tone.NoiseSynth({ noise: {type:"white"}, envelope: {attack:0.001, decay:0.25} }).toDestination();
+      const hihat = new Tone.NoiseSynth({ noise: {type:"pink"}, envelope: {attack:0.001, decay:0.06} }).toDestination();
+
+      kick.volume.value = -20; snare.volume.value = -20; hihat.volume.value = -15;
+
+      new Tone.Loop(time => kick.triggerAttackRelease("C2", "8n", time), "2n").start("4m");
+      new Tone.Loop(time => snare.triggerAttackRelease("16n", time), "1m").start("4m + 2n");
+      new Tone.Loop(time => hihat.triggerAttackRelease("32n", time), "8n").start("4m");
+
+      const melodySynth = new Tone.Synth({
+        oscillator: { type: "sine" },
+        envelope: { attack: 0.04, decay: 0.35, sustain: 0.25, release: 1.1 }
+      }).toDestination();
+      melodySynth.volume.value = -8;
+
+      const chorusMelody = ["G4","A4","G4","F4","E4","G4","A4","C5","Bb4","A4","G4"];
+      const noteDurations = ["8n","8n","8n","4n","8n","8n","4n","8n","8n","8n","2n"];
+
+      new Tone.Loop(time => {
+        let offset = 0;
+        chorusMelody.forEach((note, i) => {
+          const dur = noteDurations[i] || "8n";
+          melodySynth.triggerAttackRelease(note, dur, time + offset);
+          offset += Tone.Time(dur).toSeconds();
+        });
+      }, "8m").start("6m");
+
+      Tone.Transport.start();
+    }
+
+    // HIGH SCORE + ONE-TIME ANIMATION FLAG
+    let newHighShownThisRun = false;
+    function loadHighScore() { return parseInt(localStorage.getItem('bouncyHighScore')) || 0; }
+    function updateHighScoreIfBetter(newScore) {
+      if (newScore > highScore) {
+        highScore = newScore;
+        highScoreValueEl.textContent = highScore;
+        localStorage.setItem('bouncyHighScore', highScore);
+
+        if (!newHighShownThisRun) {
+          showNewHighScore();
+          newHighShownThisRun = true;
+        }
+        return true;
+      }
+      return false;
+    }
+
+    const newHighEl = document.getElementById('newHighScore');
+    function showNewHighScore() {
+      newHighEl.textContent = "NEW HIGH SCORE!";
+      newHighEl.classList.remove('show');
+      void newHighEl.offsetWidth;
+      newHighEl.classList.add('show');
+    }
+
+    const deathOverlay     = document.getElementById('deathOverlay');
+    const restartBtn       = document.getElementById('restartBtn');
+    const finalScoreEl     = document.getElementById('finalScore');
+    const scoreEl          = document.getElementById('score');
+    const highScoreValueEl = document.getElementById('highScoreValue');
+    const levelEl          = document.getElementById('level');
+    const musicToggle      = document.getElementById('musicToggle');
+
+    const coinBarFill = document.getElementById('coinBarFill');
+
+    let score = 0;
+    let highScore = loadHighScore();
+    highScoreValueEl.textContent = highScore;
+
+    let coinBarProgress = 0;
+    let diamondsThisLevel = 0;
+
+    function updateCoinBar() { coinBarFill.style.width = coinBarProgress + '%'; }
+
+    // ==================== DIAMOND BONUS & MAGNET ====================
+    const diamonds = [];
+    let magnetActive = false;
+    let magnetEndTime = 0;
+
+    // FULLSCREEN
+    function enterFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen({ navigationUI: "hide" });
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+    }
+    function ensureFullscreen() {
+      if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) return;
+      enterFullscreen();
+    }
+    document.addEventListener('touchstart', ensureFullscreen, { passive: false });
+    document.addEventListener('fullscreenchange', ensureFullscreen);
+    document.addEventListener('webkitfullscreenchange', ensureFullscreen);
+    document.addEventListener('msfullscreenchange', ensureFullscreen);
+
+    // BACK BUTTON
+    history.pushState(null, null, location.href);
+    history.pushState(null, null, location.href);
+    window.addEventListener('popstate', () => {
+      if (confirm('Exit Bouncy Adventure?')) {
+        window.location.href = 'about:blank';
+      } else {
+        history.pushState(null, null, location.href);
+      }
+    });
+
+    // SOFT RESTART
+    function restartGame() {
+      ensureFullscreen();
+
+      gameIsOver = false;
+      score = 0;
+      levelData.value = 1;
+      scene.background = new THREE.Color(levelColors[0]);   // ← FIXED: reset background on restart
+      coinBarProgress = 0;
+      diamondsThisLevel = 0;
+      scoreEl.textContent = '0';
+      levelEl.textContent = '1';
+      updateCoinBar();
+      finalScoreEl.textContent = '0';
+
+      deathOverlay.classList.remove('visible');
+      newHighEl.classList.remove('show');
+      newHighShownThisRun = false;
+
+      platforms.forEach(p => scene.remove(p)); platforms.length = 0;
+      coins.forEach(c => scene.remove(c)); coins.length = 0;
+      obstacles.forEach(o => scene.remove(o)); obstacles.length = 0;
+      diamonds.forEach(d => scene.remove(d)); diamonds.length = 0;
+      flashEffects.forEach(f => scene.remove(f)); flashEffects.length = 0;
+
+      player.position.set(0, 3, 0);
+      velocityY = 0;
+      velocityX = 0;
+      canJump = true;
+      squashScaleY = 1; squashScaleXZ = 1; squashTimer = 0;
+      player.scale.set(1, 1, 1);
+
+      camera.position.set(0, 0, 18);
+
+      magnetActive = false;
+
+      for (let i = 0; i < 25; i++) createPlatform(6 + i * 5);
+
+      if (audioReady && musicPlaying) Tone.Transport.start();
+    }
+
+    restartBtn.addEventListener('pointerup', restartGame);
+
+    // Music toggle
+    musicToggle.addEventListener('pointerup', () => {
+      musicPlaying = !musicPlaying;
+      musicToggle.textContent = musicPlaying ? '🎵' : '🔇';
+      if (audioReady) {
+        if (musicPlaying) Tone.Transport.start();
+        else Tone.Transport.stop();
+      }
+    });
+
+    // LEVEL COLORS (moved up so we can use it for initial background)
+    const levelColors = [0x9166e8, 0x76949c, 0x88ddff, 0xffaaff, 0xaaffaa, 0xffdd88, 0xb04cad, 0x7b7e96, 0xaaffff];
+
+    // Three.js
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(levelColors[0]);   // ← FIXED: start with first color in array
+
+    const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, 0.1, 3000);
+    camera.position.set(0, 0, 18);
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    document.body.appendChild(renderer.domElement);
+
+    scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+    const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+    dirLight.position.set(10, 30, 10);
+    scene.add(dirLight);
+
+    const player = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 32, 24),
+      new THREE.MeshPhongMaterial({ color: 0xffee00, specular: 0xffffff, shininess: 120, emissive: 0xaaaa00, emissiveIntensity: 0.1 })
+    );
+    player.position.set(0, 3, 0);
+    scene.add(player);
+
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.144, 32),
+      new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.32, side: THREE.DoubleSide })
+    );
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.renderOrder = 10;
+    scene.add(shadow);
+    shadow.visible = false;
+
+    let velocityY = 0, velocityX = 0, canJump = true;
+    const gravity = -0.018, bouncePower = 0.55, jumpPower = 0.85, moveAccel = 0.085, moveDrag = 0.825;
+
+    let squashScaleY = 1, squashScaleXZ = 1, squashTimer = 0;
+    const SQUASH_DURATION = 20, MAX_SQUASH_Y = 0.58, MAX_SQUASH_XZ = 1.42;
+
+    const basePlatform = new THREE.Mesh(new THREE.BoxGeometry(30, 1, 4), new THREE.MeshLambertMaterial({ color: 0x88cc44 }));
+    basePlatform.position.y = 0;
+    scene.add(basePlatform);
+
+    const platforms = [], coins = [], obstacles = [], flashEffects = [];
+    const levelData = { value: 1 };
+    let gameIsOver = false;
+
+    function createPlatform(y) {
+      const width = 5 + Math.random() * 5;
+      const centerX = (Math.random() - 0.5) * 14;
+      const plat = new THREE.Mesh(new THREE.BoxGeometry(width, 0.6, 3), new THREE.MeshLambertMaterial({ color: 0x44ff88 }));
+      plat.position.set(centerX, y, 0);
+      plat.userData = { 
+        centerX, 
+        moveRange: 3, 
+        moveSpeed: (0.6 + Math.random() * 0.8) * levelData.value * 0.25, 
+        offset: Math.random() * Math.PI * 2, 
+        visited: false, 
+        usedColor: 0x88aaff,
+        hitAnim: 0
+      };
+      scene.add(plat);
+      platforms.push(plat);
+    }
+    for (let i = 0; i < 25; i++) createPlatform(6 + i * 5);
+
+    function createCoin(y) {
+      const group = new THREE.Group();
+      const coin = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.15, 8, 16), new THREE.MeshLambertMaterial({ color: 0xffff00, emissive: 0xffaa00 }));
+      coin.rotation.x = Math.PI/2;
+      group.add(coin);
+
+      const outline = new THREE.Mesh(new THREE.TorusGeometry(0.57, 0.17, 8, 16), new THREE.MeshBasicMaterial({ color: 0xcccc00, side: THREE.BackSide }));
+      outline.rotation.x = Math.PI/2;
+      group.add(outline);
+
+      group.position.set((Math.random()-0.5)*12, y+2.5, 0);
+      group.userData.collected = false;
+      scene.add(group);
+      coins.push(group);
+    }
+
+    function createDiamond(y) {
+      const diamond = new THREE.Mesh(
+        new THREE.OctahedronGeometry(0.75, 0),
+        new THREE.MeshPhongMaterial({
+          color: 0x77ccff,
+          emissive: 0xaaffff,
+          emissiveIntensity: 0.1,
+          shininess: 120
+        })
+      );
+      diamond.position.set((Math.random() - 0.5) * 11, y + 4 + Math.random() * 4, 0);
+      diamond.userData = { collected: false };
+      scene.add(diamond);
+      diamonds.push(diamond);
+    }
+
+    function createObstacle(y) {
+      const monster = new THREE.Group();
+
+      const colorSets = [
+        { body: 0xcc1133, spike: 0x991122 },
+        { body: 0x444444, spike: 0x2a2a2a },
+        { body: 0x5a2d8c, spike: 0x3f1f63 },
+        { body: 0x1f5c3a, spike: 0x143f28 }
+      ];
+      const colorSet = colorSets[Math.floor(Math.random() * colorSets.length)];
+
+      const body = new THREE.Mesh(
+        new THREE.SphereGeometry(1.15, 20, 18),
+        new THREE.MeshPhongMaterial({ color: colorSet.body, shininess: 8, specular: 0x330000 })
+      );
+      body.scale.set(1.05, 0.92, 1);
+      monster.add(body);
+
+      const spikeGeo = new THREE.ConeGeometry(0.18, 1.1, 5);
+      const spikeMat = new THREE.MeshLambertMaterial({ color: colorSet.spike });
+      const spikePositions = [
+        [0.0, 1.3, 0], [0.75, 0.6, 0.75], [-0.75, 0.6, 0.75],
+        [0.75, 0.6, -0.75], [-0.75, 0.6, -0.75],
+        [1.05, 0.1, 0.2], [-1.05, 0.1, 0.2],
+        [0.4, -0.7, 0.9], [-0.4, -0.7, 0.9],
+        [0.4, -0.7, -0.9], [-0.4, -0.7, -0.9]
+      ];
+      spikePositions.forEach(p => {
+        const spike = new THREE.Mesh(spikeGeo, spikeMat);
+        spike.position.set(...p);
+        spike.lookAt(0, 0, 0);
+        spike.rotateX(Math.random() * 0.6 - 0.3);
+        const s = 0.75 + Math.random() * 0.45;
+        spike.scale.set(s, 1 + Math.random()*0.4, s);
+        monster.add(spike);
+      });
+
+      const eyeMat = new THREE.MeshPhongMaterial({ color: 0xffee33, emissive: 0xffaa00, emissiveIntensity: 0.6, shininess: 100 });
+      const leftEye = new THREE.Mesh(new THREE.SphereGeometry(0.32, 16, 16), eyeMat);
+      leftEye.position.set(-0.48, 0.48, 0.82);
+      monster.add(leftEye);
+      const rightEye = leftEye.clone(); rightEye.position.x = 0.48; monster.add(rightEye);
+
+      const pupilMat = new THREE.MeshBasicMaterial({color: 0x111111});
+      const leftPupil = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 12), pupilMat);
+      leftPupil.position.set(-0.48, 0.48, 0.98);
+      monster.add(leftPupil);
+      const rightPupil = leftPupil.clone(); rightPupil.position.x = 0.48; monster.add(rightPupil);
+
+      const spawnX = (Math.random() - 0.5) * 15.5;
+      monster.position.set(spawnX, y + 2.0, 0);
+      
+      monster.userData = {
+        bobTime: Math.random() * Math.PI * 2,
+        originalY: y + 2.0,
+        size: 1.0 + Math.random() * 0.25,
+        isMoving: Math.random() < 0.45
+      };
+
+      if (monster.userData.isMoving) {
+        monster.userData.centerX = spawnX;
+        monster.userData.moveRange = 3.5 + Math.random() * 4.5;
+        monster.userData.moveSpeed = (1.2 + Math.random() * 1.1) * Math.max(1, levelData.value * 0.24);
+        monster.userData.offset = Math.random() * Math.PI * 2;
+      }
+
+      monster.scale.setScalar(monster.userData.size * 0.95);
+      scene.add(monster);
+      obstacles.push(monster);
+    }
+
+    function createFlashEffect(pos) {
+      const flash = new THREE.Mesh(new THREE.SphereGeometry(3, 16, 16), new THREE.MeshBasicMaterial({ color: 0xffff88, transparent: true, opacity: 0 }));
+      flash.position.copy(pos);
+      flash.userData = { life: 1.0 };
+      scene.add(flash);
+      flashEffects.push(flash);
+    }
+
+    const cloudLayers = [];
+    for (let i = 0; i < 8; i++) {
+      const group = new THREE.Group(); group.position.z = -100 - i*15;
+      for (let j = 0; j < 10 - i; j++) {
+        const cloud = new THREE.Mesh(new THREE.SphereGeometry(6 + Math.random()*28, 16, 16), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.4 + i*0.05 }));
+        cloud.position.set((j-5)*25 + (Math.random()-0.5)*15, i*100 + Math.random()*40, 0);
+        group.add(cloud);
+      }
+      scene.add(group);
+      cloudLayers.push({ group, speed: 0.008 + i*0.003, baseY: i*100 });
+    }
+
+    function updateLevel() {
+      while (score >= levelData.value * 250) {
+        levelData.value++;
+        levelEl.textContent = levelData.value;
+        scene.background = new THREE.Color(levelColors[(levelData.value-1) % levelColors.length]);
+        diamondsThisLevel = 0;
+      }
+    }
+
+    function triggerDeath() {
+      updateHighScoreIfBetter(score);
+      finalScoreEl.textContent = score;
+      if (audioReady) deathSynth.triggerAttackRelease("G3", "4n");
+      deathOverlay.classList.add('visible');
+      gameIsOver = true;
+      Tone.Transport.stop();
+    }
+
+    let targetX = 0.5, isMoving = false;
+    let lastTap = { time: 0, x: 0, y: 0 };
+    const DOUBLE_TAP_TIME = 320, DOUBLE_TAP_DIST = 40;
+
+    function getNormalizedX(clientX) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      return (clientX - rect.left) / rect.width;
+    }
+
+    function handleStart(e) {
+      e.preventDefault(); 
+      startAudio();
+      ensureFullscreen();
+      const touch = e.touches?.[0] ?? e;
+      targetX = getNormalizedX(touch.clientX); isMoving = true;
+      const now = Date.now();
+      const dx = touch.clientX - lastTap.x, dy = touch.clientY - lastTap.y;
+      if (now - lastTap.time < DOUBLE_TAP_TIME && Math.hypot(dx, dy) < DOUBLE_TAP_DIST) {
+        if (canJump) { velocityY = jumpPower; canJump = false; if (audioReady) jumpSynth.triggerAttackRelease("G5", "8n"); }
+        lastTap.time = 0;
+      } else lastTap = { time: now, x: touch.clientX, y: touch.clientY };
+    }
+    function handleMove(e) { if (!isMoving) return; e.preventDefault(); if (e.touches?.length) targetX = getNormalizedX(e.touches[0].clientX); }
+    function handleEnd() { isMoving = false; }
+
+    const canvas = renderer.domElement;
+    canvas.addEventListener('touchstart', handleStart, { passive: false });
+    canvas.addEventListener('touchmove', handleMove, { passive: false });
+    canvas.addEventListener('touchend', handleEnd, { passive: false });
+    canvas.addEventListener('touchcancel', handleEnd, { passive: false });
+    canvas.addEventListener('mousedown', handleStart);
+    canvas.addEventListener('mousemove', e => { if (isMoving) targetX = getNormalizedX(e.clientX); });
+    canvas.addEventListener('mouseup', handleEnd);
+    canvas.addEventListener('mouseleave', handleEnd);
+
+    // MAIN LOOP
+    function animate() {
+      requestAnimationFrame(animate);
+      if (gameIsOver) return;
+
+      const dir = (targetX - 0.5) * 2;
+      if (isMoving) velocityX += dir * moveAccel * 1.4;
+      velocityX *= moveDrag;
+      if (!isMoving) velocityX *= 0.68;
+      velocityX = THREE.MathUtils.clamp(velocityX, -2.8, 2.8);
+      player.position.x += velocityX;
+      player.position.x = THREE.MathUtils.clamp(player.position.x, -14, 14);
+
+      velocityY += gravity;
+      player.position.y += velocityY;
+
+      if (Math.abs(player.position.x) < 15 && player.position.y < 2 && player.position.y > 0.5 && velocityY < 0) {
+        player.position.y = 2;
+        velocityY = bouncePower * 0.75;
+        canJump = true;
+        squashTimer = SQUASH_DURATION;
+        if (audioReady) bounceSynth.triggerAttackRelease(getBouncePitch(), "16n");
+      }
+
+      let landedThisFrame = false;
+
+      platforms.forEach(p => {
+        if (Math.abs(player.position.x - p.position.x) < 4.5 &&
+            player.position.y - p.position.y < 2.2 &&
+            player.position.y - p.position.y > 0.4 &&
+            velocityY < 0) {
+          player.position.y = p.position.y + 2;
+          velocityY = bouncePower;
+          canJump = true;
+          landedThisFrame = true;
+          if (audioReady) bounceSynth.triggerAttackRelease(getBouncePitch(), "16n");
+
+          if (!p.userData.visited) {
+            p.userData.visited = true;
+            p.userData.hitAnim = 22;
+            score += 10; 
+            scoreEl.textContent = score;
+            updateHighScoreIfBetter(score);
+            p.material.color.setHex(p.userData.usedColor);
+            updateLevel();
+          }
+        }
+        const t = Date.now() * 0.001;
+        const osc = Math.sin(t * p.userData.moveSpeed + p.userData.offset);
+        p.position.x = p.userData.centerX + osc * p.userData.moveRange;
+      });
+
+      if (landedThisFrame) squashTimer = SQUASH_DURATION;
+      if (squashTimer > 0) {
+        squashTimer--;
+        const progress = 1 - squashTimer / SQUASH_DURATION;
+        if (progress < 0.28) {
+          const phase = progress / 0.28;
+          squashScaleY  = 1 - (1 - MAX_SQUASH_Y)  * phase * 1.5;
+          squashScaleXZ = 1 + (MAX_SQUASH_XZ - 1) * phase * 1.5;
+        } else if (progress < 0.60) {
+          const phase = (progress - 0.28) / 0.32;
+          squashScaleY  = MAX_SQUASH_Y + (1.20 - MAX_SQUASH_Y) * phase;
+          squashScaleXZ = MAX_SQUASH_XZ - (MAX_SQUASH_XZ - 0.90) * phase;
+        } else {
+          const phase = (progress - 0.60) / 0.40;
+          squashScaleY  = 1.20 + (1 - 1.20) * phase;
+          squashScaleXZ = 0.90 + (1 - 0.90) * phase;
+        }
+      } else if (velocityY < -1.3) {
+        const stretch = THREE.MathUtils.mapLinear(velocityY, -3.5, -1.3, 1.18, 1.03);
+        squashScaleY = stretch;
+        squashScaleXZ = 1 / Math.sqrt(stretch);
+      } else {
+        squashScaleY = THREE.MathUtils.lerp(squashScaleY, 1.0, 0.28);
+        squashScaleXZ = THREE.MathUtils.lerp(squashScaleXZ, 1.0, 0.28);
+      }
+      player.scale.set(squashScaleXZ, squashScaleY, squashScaleXZ);
+
+      let shadowPlatform = null;
+      let minHeightAbove = Infinity;
+      platforms.forEach(p => {
+        const heightAbove = player.position.y - p.position.y - 2;
+        if (heightAbove > 0.1 && heightAbove < 22) {
+          const dx = Math.abs(player.position.x - p.position.x);
+          if (dx < 5 && heightAbove < minHeightAbove) {
+            minHeightAbove = heightAbove;
+            shadowPlatform = p;
+          }
+        }
+      });
+      if (shadowPlatform) {
+        shadow.visible = true;
+        shadow.position.set(player.position.x, shadowPlatform.position.y + 0.32, 0);
+        const platWidth = shadowPlatform.geometry.parameters.width;
+        const halfPlat = platWidth / 2 - 0.8;
+        const dxToLeft  = player.position.x - (shadowPlatform.position.x - platWidth/2);
+        const dxToRight = (shadowPlatform.position.x + platWidth/2) - player.position.x;
+        let maxShadowX = Math.min(halfPlat, dxToLeft, dxToRight);
+        const h = minHeightAbove;
+        const scale = Math.max(0.09, 0.829 - h * 0.01);
+        const scaleX = Math.max(0.09, maxShadowX * 2 * (1 - h * 0.03) * 0.85);
+        shadow.scale.set(scaleX, scale, 11);
+        shadow.material.opacity = Math.max(0.06, 0.72 - h * 0.332);
+      } else {
+        shadow.visible = false;
+      }
+
+      obstacles.forEach(o => {
+        if (o.userData?.originalY !== undefined) {
+          const bob = Math.sin(Date.now() * 0.0038 + o.userData.bobTime) * 0.16;
+          o.position.y = o.userData.originalY + bob;
+        }
+        if (o.userData.isMoving) {
+          const t = Date.now() * 0.001;
+          const osc = Math.sin(t * o.userData.moveSpeed + o.userData.offset);
+          o.position.x = o.userData.centerX + osc * o.userData.moveRange;
+          o.position.x = THREE.MathUtils.clamp(o.position.x, -13.8, 13.8);
+        }
+      });
+
+      platforms.forEach(p => {
+        if (p.userData.hitAnim > 0) {
+          p.userData.hitAnim--;
+          const progress = 1 - p.userData.hitAnim / 22;
+          let scaleY = 1;
+          let scaleXZ = 1;
+          if (progress < 0.45) {
+            const ph = progress / 0.45;
+            scaleY = 1 - 0.48 * ph;
+            scaleXZ = 1 + 0.32 * ph;
+          } else {
+            const ph = (progress - 0.45) / 0.55;
+            scaleY = 0.52 + 0.58 * (1 - Math.pow(1 - ph, 2));
+            scaleXZ = 1.32 - 0.35 * (1 - Math.pow(1 - ph, 2));
+          }
+          p.scale.set(scaleXZ, scaleY, scaleXZ);
+        } else if (p.scale.y !== 1) {
+          p.scale.set(1, 1, 1);
+        }
+      });
+
+      // Coins
+      for (let i = coins.length - 1; i >= 0; i--) {
+        const c = coins[i];
+        c.rotation.y -= 0.18;
+        c.rotation.x += 0.08;
+
+        if (player.position.distanceTo(c.position) < 1.9 && !c.userData.collected) {
+          c.userData.collected = true;
+          createFlashEffect(c.position);
+          score += 1; 
+          scoreEl.textContent = score;
+          updateHighScoreIfBetter(score);
+          updateLevel();
+          coinBarProgress++;
+          updateCoinBar();
+          if (coinBarProgress >= 100) {
+            score += 500; 
+            scoreEl.textContent = score;
+            updateHighScoreIfBetter(score);
+            coinBarProgress = 0; 
+            updateCoinBar();
+            if (audioReady) coinSynth.triggerAttackRelease("C7", "16n");
+          }
+          if (audioReady) coinSynth.triggerAttackRelease("C6", "32n");
+          scene.remove(c); coins.splice(i, 1);
+        }
+      }
+
+      // Diamonds + Magnet
+      for (let i = diamonds.length - 1; i >= 0; i--) {
+        const d = diamonds[i];
+        d.rotation.y += 0.06;
+        d.rotation.x += 0.03;
+
+        if (!d.userData.collected && player.position.distanceTo(d.position) < 2.0) {
+          d.userData.collected = true;
+          createFlashEffect(d.position);
+          scene.remove(d);
+          diamonds.splice(i, 1);
+
+          magnetActive = true;
+          magnetEndTime = Date.now() + 5000;
+        }
+      }
+
+      if (magnetActive) {
+        if (Date.now() > magnetEndTime) {
+          magnetActive = false;
+        } else {
+          for (let i = coins.length - 1; i >= 0; i--) {
+            const c = coins[i];
+            if (c.userData.collected) continue;
+            const toPlayer = player.position.clone().sub(c.position);
+            const dist = toPlayer.length();
+            if (dist > 1) {
+              toPlayer.normalize();
+              c.position.add(toPlayer.multiplyScalar(0.28));
+            }
+          }
+        }
+      }
+
+      for (const o of obstacles) {
+        if (player.position.distanceTo(o.position) < 2.15) { triggerDeath(); return; }
+      }
+
+      for (let i = flashEffects.length - 1; i >= 0; i--) {
+        const f = flashEffects[i];
+        f.userData.life -= 0.05;
+        f.material.opacity = Math.sin(f.userData.life * Math.PI * 8) * f.userData.life;
+        if (f.userData.life <= 0) { scene.remove(f); flashEffects.splice(i, 1); }
+      }
+
+      const playerY = player.position.y;
+      if (playerY > (platforms[platforms.length-1]?.position.y ?? 0) - 30) {
+        const ny = (platforms[platforms.length-1]?.position.y ?? 0) + 5 + Math.random()*3;
+        createPlatform(ny);
+
+        const coinChance = 0.4 + levelData.value * 0.08;
+        for (let i = 0; i < Math.floor(levelData.value * 0.3) + 1; i++) if (Math.random() < coinChance) createCoin(ny);
+
+        if (Math.random() < 0.15 + levelData.value*0.01) createObstacle(ny);
+
+        if (diamondsThisLevel < 2 && Math.random() < 0.45) {
+          createDiamond(ny);
+          diamondsThisLevel++;
+        }
+        if (diamondsThisLevel < 2 && Math.random() < 0.55) {
+          createDiamond(ny + 6 + Math.random() * 8);
+          diamondsThisLevel++;
+        }
+      }
+
+      for (let i = platforms.length - 1; i >= 0; i--) {
+        if (platforms[i].position.y < playerY - 150) {
+          scene.remove(platforms[i]);
+          platforms.splice(i, 1);
+        }
+      }
+      for (let i = coins.length - 1; i >= 0; i--) {
+        if (coins[i].position.y < playerY - 150) {
+          scene.remove(coins[i]);
+          coins.splice(i, 1);
+        }
+      }
+      for (let i = diamonds.length - 1; i >= 0; i--) {
+        if (diamonds[i].position.y < playerY - 150) {
+          scene.remove(diamonds[i]);
+          diamonds.splice(i, 1);
+        }
+      }
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        if (obstacles[i].position.y < playerY - 150) {
+          scene.remove(obstacles[i]);
+          obstacles.splice(i, 1);
+        }
+      }
+
+      if (player.position.y < -25) { triggerDeath(); return; }
+
+      camera.position.y += (player.position.y + 6 - camera.position.y) * 0.2;
+      camera.position.x += (player.position.x * 0.6 - camera.position.x) * 0.5;
+
+      const time = Date.now() * 0.001;
+      cloudLayers.forEach((layer, i) => {
+        layer.group.position.x = Math.sin(time * layer.speed)*20 + Math.cos(time * layer.speed*0.7)*8;
+        layer.group.position.y = camera.position.y + layer.baseY - i*25;
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    animate();
+
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+    });
+  </script>
+</body>
+</html>

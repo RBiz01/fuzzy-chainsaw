@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>2.5D TETRIS</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&display=swap');
+        
+        body {
+            margin: 0; padding: 0; overflow: hidden;
+            background: radial-gradient(circle at center, #1a0033 0%, #0a001f 70%);
+            font-family: 'Orbitron', sans-serif;
+            color: #00ffff;
+            touch-action: none; user-select: none;
+            letter-spacing: 1.2px;
+        }
+        #container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 100; }
+        .neon-panel {
+            background: rgba(15,8,55,0.55); backdrop-filter: blur(14px);
+            border: 2px solid rgba(0,255,255,0.7);
+            box-shadow: 0 0 25px rgba(0,255,255,0.45), inset 0 0 18px rgba(255,0,255,0.25);
+            border-radius: 14px; padding: 8px 12px; text-align: center;
+            pointer-events: auto; text-transform: uppercase;
+        }
+        #scorePanel { position: absolute; top: 16px; left: 16px; width: 108px; }
+        #nextPanel { position: absolute; top: 16px; right: 16px; width: 98px; }
+        #nextCanvas { width: 80px; height: 80px; background: rgba(30,10,70,0.6); border: 2px solid #ffff00; box-shadow: 0 0 18px #ffff00; image-rendering: pixelated; }
+        .control-btn {
+            width: 54px; height: 54px; border-radius: 50%;
+            background: rgba(255,0,255,0.18); border: 3px solid #00ffff;
+            box-shadow: 0 0 22px #ff00ff, inset 0 0 18px rgba(255,255,255,0.4);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: #ffffff; pointer-events: auto;
+            transition: all 0.08s ease;
+        }
+        .control-btn:active { transform: scale(0.88); box-shadow: 0 0 35px #00ffff; }
+        #rightControls { position: absolute; bottom: 32px; right: 22px; display: flex; flex-direction: column; gap: 14px; }
+        #moveArea {
+            position: absolute; bottom: 38px; left: 18px;
+            width: 118px; height: 52px; display: flex; pointer-events: auto;
+            border-radius: 12px; overflow: hidden;
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(0,255,255,0.4);
+        }
+        #leftMove, #rightMove {
+            flex: 1; background: rgba(0,255,255,0.12);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 26px; color: #00ffff;
+            border: 1px solid rgba(0,255,255,0.35); transition: background 0.1s;
+        }
+        #leftMove:active, #rightMove:active { background: rgba(0,255,255,0.35); }
+        #topAudioControls {
+            position: absolute; top: 22px; left: 50%; transform: translateX(-50%);
+            display: flex; flex-direction: column; align-items: center; gap: 6px;
+            pointer-events: auto;
+        }
+        .audio-btn {
+            padding: 5px 18px; background: rgba(0,0,0,0.45);
+            border: 2px solid #ffff00; border-radius: 30px;
+            font-size: 11px; color: #ffff00; box-shadow: 0 0 18px #ffff00;
+            cursor: pointer; transition: all 0.1s; white-space: nowrap;
+        }
+        .audio-btn:active { transform: scale(0.95); }
+        #gameOverScreen {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(12,0,35,0.92); backdrop-filter: blur(16px);
+            border: 3px solid #ff0088; border-radius: 22px;
+            padding: 32px 48px; text-align: center;
+            box-shadow: 0 0 70px #ff0088; display: none; pointer-events: auto;
+        }
+        #gameOverScreen h1 { font-size: 32px; margin: 0 0 16px 0; color: #ff0088; text-shadow: 0 0 25px #ff0088; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    
+    <div id="overlay">
+        <div id="scorePanel" class="neon-panel">
+            <div style="font-size:8px;opacity:0.75;letter-spacing:2px;">SCORE</div>
+            <div id="score" style="font-size:17px;color:#ffff00;text-shadow:0 0 12px #ffff00;">000000</div>
+            <div style="font-size:8px;opacity:0.75;letter-spacing:2px;margin-top:4px;">LEVEL</div>
+            <div id="level" style="font-size:17px;color:#ff00ff;text-shadow:0 0 12px #ff00ff;">01</div>
+            <div style="font-size:8px;opacity:0.75;letter-spacing:2px;margin-top:4px;">LINES</div>
+            <div id="lines" style="font-size:17px;color:#00ff88;text-shadow:0 0 12px #00ff88;">000</div>
+        </div>
+
+        <div id="nextPanel" class="neon-panel">
+            <div id="nextLabel" style="font-size:10px;margin-bottom:5px;color:#ffff00;text-shadow:0 0 10px #ffff00;letter-spacing:2.5px;">NEXT</div>
+            <canvas id="nextCanvas" width="80" height="80"></canvas>
+        </div>
+
+        <div id="topAudioControls">
+            <div class="audio-btn" id="musicToggle" onclick="toggleMusic()">♪ MUSIC ON</div>
+            <div class="audio-btn" id="sfxToggle" onclick="toggleSFX()">SFX ON</div>
+        </div>
+
+        <div id="rightControls">
+            <div class="control-btn" onclick="rotatePiece()">↻</div>
+            <div class="control-btn" onclick="hardDrop()">↓</div>
+        </div>
+
+        <div id="moveArea">
+            <div id="leftMove" onclick="moveLeft()">←</div>
+            <div id="rightMove" onclick="moveRight()">→</div>
+        </div>
+    </div>
+
+    <div id="gameOverScreen">
+        <h1>GAME OVER</h1>
+        <div style="font-size:14px;margin:10px 0 4px;color:#ffffff88;">FINAL SCORE</div>
+        <div id="finalScore" style="font-size:26px;color:#ffff00;text-shadow:0 0 15px #ffff00;">000000</div>
+        <button onclick="restartGame()" style="margin-top:20px;font-family:'Orbitron',sans-serif;padding:9px 28px;font-size:14px;background:rgba(0,255,136,0.9);color:#000;border:none;border-radius:8px;box-shadow:0 0 25px #00ff88;">RESTART</button>
+    </div>
+
+    <script>
+        // =============== THREE.JS + GAME ===============
+        let scene, camera, renderer;
+        const BLOCK_SIZE = 1, BOARD_WIDTH = 10, BOARD_HEIGHT = 20;
+        
+        let board = Array.from({length: BOARD_HEIGHT}, () => Array(BOARD_WIDTH).fill(0));
+        let boardMeshMap = Array.from({length: BOARD_HEIGHT}, () => Array(BOARD_WIDTH).fill(null));
+        
+        let currentPiece = null;
+        let nextPieceType = 0;
+        let bag = [];
+        let score = 0, linesCleared = 0, level = 1;
+        let dropInterval = 800;
+        let lastDropTime = 0;
+        let isGameOver = false;
+        let particles = [];
+        let musicOn = true;
+        let sfxOn = true;
+        let previewCtx;
+        let moveLeftInterval = null, moveRightInterval = null;
+        let ghostMeshes = [];
+
+        const COLORS = [0x00ffff,0xffff00,0xff00ff,0x00ff88,0xff8800,0x0088ff,0xff0088];
+
+        const TETROMINOES = [
+            {shape:[[[1,1,1,1]],[[1],[1],[1],[1]],[[1,1,1,1]],[[1],[1],[1],[1]]]},
+            {shape:[[[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]],[[1,1],[1,1]]]},
+            {shape:[[[0,1,0],[1,1,1]],[[1,0],[1,1],[1,0]],[[1,1,1],[0,1,0]],[[0,1],[1,1],[0,1]]]},
+            {shape:[[[0,1,1],[1,1,0]],[[1,0],[1,1],[0,1]],[[0,1,1],[1,1,0]],[[1,0],[1,1],[0,1]]]},
+            {shape:[[[1,1,0],[0,1,1]],[[0,1],[1,1],[1,0]],[[1,1,0],[0,1,1]],[[0,1],[1,1],[1,0]]]},
+            {shape:[[[1,0,0],[1,1,1]],[[1,1],[1,0],[1,0]],[[1,1,1],[0,0,1]],[[0,1],[0,1],[1,1]]]},
+            {shape:[[[0,0,1],[1,1,1]],[[1,0],[1,0],[1,1]],[[1,1,1],[1,0,0]],[[1,1],[0,1],[0,1]]]}
+        ];
+
+        function createBlockMesh(color) {
+            const geo = new THREE.BoxGeometry(BLOCK_SIZE*0.92, BLOCK_SIZE*0.92, 1.65);
+            const mat = new THREE.MeshPhongMaterial({color, emissive:color, emissiveIntensity:0.68, shininess:100, specular:0xffffff});
+            const mesh = new THREE.Mesh(geo, mat);
+            const shine = new THREE.Mesh(new THREE.PlaneGeometry(0.68,0.68), new THREE.MeshBasicMaterial({color:0xffffff, transparent:true, opacity:0.4}));
+            shine.rotation.x = -Math.PI/2; shine.position.y = BLOCK_SIZE*0.47;
+            mesh.add(shine);
+            return mesh;
+        }
+
+        class Particle {
+            constructor(x,y,z,color) {
+                this.mesh = new THREE.Mesh(new THREE.SphereGeometry(0.13,8,8), new THREE.MeshBasicMaterial({color, transparent:true}));
+                this.mesh.position.set(x,y,z); scene.add(this.mesh);
+                this.vel = new THREE.Vector3((Math.random()-0.5)*0.42, Math.random()*0.52+0.22, (Math.random()-0.5)*0.26);
+                this.life = 58;
+            }
+            update() {
+                this.mesh.position.add(this.vel); this.vel.y -= 0.023; this.life--;
+                this.mesh.material.opacity = this.life/58;
+                if(this.life<=0){scene.remove(this.mesh); return true;}
+                return false;
+            }
+        }
+
+        function createParticleBurst(row) {
+            for(let i=0;i<72;i++){
+                const col = new THREE.Color().setHSL(Math.random(),1,0.88);
+                particles.push(new Particle(Math.random()*BOARD_WIDTH-BOARD_WIDTH/2, row+0.5, 0.3, col.getHex()));
+            }
+        }
+
+        function shuffleBag(){bag=[0,1,2,3,4,5,6];for(let i=5;i>0;i--){const j=Math.floor(Math.random()*(i+1));[bag[i],bag[j]]=[bag[j],bag[i]];}}
+        function getNextPieceType(){if(!bag.length)shuffleBag();return bag.pop();}
+
+        function createPiece(t){return {type:t,rotation:0,x:4,y:17,meshes:[]};}
+        function getShape(p){return TETROMINOES[p.type].shape[p.rotation];}
+
+        function drawPreview(){
+            const c=document.getElementById('nextCanvas'); previewCtx=c.getContext('2d');
+            previewCtx.fillStyle='#1f0a44';previewCtx.fillRect(0,0,80,80);
+            const s=TETROMINOES[nextPieceType].shape[0], bs=15.8;
+            const ox=s[0].length===4?10:18, oy=19;
+            for(let r=0;r<s.length;r++)for(let col=0;col<s[r].length;col++)if(s[r][col]){
+                previewCtx.fillStyle='#'+COLORS[nextPieceType].toString(16).padStart(6,'0');
+                previewCtx.fillRect(ox+col*bs,oy+r*bs,bs-3,bs-3);
+            }
+        }
+
+        function spawnPiece(){
+            currentPiece=createPiece(nextPieceType);
+            nextPieceType=getNextPieceType(); drawPreview();
+            if(!isValidMove(currentPiece.x,currentPiece.y,currentPiece.rotation)){gameOver();return;}
+            createPieceMeshes(); updateGhost();
+        }
+
+        function createPieceMeshes(){
+            currentPiece.meshes.forEach(m=>scene.remove(m)); currentPiece.meshes=[];
+            const shape=getShape(currentPiece), col=COLORS[currentPiece.type];
+            for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c]){
+                const mesh=createBlockMesh(col);
+                mesh.position.set(currentPiece.x+c-4.5, currentPiece.y-r+0.5,0);
+                scene.add(mesh); currentPiece.meshes.push(mesh);
+            }
+        }
+
+        function updatePiecePosition(){
+            if(!currentPiece) return;
+            const shape=getShape(currentPiece); let i=0;
+            for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c]){
+                currentPiece.meshes[i++].position.set(currentPiece.x+c-4.5, currentPiece.y-r+0.5,0);
+            }
+            updateGhost();
+        }
+
+        function isValidMove(nx,ny,nr){
+            const shape=TETROMINOES[currentPiece.type].shape[nr];
+            for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c]){
+                const x=nx+c, y=ny-r;
+                if(x<0||x>=BOARD_WIDTH||y<0)return false;
+                if(y>=BOARD_HEIGHT)continue;
+                if(board[y][x]!==0)return false;
+            }
+            return true;
+        }
+
+        function rotatePiece(){if(!currentPiece||isGameOver)return; const nr=(currentPiece.rotation+1)%4;
+            if(isValidMove(currentPiece.x,currentPiece.y,nr)){currentPiece.rotation=nr; createPieceMeshes(); if(sfxOn) playNote(920,35,'sine',0.3);}}
+        function moveLeft(){if(currentPiece&&isValidMove(currentPiece.x-1,currentPiece.y,currentPiece.rotation)){currentPiece.x--;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
+        function moveRight(){if(currentPiece&&isValidMove(currentPiece.x+1,currentPiece.y,currentPiece.rotation)){currentPiece.x++;updatePiecePosition(); if(sfxOn) playNote(680,22);}}
+        function moveDown(){if(!currentPiece)return false; if(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;updatePiecePosition();score+=1;updateUI();return true;} return false;}
+        function hardDrop(){if(!currentPiece)return; let dist=0; while(isValidMove(currentPiece.x,currentPiece.y-1,currentPiece.rotation)){currentPiece.y--;dist++;}
+            updatePiecePosition(); score+=dist*2; updateUI(); lockPiece(); if(sfxOn) playNote(440,80,'triangle',0.5);}
+
+        function updateGhost(){
+            ghostMeshes.forEach(m=>scene.remove(m)); ghostMeshes=[];
+            if(!currentPiece)return;
+            let gy=currentPiece.y; while(isValidMove(currentPiece.x,gy-1,currentPiece.rotation))gy--;
+            const shape=getShape(currentPiece), col=COLORS[currentPiece.type];
+            let i=0;
+            for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c]){
+                const m=createBlockMesh(col); m.material.transparent=true; m.material.opacity=0.17;
+                m.position.set(currentPiece.x+c-4.5, gy-r+0.5,0); scene.add(m); ghostMeshes.push(m);
+            }
+        }
+
+        function lockPiece(){
+            const shape=getShape(currentPiece), col=COLORS[currentPiece.type];
+            for(let r=0;r<shape.length;r++)for(let c=0;c<shape[r].length;c++)if(shape[r][c]){
+                const bx=currentPiece.x+c, by=currentPiece.y-r;
+                if(by>=BOARD_HEIGHT)continue;
+                board[by][bx]=col;
+                const mesh=createBlockMesh(col); mesh.position.set(bx-4.5,by+0.5,0);
+                scene.add(mesh); boardMeshMap[by][bx]=mesh;
+            }
+            currentPiece.meshes.forEach(m=>scene.remove(m));
+            checkLines();
+            spawnPiece();
+        }
+
+        function checkLines(){
+            let totalCleared = 0;
+            let chain = 0;
+
+            while(true){
+                let lines = [];
+                for(let y=0; y<BOARD_HEIGHT; y++){
+                    if(board[y].every(v => v !== 0)) lines.push(y);
+                }
+                if(lines.length === 0) break;
+
+                chain++;
+                playClearSFX(lines.length);
+                lines.forEach(row => createParticleBurst(row));
+
+                const pts = [0,120,300,520,820];
+                score += pts[lines.length] * level * chain;
+
+                totalCleared += lines.length;
+
+                lines.forEach(y => {
+                    for(let x=0; x<BOARD_WIDTH; x++){
+                        if(boardMeshMap[y][x]){
+                            scene.remove(boardMeshMap[y][x]);
+                        }
+                    }
+                });
+
+                let newBoard = [];
+                let newMeshMap = [];
+                for(let y=0; y<BOARD_HEIGHT; y++){
+                    if(!lines.includes(y)){
+                        newBoard.push(board[y]);
+                        newMeshMap.push(boardMeshMap[y]);
+                    }
+                }
+                while(newBoard.length < BOARD_HEIGHT){
+                    newBoard.push(Array(BOARD_WIDTH).fill(0));
+                    newMeshMap.push(Array(BOARD_WIDTH).fill(null));
+                }
+                board = newBoard;
+                boardMeshMap = newMeshMap;
+
+                for(let y=0; y<BOARD_HEIGHT; y++){
+                    for(let x=0; x<BOARD_WIDTH; x++){
+                        if(boardMeshMap[y][x]){
+                            boardMeshMap[y][x].position.y = y + 0.5;
+                        }
+                    }
+                }
+            }
+
+            if(totalCleared > 0){
+                linesCleared += totalCleared;
+                level = Math.floor(linesCleared / 8) + 1;
+                dropInterval = Math.max(70, 820 - level*54);
+                updateUI();
+            }
+        }
+
+        function updateUI(){
+            document.getElementById('score').textContent=score.toString().padStart(6,'0');
+            document.getElementById('level').textContent=level.toString().padStart(2,'0');
+            document.getElementById('lines').textContent=linesCleared.toString().padStart(3,'0');
+        }
+
+        function initScene(){
+            scene=new THREE.Scene(); scene.fog=new THREE.Fog(0x0a001f,16,48);
+            camera=new THREE.PerspectiveCamera(56,innerWidth/innerHeight,0.1,100);
+            camera.position.set(4,11.5,27); camera.lookAt(0,8.5,0);
+            renderer=new THREE.WebGLRenderer({antialias:true});
+            renderer.setSize(innerWidth,innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            scene.add(new THREE.AmbientLight(0xaaaaaa,0.68));
+            const dl=new THREE.DirectionalLight(0xffffff,1.2); dl.position.set(15,25,20); scene.add(dl);
+            const shine=new THREE.PointLight(0xff99ff,2.6,60); shine.position.set(0,15,9); scene.add(shine);
+
+            const gridMat = new THREE.LineBasicMaterial({color: 0x00ffff, transparent: true, opacity: 0.38});
+
+            for(let i = 0; i <= BOARD_WIDTH; i++) {
+                const xPos = i - BOARD_WIDTH / 2;
+                const points = [new THREE.Vector3(xPos, 0, -0.1), new THREE.Vector3(xPos, BOARD_HEIGHT, -0.1)];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geo, gridMat);
+                scene.add(line);
+            }
+
+            for(let i = 0; i <= BOARD_HEIGHT; i++) {
+                const yPos = i;
+                const points = [new THREE.Vector3(-BOARD_WIDTH / 2, yPos, -0.1), new THREE.Vector3(BOARD_WIDTH / 2, yPos, -0.1)];
+                const geo = new THREE.BufferGeometry().setFromPoints(points);
+                const line = new THREE.Line(geo, gridMat);
+                scene.add(line);
+            }
+        }
+
+        function gameLoop(ts){
+            if(isGameOver) return requestAnimationFrame(gameLoop);
+            if(!lastDropTime) lastDropTime=ts;
+            if(ts-lastDropTime>dropInterval){ if(!moveDown()) lockPiece(); lastDropTime=ts; }
+            particles=particles.filter(p=>!p.update());
+            renderer.render(scene,camera);
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameOver(){
+            isGameOver=true; Tone.Transport.stop();
+            document.getElementById('gameOverScreen').style.display='block';
+            document.getElementById('finalScore').textContent=score.toString().padStart(6,'0');
+        }
+
+        function restartGame(){location.reload();}
+
+        // =============== TONE.JS – MUSIC + SFX ===============
+        let pianoSynth, bassSynth, sfxSynth;
+
+        function initMusic() {
+            pianoSynth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "square" },
+                envelope: { attack: 0.01, decay: 0.2, sustain: 0.5, release: 0.8 }
+            }).toDestination();
+            pianoSynth.volume.value = -25;   // 40% lower volume
+
+            bassSynth = new Tone.Synth({
+                oscillator: { type: "sine" },
+                envelope: { attack: 0.02, decay: 0.4, sustain: 0.6, release: 1.5 }
+            }).toDestination();
+            bassSynth.volume.value = -25;   // 40% lower
+
+            sfxSynth = new Tone.Synth({
+                oscillator: { type: "triangle" },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+
+            Tone.Transport.bpm.value = 180;
+        }
+
+        const pianoPattern = ["A4","C5","D5","E5","F5","E5","D5","C5","A4","C5","D5","E5","F5","E5","D5","C5",
+                              "A4","C5","D5","E5","F5","E5","D5","C5","A4","C5","D5","E5","F5","E5","D5","C5",
+                              "G4","A4","C5","D5","E5","D5","C5","A4","G4","A4","C5","D5","E5","D5","C5","A4"];
+
+        const bassPattern = ["A2","A2","G2","G2","F2","F2","E2","E2","A2","A2","G2","G2","F2","F2","E2","E2",
+                             "A2","A2","G2","G2","F2","F2","E2","E2","A2","A2","G2","G2","F2","F2","E2","E2"];
+
+        function startMusic() {
+            if (Tone.Transport.state === "started") return;
+            Tone.Transport.stop();
+            Tone.Transport.cancel();
+
+            new Tone.Sequence((time, note) => {
+                pianoSynth.triggerAttackRelease(note, "4n", time);
+            }, pianoPattern, "4n").start(0);
+
+            new Tone.Sequence((time, note) => {
+                bassSynth.triggerAttackRelease(note, "2n", time);
+            }, bassPattern, "4n").start(0);
+
+            Tone.Transport.start();
+        }
+
+        function stopMusic() {
+            Tone.Transport.stop();
+        }
+
+        function toggleMusic(){
+            musicOn = !musicOn;
+            document.getElementById('musicToggle').textContent = musicOn ? '♪ MUSIC ON' : '♪ MUSIC OFF';
+            if (musicOn) startMusic();
+            else stopMusic();
+        }
+
+        function toggleSFX(){
+            sfxOn = !sfxOn;
+            document.getElementById('sfxToggle').textContent = sfxOn ? 'SFX ON' : 'SFX OFF';
+        }
+
+        // SFX now uses Tone.js (no more raw audioCtx)
+        function playNote(freq, duration, type = 'triangle', vol = 0.24) {
+            if (!sfxOn) return;
+            sfxSynth.triggerAttackRelease(freq, duration/1000, undefined, vol);
+        }
+
+        function playClearSFX(lines){
+            if (!sfxOn) return;
+            const base = 180 + lines*110;
+            for(let i=0;i<7;i++) setTimeout(()=>playNote(base+i*92,55,'triangle',0.45),i*38);
+        }
+
+        function startGame(){
+            initScene();
+            initMusic();
+
+            const stopMusic=()=>{Tone.Transport.stop();};
+            const resumeMusic=()=>{if(musicOn) startMusic();};
+            document.addEventListener('visibilitychange',()=>document.hidden?stopMusic():resumeMusic());
+            window.addEventListener('pagehide',stopMusic);
+
+            document.addEventListener('keydown',e=>{
+                if(isGameOver)return;
+                if(e.key==='ArrowLeft')moveLeft();
+                if(e.key==='ArrowRight')moveRight();
+                if(e.key==='ArrowDown')moveDown();
+                if(e.key==='ArrowUp')rotatePiece();
+                if(e.key===' ')hardDrop();
+            });
+
+            const leftB=document.getElementById('leftMove'), rightB=document.getElementById('rightMove');
+            leftB.addEventListener('touchstart',e=>{e.preventDefault();moveLeft();moveLeftInterval=setInterval(moveLeft,105);});
+            leftB.addEventListener('touchend',()=>clearInterval(moveLeftInterval));
+            rightB.addEventListener('touchstart',e=>{e.preventDefault();moveRight();moveRightInterval=setInterval(moveRight,105);});
+            rightB.addEventListener('touchend',()=>clearInterval(moveRightInterval));
+
+            window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
+
+            shuffleBag(); nextPieceType=getNextPieceType(); drawPreview(); spawnPiece(); updateUI();
+            if (musicOn) startMusic();
+            requestAnimationFrame(gameLoop);
+        }
+
+        window.onload = startGame;
+    </script>
+</body>
+</html>

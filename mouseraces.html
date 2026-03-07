@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🐭 MOUSE MAYHEM RACE 🏁</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#000; font-family:'Press Start 2P',system-ui; }
+        
+        .pixel-text { text-shadow:2px 2px 0#000,-2px -2px 0#000,2px -2px 0#000,-2px 2px 0#000; }
+        
+        .race-lane {
+            height: 28px;
+            background: #1f2937;
+            border-radius: 9999px;
+            overflow: hidden;
+            border: 2px solid #facc15;
+            position: relative;
+        }
+        
+        .race-progress {
+            position: absolute;
+            top: 0; left: 0;
+            height: 100%;
+            background: linear-gradient(to right, #22c55e, #eab308);
+            transition: width 0.12s linear;
+        }
+        
+        .mouse-icon {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 18px;
+            transition: left 0.12s linear;
+            z-index: 10;
+            filter: drop-shadow(0 2px 3px rgba(0,0,0,0.7));
+        }
+    </style>
+</head>
+<body class="bg-black text-white">
+    <div class="flex flex-col h-screen">
+
+        <!-- Compact Header -->
+        <div class="flex justify-between items-center p-2 bg-black/70 border-b-4 border-yellow-400">
+            <div class="flex items-center gap-2">
+                <div class="text-2xl">🐭</div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-widest text-yellow-300 pixel-text">MOUSE MAYHEM</h1>
+                    <p class="text-yellow-200 text-[9px] -mt-1">6 RACERS • FIRST TO FINISH WINS</p>
+                </div>
+            </div>
+            <div id="race-status" class="hidden px-4 py-1 bg-red-600 border-4 border-white text-sm font-bold tracking-widest">RACE ON!</div>
+        </div>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard" class="hidden flex-1 overflow-auto p-2 bg-zinc-950">
+            <div class="max-w-xl mx-auto">
+                <button id="new-game-btn" onclick="newGame()" 
+                        class="hidden w-full mb-3 py-3 bg-yellow-400 hover:bg-yellow-300 text-black text-lg font-bold border-6 border-black hover:scale-110 transition-all active:scale-95">
+                    NEW GAME
+                </button>
+                <div id="race-rows" class="space-y-3"></div>
+            </div>
+        </div>
+
+        <!-- NAME ENTRY SCREEN -->
+        <div id="name-entry-screen" class="flex-1 bg-black/90 flex items-center justify-center px-4">
+            <div class="bg-zinc-900 border-8 border-yellow-400 rounded-3xl p-5 max-w-md w-full max-h-[85vh] overflow-auto">
+                <div class="text-center mb-5">
+                    <div class="text-3xl mb-1">🐭</div>
+                    <h2 class="text-xl font-bold text-yellow-300 pixel-text">NAME YOUR 6 RACERS</h2>
+                </div>
+                <div id="name-inputs" class="space-y-3"></div>
+                <button onclick="beginRaceWithNames()" 
+                        class="mt-6 w-full py-4 bg-yellow-400 hover:bg-yellow-300 text-black text-xl font-bold border-6 border-black rounded-2xl transition-all active:scale-95">
+                    BEGIN THE RACE!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let miceData = [];
+        let currentNames = ["1","2","3","4","5","6"]; // persists across games
+        let isRacing = false;
+        let raceEnded = false;
+        let winner = null;
+        let lastUpdate = 0;
+
+        const mouseColors = ["#ff2222","#22ff22","#2222ff","#ffff22","#ff22ff","#22ffff"];
+
+        function setupNameInputs() {
+            const container = document.getElementById('name-inputs');
+            container.innerHTML = '';
+            currentNames.forEach((name, i) => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center gap-3';
+                div.innerHTML = `
+                    <div class="w-8 h-8 rounded-2xl border-4 border-white flex-shrink-0 flex items-center justify-center text-xl" 
+                         style="background:${mouseColors[i]}">🐭</div>
+                    <div class="flex-1">
+                        <div class="text-xs text-yellow-200 mb-1">MOUSE ${i+1}</div>
+                        <input id="name-${i}" type="text" value="${name}" 
+                               class="w-full bg-zinc-800 text-white px-3 py-2.5 rounded-2xl border-2 border-yellow-400 text-sm">
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function beginRaceWithNames() {
+            document.getElementById('name-entry-screen').classList.add('hidden');
+            document.getElementById('race-status').classList.remove('hidden');
+            document.getElementById('leaderboard').classList.remove('hidden');
+            document.getElementById('new-game-btn').classList.add('hidden');
+
+            // Save user-entered names
+            currentNames = [];
+            for (let i = 0; i < 6; i++) {
+                const input = document.getElementById(`name-${i}`);
+                currentNames.push(input ? input.value.trim() || (i+1).toString() : (i+1).toString());
+            }
+
+            miceData = [];
+            for (let i = 0; i < 6; i++) {
+                miceData.push({
+                    id: i,
+                    name: currentNames[i],
+                    color: mouseColors[i],
+                    position: 0,
+                    vel: 0,
+                    nextDecision: Date.now() + Math.random() * 1200,
+                    baseSpeed: 6 + Math.random() * 5,
+                    speedMult: 0.9 + Math.random() * 0.4
+                });
+            }
+
+            renderLeaderboard();
+            isRacing = true;
+            raceEnded = false;
+            winner = null;
+            lastUpdate = Date.now();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function renderLeaderboard() {
+            const container = document.getElementById('race-rows');
+            container.innerHTML = '';
+
+            miceData.forEach((mouse, idx) => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-3';
+                row.innerHTML = `
+                    <div class="w-8 h-8 rounded-2xl border-4 border-white flex-shrink-0 flex items-center justify-center text-xl" 
+                         style="background:${mouse.color}">🐭</div>
+                    <div class="w-20 text-xs font-bold text-white truncate">${mouse.name}</div>
+                    
+                    <div class="flex-1">
+                        <div class="race-lane">
+                            <div class="race-progress" id="prog-${idx}" style="width:0%"></div>
+                            <div class="mouse-icon" id="mouse-${idx}" style="left:0%">🐭</div>
+                        </div>
+                    </div>
+                    
+                    <div class="w-10 text-right text-sm font-bold text-yellow-300" id="perc-${idx}">0%</div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function updateLeaderboard() {
+            miceData.forEach((mouse, i) => {
+                const prog = Math.max(0, Math.min(100, mouse.position));
+                const progressEl = document.getElementById(`prog-${i}`);
+                const mouseEl = document.getElementById(`mouse-${i}`);
+                const percEl = document.getElementById(`perc-${i}`);
+                
+                if (progressEl) progressEl.style.width = prog + '%';
+                if (mouseEl) mouseEl.style.left = `calc(${prog}% - 12px)`;
+                if (percEl) percEl.textContent = Math.floor(prog) + '%';
+            });
+        }
+
+        function gameLoop() {
+            if (!isRacing || raceEnded) return;
+
+            const now = Date.now();
+            const delta = (now - lastUpdate) / 1000;
+            lastUpdate = now;
+
+            let fin = null;
+
+            miceData.forEach(mouse => {
+                if (now > mouse.nextDecision) {
+                    const choice = Math.floor(Math.random() * 3);
+                    mouse.vel = choice === 0 ? mouse.baseSpeed * mouse.speedMult :
+                                choice === 1 ? 0 :
+                                -mouse.baseSpeed * mouse.speedMult * 1.1;
+                    mouse.nextDecision = now + 700 + Math.random() * 2500;
+                }
+
+                mouse.position += mouse.vel * delta * 2.8;
+                if (mouse.position < 0) mouse.position = 0;
+
+                if (mouse.position >= 100 && !fin) fin = mouse;
+            });
+
+            updateLeaderboard();
+
+            if (fin && !winner) {
+                winner = fin;
+                endRace();
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function endRace() {
+            raceEnded = true;
+            isRacing = false;
+
+            document.getElementById('race-status').classList.add('hidden');
+            document.getElementById('new-game-btn').classList.remove('hidden');
+
+            updateLeaderboard();
+            confetti({particleCount: 500, spread: 120, origin: { y: 0.6 }});
+        }
+
+        function newGame() {
+            document.getElementById('new-game-btn').classList.add('hidden');
+            document.getElementById('leaderboard').classList.add('hidden');
+            document.getElementById('race-status').classList.add('hidden');
+            
+            setupNameInputs();
+            document.getElementById('name-entry-screen').classList.remove('hidden');
+            
+            miceData = [];
+            isRacing = false;
+            raceEnded = false;
+            winner = null;
+        }
+
+        window.onload = () => {
+            setupNameInputs();
+            document.getElementById('name-entry-screen').classList.remove('hidden');
+        };
+    </script>
+</body>
+</html>

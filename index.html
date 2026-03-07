@@ -61,12 +61,12 @@
       background: linear-gradient(to bottom, rgba(10,0,21,0.4), rgba(0,0,0,0.6));
     }
 
-    /* ── VIDEO HEADER – smaller + perfectly centered ─────────────────────────────────────── */
+    /* ── VIDEO HEADER – smaller on mobile + perfectly centered ─────────────────────────────────────── */
     .video-header {
       position: relative;
       width: 100%;
-      max-width: 620px;           /* ← makes the video noticeably smaller on large screens */
-      margin: 0 auto;             /* ← centers the video perfectly */
+      max-width: 920px;           /* desktop cap */
+      margin: 0 auto;
       aspect-ratio: 4 / 3;
       overflow: hidden;
       margin-bottom: 5rem;
@@ -185,14 +185,22 @@
       opacity: 0.7;
     }
 
+    /* ── MOBILE: make video MUCH smaller & centered (not full-width) ─────────────────────────────── */
     @media (max-width: 768px) {
       .video-header {
-        aspect-ratio: 4 / 5;
-        min-height: 520px;
-        max-width: 100%;        /* full width on mobile */
+        max-width: 420px;           /* ← much smaller than full screen */
+        min-height: 315px;
+        margin-bottom: 3.5rem;
       }
       .section-title { font-size: 2.2rem; }
-      .container { padding: 1rem; }
+      .container { padding: 1rem 1rem 2rem; }
+    }
+
+    @media (max-width: 480px) {
+      .video-header {
+        max-width: 360px;           /* even smaller on tiny phones */
+        min-height: 270px;
+      }
     }
 
     @media (max-width: 500px) {

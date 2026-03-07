@@ -65,7 +65,7 @@
     .video-header {
       position: relative;
       width: 100%;
-      aspect-ratio: 16 / 9;          /* ← Option 3: dynamic height based on width; change to 21/9, 4/3, etc. if needed */
+      aspect-ratio: 16 / 9;          /* Adjust this value if needed: try 21/9, 2.35/1, 4/3, etc. */
       overflow: hidden;
       margin-bottom: 5rem;
     }
@@ -84,7 +84,7 @@
       position: absolute;
       inset: 0;
       z-index: 2;
-      background: rgba(10, 0, 21, 0.001);  /* ultra-faint to keep autoplay quirk */
+      background: rgba(10, 0, 21, 0.001);  /* nearly invisible but present for autoplay reliability */
       border: none;
       backdrop-filter: none;
       -webkit-backdrop-filter: none;
@@ -93,7 +93,7 @@
       padding: 0;
     }
 
-    /* Hide text */
+    /* Ensure no text is visible */
     .video-overlay h1,
     .video-overlay .subtitle {
       display: none;
@@ -170,7 +170,10 @@
 
     @media (max-width: 768px) {
       .video-header {
-        aspect-ratio: 4 / 5;      /* optional: taller on mobile for better phone view */
+        aspect-ratio: 4 / 5;      /* taller on smaller screens – adjust or remove if unwanted */
+      }
+      .container {
+        padding: 1rem;
       }
     }
 
@@ -205,10 +208,48 @@
       </div>
     </header>
 
-    <!-- rest of your cards and footer unchanged -->
-
     <div class="links-grid">
-      <!-- ... your card links here ... -->
+      
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/bounce.html" class="card">
+        <div class="card-title">Bounce</div>
+        <div class="card-desc">Jump to your Highest!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/bags.html" class="card">
+        <div class="card-title">Bags</div>
+        <div class="card-desc">Flicking Fun!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/faceoff.html" class="card">
+        <div class="card-title">Face Off</div>
+        <div class="card-desc">Team Guessing Game!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/mouseraces.html" class="card">
+        <div class="card-title">Mouse Mayhem</div>
+        <div class="card-desc">Who's the Fastest Mouse!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/spacerunner.html" class="card">
+        <div class="card-title">Space Runner</div>
+        <div class="card-desc">How Far Can You Get!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/tetris.html" class="card">
+        <div class="card-title">Tetris</div>
+        <div class="card-desc">Just the Classic!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/vines.html" class="card">
+        <div class="card-title">Vines</div>
+        <div class="card-desc">Watch Them Grow!</div>
+      </a>
+
+      <a href="https://rbiz01.github.io/fuzzy-chainsaw/tarot.html" class="card">
+        <div class="card-title">Tarot Reading</div>
+        <div class="card-desc">Let Me Read Your Cards!</div>
+      </a>
+
     </div>      
     
     <footer>
@@ -217,7 +258,7 @@
   </div>
 
   <script>
-    // Your stars script unchanged
+    // Generate random stars
     const starsContainer = document.getElementById('stars');
     const numStars = 180;
 

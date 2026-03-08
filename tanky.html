@@ -80,12 +80,8 @@
             transform: translateY(6px);
             box-shadow: 0 4px 0 #aa0000;
         }
-        #quit {
-            left: 30px;
-        }
-        #restart {
-            right: 30px;
-        }
+        #quit { left: 30px; }
+        #restart { right: 30px; }
         #message {
             position: absolute;
             top: 50%;
@@ -109,20 +105,15 @@
         <div id="ui">
             <div id="score">SCORE: 00000</div>
             <div id="level">LEVEL 1</div>
-            
-            <!-- Buttons -->
             <div id="quit" class="button">⏹</div>
             <div id="restart" class="button">⟳</div>
-            
-            <!-- Message overlay -->
             <div id="message"></div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6 - CAMERA FOLLOWS CANNONBALL! 🎥 ===============
-        // Smooth camera tracking during flight + everything else PERFECT
+        // =============== ANGRY TANKS v5.2 - LESS SENSITIVE SPRING + FULL FIXES ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -132,30 +123,23 @@
         const quitBtn = document.getElementById('quit');
         const restartBtn = document.getElementById('restart');
 
-        // Scene setup
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB);
 
-        // Orthographic camera with dynamic positioning
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
-        camera.position.z = 500;
-        let cameraTargetX = 0;
-        let cameraTargetY = 0;
-        let cameraLerpSpeed = 0.12;
+        camera.position.set(-120, 80, 500);
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(720, 1280);
 
-        // Lights
         scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const sun = new THREE.DirectionalLight(0xffeecc, 1);
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // Ground (extended for camera follow)
         const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(1600, 200),
+            new THREE.PlaneGeometry(800, 100),
             new THREE.MeshPhongMaterial({ color: 0x3a9d23 })
         );
         ground.rotation.x = -Math.PI / 2;
@@ -164,25 +148,16 @@
 
         // Player tank
         const tankGroup = new THREE.Group();
-        const body = new THREE.Mesh(
-            new THREE.BoxGeometry(90, 40, 50),
-            new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 })
-        );
+        const body = new THREE.Mesh(new THREE.BoxGeometry(90, 40, 50), new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 }));
         tankGroup.add(body);
-        
+
         const turret = new THREE.Group();
-        const turretBase = new THREE.Mesh(
-            new THREE.BoxGeometry(50, 30, 40),
-            new THREE.MeshPhongMaterial({ color: 0x004d00 })
-        );
+        const turretBase = new THREE.Mesh(new THREE.BoxGeometry(50, 30, 40), new THREE.MeshPhongMaterial({ color: 0x004d00 }));
         turret.add(turretBase);
         turret.position.set(10, 25, 0);
         tankGroup.add(turret);
-        
-        const barrel = new THREE.Mesh(
-            new THREE.CylinderGeometry(10, 10, 80, 16),
-            new THREE.MeshPhongMaterial({ color: 0x222222 })
-        );
+
+        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 80, 16), new THREE.MeshPhongMaterial({ color: 0x222222 }));
         barrel.rotation.z = Math.PI / 2;
         barrel.position.set(35, 0, 0);
         turret.add(barrel);
@@ -196,16 +171,12 @@
             return tipLocal;
         }
 
-        // Spring visual
         let spring;
         function createSpring() {
             const points = [];
-            for(let i=0; i<50; i++) points.push(new THREE.Vector3());
+            for(let i = 0; i < 50; i++) points.push(new THREE.Vector3());
             const geo = new THREE.BufferGeometry().setFromPoints(points);
-            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({
-                color: 0xffdd00,
-                linewidth: 9
-            }));
+            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xffdd00, linewidth: 9 }));
             scene.add(spring);
             spring.visible = false;
         }
@@ -214,10 +185,7 @@
             if (!spring) return;
             const dir = new THREE.Vector3().subVectors(end, start);
             const len = dir.length();
-            if (len < 25) {
-                spring.visible = false;
-                return;
-            }
+            if (len < 25) { spring.visible = false; return; }
             
             dir.normalize();
             const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
@@ -252,6 +220,11 @@
         const MAX_TRIES = 3;
         const GRAVITY = 0.55;
 
+        // Camera follow
+        let followProjectile = false;
+        const cameraOffset = new THREE.Vector3(-120, 80, 500);
+        const cameraLerpSpeed = 0.08;
+
         const levels = [
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-180}] },
             { enemies: [{x:150,y:-180}, {x:280,y:-280}, {x:380,y:-150}, {x:500,y:-250}] },
@@ -264,11 +237,7 @@
             if (loadedBall) scene.remove(loadedBall);
             loadedBall = new THREE.Mesh(
                 new THREE.SphereGeometry(18, 16, 16),
-                new THREE.MeshPhongMaterial({ 
-                    color: 0x333333, 
-                    shininess: 80, 
-                    specular: 0x555555 
-                })
+                new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
             );
             loadedBall.position.copy(getBarrelTip());
             scene.add(loadedBall);
@@ -278,11 +247,7 @@
             if (projectile) scene.remove(projectile);
             projectile = new THREE.Mesh(
                 new THREE.SphereGeometry(18, 16, 16),
-                new THREE.MeshPhongMaterial({ 
-                    color: 0x333333, 
-                    shininess: 80, 
-                    specular: 0x555555 
-                })
+                new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
             );
             projectile.position.copy(pos);
             scene.add(projectile);
@@ -290,21 +255,12 @@
 
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
-            const body = new THREE.Mesh(
-                new THREE.BoxGeometry(65, 32, 35),
-                new THREE.MeshPhongMaterial({ color: 0xcc0000 })
-            );
+            const body = new THREE.Mesh(new THREE.BoxGeometry(65, 32, 35), new THREE.MeshPhongMaterial({ color: 0xcc0000 }));
             group.add(body);
-            const turretE = new THREE.Mesh(
-                new THREE.BoxGeometry(40, 25, 30),
-                new THREE.MeshPhongMaterial({ color: 0x880000 })
-            );
+            const turretE = new THREE.Mesh(new THREE.BoxGeometry(40, 25, 30), new THREE.MeshPhongMaterial({ color: 0x880000 }));
             turretE.position.set(-5, 20, 0);
             group.add(turretE);
-            const barrelE = new THREE.Mesh(
-                new THREE.CylinderGeometry(7, 7, 45, 16),
-                new THREE.MeshPhongMaterial({ color: 0x222222 })
-            );
+            const barrelE = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 45, 16), new THREE.MeshPhongMaterial({ color: 0x222222 }));
             barrelE.rotation.z = Math.PI / 2;
             barrelE.position.set(-25, 20, 0);
             group.add(barrelE);
@@ -318,15 +274,12 @@
             enemies.forEach(e => scene.remove(e));
             enemies = [];
             const config = levels[levelIndex % levels.length];
-            config.enemies.forEach(pos => {
-                enemies.push(createEnemyTank(pos.x, pos.y));
-            });
+            config.enemies.forEach(pos => enemies.push(createEnemyTank(pos.x, pos.y)));
+            
             if (projectile) scene.remove(projectile);
             projectile = null;
             isFlying = false;
-            // Reset camera to tank
-            cameraTargetX = -220;
-            cameraTargetY = -340;
+            followProjectile = false;
             createLoadedBall();
         }
 
@@ -368,9 +321,7 @@
             for (let i = 0; i < 25; i++) {
                 const particle = new THREE.Mesh(
                     new THREE.SphereGeometry(6, 6, 6),
-                    new THREE.MeshPhongMaterial({ 
-                        color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 
-                    })
+                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 })
                 );
                 particle.position.copy(pos);
                 particle.userData.vel = new THREE.Vector3(
@@ -423,19 +374,16 @@
             if (projectile) scene.remove(projectile);
             projectile = null;
             isFlying = false;
+            followProjectile = false;
             tryAgainCount++;
             if (tryAgainCount >= MAX_TRIES) {
                 gameOver();
             } else {
                 turret.rotation.z = 0;
                 createLoadedBall();
-                // Smooth camera back to tank
-                cameraTargetX = -220;
-                cameraTargetY = -340;
             }
         }
 
-        // Input handling
         function getPointerPos(e) {
             const rect = renderer.domElement.getBoundingClientRect();
             const clientX = e.touches?.[0]?.clientX || e.clientX;
@@ -452,9 +400,7 @@
             
             const pos = getPointerPos(e);
             const tip = getBarrelTip();
-            const dist = Math.hypot(pos.x - tip.x, pos.y - tip.y);
-            
-            if (dist < 120) {
+            if (Math.hypot(pos.x - tip.x, pos.y - tip.y) < 120) {
                 isDragging = true;
                 dragStartPos.set(pos.x, pos.y);
                 pullPos.copy(tip);
@@ -472,8 +418,9 @@
             let dy = pos.y - dragStartPos.y;
             const dist = Math.hypot(dx, dy);
             
-            if (dist > 220) {
-                const ratio = 220 / dist;
+            // Reduced max pull distance → less sensitive
+            if (dist > 150) {
+                const ratio = 150 / dist;
                 dx *= ratio;
                 dy *= ratio;
             }
@@ -481,45 +428,43 @@
             pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
             
             const tip = getBarrelTip();
-            const aimDir = new THREE.Vector3().subVectors(pullPos, tip).normalize();
-            const angle = Math.atan2(aimDir.y, aimDir.x);
+            const angle = Math.atan2(pullPos.y - tip.y, pullPos.x - tip.x);
             turret.rotation.z = angle;
-            
             updateSpring(tip, pullPos);
         }
 
         function onUp(e) {
             e.preventDefault();
             if (!isDragging) return;
-            
             isDragging = false;
             spring.visible = false;
             
             const tip = getBarrelTip();
             const stretch = tip.distanceTo(pullPos);
             
-            if (stretch < 35) {
+            // Increased dead zone → ignores tiny pulls
+            if (stretch < 45) {
                 turret.rotation.z = 0;
                 return;
             }
             
             const fireDir = new THREE.Vector3().subVectors(pullPos, tip).normalize();
-            const power = stretch * 0.28;
             
-            // Recoil
+            // Reduced power multiplier → less extreme shots
+            const power = stretch * 0.16;
+            
+            // Recoil animation
             const originalAngle = turret.rotation.z;
             turret.rotation.z += Math.PI / 5;
             setTimeout(() => {
                 turret.rotation.z = originalAngle * 0.4;
-                setTimeout(() => {
-                    turret.rotation.z = 0;
-                }, 100);
+                setTimeout(() => turret.rotation.z = 0, 100);
             }, 80);
             
-            // Fire!
             createProjectile(tip);
             velocity.copy(fireDir).multiplyScalar(power);
             isFlying = true;
+            followProjectile = true;
             
             if (loadedBall) {
                 scene.remove(loadedBall);
@@ -527,7 +472,6 @@
             }
         }
 
-        // Event listeners
         renderer.domElement.addEventListener('mousedown', onDown);
         renderer.domElement.addEventListener('mousemove', onMove);
         renderer.domElement.addEventListener('mouseup', onUp);
@@ -537,13 +481,8 @@
 
         quitBtn.addEventListener('click', () => window.location.reload());
         restartBtn.addEventListener('click', () => {
-            score = 0;
-            currentLevel = 1;
-            tryAgainCount = 0;
-            turret.rotation.z = 0;
-            spawnLevel(0);
-            updateUI();
-            gameRunning = true;
+            score = 0; currentLevel = 1; tryAgainCount = 0; turret.rotation.z = 0;
+            spawnLevel(0); updateUI(); gameRunning = true;
         });
 
         function animate() {
@@ -554,26 +493,6 @@
                 return;
             }
 
-            // *** CAMERA FOLLOW MAGIC ***
-            if (isFlying && projectile) {
-                // Follow cannonball smoothly
-                cameraTargetX = THREE.MathUtils.lerp(cameraTargetX, projectile.position.x, cameraLerpSpeed);
-                cameraTargetY = THREE.MathUtils.lerp(cameraTargetY, projectile.position.y + 80, cameraLerpSpeed * 1.2);
-                
-                // Keep some tank visible (don't go too far left)
-                cameraTargetX = Math.max(cameraTargetX, -100);
-            } else {
-                // Smooth back to tank when not flying
-                cameraTargetX = THREE.MathUtils.lerp(cameraTargetX, -220, 0.15);
-                cameraTargetY = THREE.MathUtils.lerp(cameraTargetY, -340, 0.15);
-            }
-            
-            // Apply camera position
-            camera.position.x = THREE.MathUtils.lerp(camera.position.x, cameraTargetX, 0.18);
-            camera.position.y = THREE.MathUtils.lerp(camera.position.y, cameraTargetY, 0.18);
-            camera.lookAt(cameraTargetX, cameraTargetY, 0);
-
-            // Projectile physics
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
                 projectile.position.add(velocity);
@@ -581,6 +500,7 @@
                 projectile.rotation.x += velocity.y * 0.012;
                 projectile.rotation.z += velocity.x * 0.01;
                 
+                // Ground bounce
                 if (projectile.position.y < -375) {
                     projectile.position.y = -375;
                     velocity.y *= -0.4;
@@ -590,13 +510,28 @@
                     }
                 }
                 
-                if (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -800) {
+                // Out of bounds - safe check
+                if (isFlying && projectile &&
+                    (projectile.position.x > 650 ||
+                     projectile.position.x < -450 ||
+                     projectile.position.y < -800)) {
                     resetAfterShot();
                 }
                 
                 checkCollisions();
             }
-            
+
+            // Camera follow
+            if (followProjectile && projectile) {
+                const targetPos = new THREE.Vector3().copy(projectile.position).add(cameraOffset);
+                camera.position.lerp(targetPos, cameraLerpSpeed);
+                camera.lookAt(projectile.position);
+            } else {
+                const defaultPos = new THREE.Vector3(-120, 80, 500);
+                camera.position.lerp(defaultPos, cameraLerpSpeed * 1.4);
+                camera.lookAt(new THREE.Vector3(0, -100, 0));
+            }
+
             if (loadedBall && !isFlying) {
                 loadedBall.position.copy(getBarrelTip());
             }
@@ -610,7 +545,7 @@
             updateUI();
             animate();
             setTimeout(() => {
-                showMessage("TAP BARREL → PULL → FIRE → WATCH CAMERA FOLLOW!", "#ffffff", 3500);
+                showMessage("TAP BARREL → PULL GENTLY → AIM & FIRE!", "#ffffff", 3200);
             }, 500);
         }
 

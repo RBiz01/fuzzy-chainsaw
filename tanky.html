@@ -19,15 +19,21 @@
             position: relative;
             width: 100vw;
             height: 100vh;
+            background: #000;
             display: flex;
             justify-content: center;
             align-items: center;
+            overflow: hidden;
         }
         canvas {
             display: block;
-            max-height: 100vh;
-            max-width: 100vw;
+            width: 100%;
+            height: 100%;
+            max-width: 720px;
+            max-height: 1280px;
+            object-fit: contain;
             image-rendering: pixelated;
+            background: #000;
         }
         #ui {
             position: absolute;
@@ -41,76 +47,77 @@
         }
         #score {
             position: absolute;
-            top: 30px;
-            right: 30px;
-            font-size: 28px;
+            top: 3vmin;
+            right: 4vmin;
+            font-size: 6vmin;
             background: rgba(0,0,0,0.6);
-            padding: 10px 20px;
-            border-radius: 15px;
-            border: 4px solid #ffcc00;
+            padding: 2vmin 4vmin;
+            border-radius: 3vmin;
+            border: 0.8vmin solid #ffcc00;
         }
         #level {
             position: absolute;
-            top: 90px;
-            right: 30px;
-            font-size: 22px;
+            top: 11vmin;
+            right: 4vmin;
+            font-size: 4.2vmin;
             background: rgba(0,0,0,0.6);
-            padding: 8px 20px;
-            border-radius: 15px;
-            border: 4px solid #00ffcc;
+            padding: 1.5vmin 4vmin;
+            border-radius: 3vmin;
+            border: 0.8vmin solid #00ffcc;
         }
         #balls {
             position: absolute;
-            top: 30px;
-            left: 30px;
+            top: 3vmin;
+            left: 4vmin;
             display: flex;
-            gap: 12px;
+            gap: 2.5vmin;
             pointer-events: none;
         }
         .cannon-ball-icon {
-            width: 36px;
-            height: 36px;
+            width: 8vmin;
+            height: 8vmin;
             background: #333;
             border-radius: 50%;
             box-shadow: inset 0 4px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(255,255,255,0.2);
-            border: 2px solid #555;
+            border: 0.5vmin solid #555;
         }
         .button {
             position: absolute;
-            bottom: 30px;
-            width: 80px;
-            height: 80px;
+            bottom: 6vmin;
+            width: 18vmin;
+            height: 18vmin;
             background: #ff4444;
-            border: 6px solid #fff;
+            border: 1.4vmin solid #fff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 40px;
+            font-size: 10vmin;
             cursor: pointer;
             pointer-events: all;
-            box-shadow: 0 10px 0 #aa0000;
+            box-shadow: 0 2.2vmin 0 #aa0000;
             transition: transform 0.1s;
         }
         .button:active {
-            transform: translateY(6px);
-            box-shadow: 0 4px 0 #aa0000;
+            transform: translateY(1.1vmin);
+            box-shadow: 0 1.1vmin 0 #aa0000;
         }
-        #quit { left: 30px; }
-        #restart { right: 30px; }
+        #quit { left: 5vmin; }
+        #restart { right: 5vmin; }
         #message {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 48px;
-            padding: 30px 60px;
+            font-size: 9vmin;
+            padding: 6vmin 10vmin;
             background: rgba(0,0,0,0.85);
-            border: 8px solid #ffff00;
-            border-radius: 20px;
+            border: 1.6vmin solid #ffff00;
+            border-radius: 4vmin;
             text-align: center;
             display: none;
             pointer-events: all;
+            white-space: pre-line;
         }
     </style>
 </head>
@@ -130,7 +137,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.9 - CANNON BALLS GUI (remaining shots) ===============
+        // =============== ANGRY TANKS v7.9 - RESPONSIVE FIXED WORLD ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -148,7 +155,15 @@
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-        renderer.setSize(720, 1280);
+
+        // Responsive renderer size (physical pixels)
+        function updateRendererSize() {
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            renderer.setSize(width, height, false); // false = don't touch style
+        }
+        updateRendererSize();
+        window.addEventListener('resize', updateRendererSize);
 
         scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const sun = new THREE.DirectionalLight(0xffeecc, 1);
@@ -372,15 +387,12 @@
 
         let enemies = [];
 
-        // GUI cannon ball icons (small 2D-like circles)
         const ballIcons = [];
 
         function updateBallsUI() {
-            // Clear old icons
             ballIcons.forEach(icon => ballsEl.removeChild(icon));
             ballIcons.length = 0;
 
-            // Create new icons (number of remaining attempts)
             const remaining = MAX_TRIES - tryAgainCount;
             for (let i = 0; i < remaining; i++) {
                 const div = document.createElement('div');
@@ -472,7 +484,7 @@
             isFlying = false;
             followProjectile = false;
             turretGroup.rotation.z = 0;
-            tryAgainCount = 0;              // Reset tries on new level
+            tryAgainCount = 0;
             updateBallsUI();
             createLoadedBall();
             resetCamera(true);
@@ -575,28 +587,36 @@
             turretGroup.rotation.z = 0;
             resetCamera(true);
             tryAgainCount++;
-            updateUI();  // updates ball icons
+            updateUI();
             if (tryAgainCount >= MAX_TRIES) {
                 gameOver();
             } else {
-                createLoadedBall();  // new hidden ball
+                createLoadedBall();
             }
         }
 
         function getPointerPos(e) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            const x = e.touches ? e.touches[0].clientX : e.clientX;
-            const y = e.touches ? e.touches[0].clientY : e.clientY;
+            const rect = canvas.getBoundingClientRect();
+
+            let clientX = e.clientX;
+            let clientY = e.clientY;
+            if (e.touches && e.touches.length > 0) {
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            }
+
+            const normX = (clientX - rect.left) / rect.width;
+            const normY = (clientY - rect.top)  / rect.height;
+
             return {
-                x: (x - rect.left) / rect.width * 720 - 360,
-                y: -((y - rect.top) / rect.height * 1280 - 640)
+                x: normX * 720 - 360,
+                y: -(normY * 1280 - 640)
             };
         }
 
         function isClickOnTank(pos) {
             const localX = pos.x - tankGroup.position.x;
             const localY = pos.y - tankGroup.position.y;
-            // Tight area - only tank body, not platform
             return Math.abs(localX) < 75 && Math.abs(localY - 10) < 45;
         }
 
@@ -611,7 +631,6 @@
                 dragStartPos.set(pos.x, pos.y);
                 pullPos.copy(getBarrelTip());
                 spring.visible = true;
-                // Ball remains hidden during pull
             }
         }
 
@@ -649,13 +668,11 @@
             const stretch = tip.distanceTo(pullPos);
 
             if (stretch < 45) {
-                // Cancelled → show ball ready
                 turretGroup.rotation.z = 0;
                 if (loadedBall) loadedBall.visible = true;
                 return;
             }
 
-            // Fire
             const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
 
@@ -751,11 +768,6 @@
                 showMessage("TAP TANK → PULL → RELEASE\n(Shots left shown top-left)", "#ffffff", 3400);
             }, 600);
         }
-
-        window.addEventListener('resize', () => {
-            renderer.setSize(720, 1280);
-            camera.updateProjectionMatrix();
-        });
 
         init();
     </script>

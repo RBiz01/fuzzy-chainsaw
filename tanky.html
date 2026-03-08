@@ -113,10 +113,11 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.6 ===============
-        // - Camera forced reset on level start & after miss
-        // - Removed green ground plane (only background image visible)
+        // =============== ANGRY TANKS v6.7 ===============
+        // - Camera follows projectile only horizontally (no rotation/tilt)
+        // - No green ground plane (background image only)
         // - Red aiming spring kept
+        // - Camera snaps to exact default position on level start & after miss
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -152,8 +153,6 @@
         );
         skyBackground.position.set(0, 0, -100);
         scene.add(skyBackground);
-
-        // NO GREEN GROUND ANYMORE — removed
 
         // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
@@ -207,10 +206,7 @@
             return tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
         }
 
-        // ────────────────────────────────────────────────
-        // Aiming spring (red stretch line) — kept
-        // ────────────────────────────────────────────────
-
+        // Aiming spring (red stretch line)
         let spring;
         function createSpring() {
             const points = [];
@@ -257,13 +253,12 @@
             spring.visible = true;
         }
 
-        // ────────────────────────────────────────────────
         // Camera control
-        // ────────────────────────────────────────────────
-
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const cameraLerpSpeedFollow = 0.12;
         const cameraLerpSpeedReturn = 0.04;
+
+        let followProjectile = false;
 
         function resetCamera(immediate = false) {
             followProjectile = false;
@@ -273,10 +268,7 @@
             }
         }
 
-        // ────────────────────────────────────────────────
         // Game variables
-        // ────────────────────────────────────────────────
-
         let score = 0;
         let currentLevel = 1;
         let projectile = null;
@@ -290,8 +282,6 @@
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
         const GRAVITY = 0.55;
-
-        let followProjectile = false;
 
         const levels = [
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-180}] },
@@ -368,7 +358,7 @@
             followProjectile = false;
             turretGroup.rotation.z = 0;
             createLoadedBall();
-            resetCamera(true);          // Force exact reset
+            resetCamera(true);
         }
 
         function updateUI() {
@@ -462,7 +452,7 @@
             isFlying = false;
             followProjectile = false;
             turretGroup.rotation.z = 0;
-            resetCamera(true);          // Force exact reset
+            resetCamera(true);
             tryAgainCount++;
             if (tryAgainCount >= MAX_TRIES) gameOver();
             else createLoadedBall();
@@ -592,10 +582,15 @@
                 checkCollisions();
             }
 
+            // Camera: horizontal follow only - no rotation
             if (followProjectile && projectile) {
-                const target = projectile.position.clone().add(new THREE.Vector3(0, 0, 500));
+                const target = new THREE.Vector3(
+                    projectile.position.x,   // follow horizontally
+                    0,                       // lock vertical position
+                    500
+                );
                 camera.position.lerp(target, cameraLerpSpeedFollow);
-                camera.lookAt(projectile.position);
+                // No lookAt → camera stays perfectly level
             } else {
                 camera.position.lerp(DEFAULT_CAMERA_POS, cameraLerpSpeedReturn);
                 camera.lookAt(0, -100, 0);

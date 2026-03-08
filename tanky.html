@@ -137,7 +137,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v8.0 - EASY TOUCH + FULL RANGE + WIDE BG ===============
+        // =============== ANGRY TANKS - VERY LONG CANNON RANGE ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -150,16 +150,16 @@
 
         const scene = new THREE.Scene();
 
-        const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
+        const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
         camera.position.set(0, 0, 500);
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         function updateRendererSize() {
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-            renderer.setSize(width, height, false);
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            renderer.setSize(w, h, false);
         }
         updateRendererSize();
         window.addEventListener('resize', updateRendererSize);
@@ -172,14 +172,14 @@
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
-            const texture = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
-            texture.magFilter = THREE.LinearFilter;
-            texture.minFilter = THREE.LinearFilter;
-            backgrounds.push(texture);
+            const tex = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
+            tex.magFilter = THREE.LinearFilter;
+            tex.minFilter = THREE.LinearFilter;
+            backgrounds.push(tex);
         }
 
-        // WIDER BACKGROUND so it covers full cannon travel distance
-        const bgGeometry = new THREE.PlaneGeometry(3400, 2000);
+        // Very wide background so it covers long shots
+        const bgGeometry = new THREE.PlaneGeometry(6000, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
         
@@ -196,20 +196,13 @@
         let bgFadeDirection = 1;
 
         function setNewBackground() {
-            let newIndex;
-            do {
-                newIndex = Math.floor(Math.random() * 13);
-            } while (newIndex === previousBgIndex);
-            
+            let idx;
+            do { idx = Math.floor(Math.random() * 13); } while (idx === previousBgIndex);
             previousBgIndex = currentBgIndex;
-            currentBgIndex = newIndex;
-            
+            currentBgIndex = idx;
             bgMaterial1.map = backgrounds[currentBgIndex];
             bgMaterial2.map = backgrounds[previousBgIndex !== -1 ? previousBgIndex : currentBgIndex];
-            
-            bgMaterial1.needsUpdate = true;
-            bgMaterial2.needsUpdate = true;
-            
+            bgMaterial1.needsUpdate = bgMaterial2.needsUpdate = true;
             bgFadeProgress = 0;
             bgFadeDirection = 1;
         }
@@ -237,20 +230,13 @@
             color: 0xffffff
         });
 
-        const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
+        const tankTexture   = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
 
-        tankTexture.magFilter = THREE.NearestFilter;
-        tankTexture.minFilter = THREE.NearestFilter;
-        tankTexture.premultiplyAlpha = false;
-        tankTexture.needsUpdate = true;
+        tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
+        turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
 
-        turretTexture.magFilter = THREE.NearestFilter;
-        turretTexture.minFilter = THREE.NearestFilter;
-        turretTexture.premultiplyAlpha = false;
-        turretTexture.needsUpdate = true;
-
-        // =============== PLAYER TANK ===============
+        // PLAYER TANK
         const tankGroup = new THREE.Group();
 
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
@@ -272,22 +258,19 @@
         );
         turretSprite.position.set(18, 42, 5);
         turretGroup.add(turretSprite);
-
         tankGroup.add(turretGroup);
-        tankGroup.position.set(-220, -340, 10);
 
+        tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
 
         function getBarrelTip() {
-            const tipLocal = new THREE.Vector3(65, 18, 0);
-            return tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
+            return new THREE.Vector3(65, 18, 0).applyMatrix4(turretGroup.matrixWorld);
         }
 
         let spring;
         function createSpring() {
-            const points = [];
-            for(let i = 0; i < 60; i++) points.push(new THREE.Vector3());
-            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            const pts = Array(61).fill().map(() => new THREE.Vector3());
+            const geo = new THREE.BufferGeometry().setFromPoints(pts);
             spring = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 10 }));
             spring.renderOrder = -1;
             scene.add(spring);
@@ -301,28 +284,26 @@
             if (len < 25) { spring.visible = false; return; }
 
             dir.normalize();
-            const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
+            const perp = new THREE.Vector3(-dir.y, dir.x, 0);
             const offsetStart = start.clone().addScaledVector(dir, -3);
             const offsetEnd   = end.clone().addScaledVector(dir, -5);
 
-            const points = [];
-            const numCoils = Math.min(14, len * 0.055);
+            const pts = [];
+            const coils = Math.min(14, len * 0.055);
             for (let i = 0; i <= 60; i++) {
                 const t = i / 60;
                 let p = offsetStart.clone().lerp(offsetEnd, t);
-                const coilRadius = 7 * (1 - t * 0.25);
-                const angle = t * numCoils * Math.PI * 2;
-                p.add(perp.clone().multiplyScalar(Math.sin(angle) * coilRadius));
-                points.push(p);
+                const r = 7 * (1 - t * 0.25);
+                const ang = t * coils * Math.PI * 2;
+                p.add(perp.clone().multiplyScalar(Math.sin(ang) * r));
+                pts.push(p);
             }
-            spring.geometry.setFromPoints(points);
+            spring.geometry.setFromPoints(pts);
             spring.geometry.attributes.position.needsUpdate = true;
             spring.visible = true;
         }
 
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
-        const cameraLerpSpeedFollow = 0.12;
-        const cameraLerpSpeedReturn = 0.04;
         let followProjectile = false;
 
         function resetCamera(immediate = false) {
@@ -357,14 +338,14 @@
         const ballIcons = [];
 
         function updateBallsUI() {
-            ballIcons.forEach(icon => ballsEl.removeChild(icon));
+            ballIcons.forEach(el => ballsEl.removeChild(el));
             ballIcons.length = 0;
-            const remaining = MAX_TRIES - tryAgainCount;
-            for (let i = 0; i < remaining; i++) {
-                const div = document.createElement('div');
-                div.className = 'cannon-ball-icon';
-                ballsEl.appendChild(div);
-                ballIcons.push(div);
+            const rem = MAX_TRIES - tryAgainCount;
+            for (let i = 0; i < rem; i++) {
+                const d = document.createElement('div');
+                d.className = 'cannon-ball-icon';
+                ballsEl.appendChild(d);
+                ballIcons.push(d);
             }
         }
 
@@ -390,44 +371,42 @@
         }
 
         function createEnemyTank(x, y) {
-            const group = new THREE.Group();
-            const enemyPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
-            enemyPlatform.position.set(0, -55, -8);
-            enemyPlatform.renderOrder = -2;
-            group.add(enemyPlatform);
+            const g = new THREE.Group();
+            g.add(new THREE.Mesh(new THREE.PlaneGeometry(220,130), platformMaterial));
+            g.children[0].position.set(0,-55,-8);
+            g.children[0].renderOrder = -2;
 
-            const enemyTankSprite = new THREE.Mesh(
-                new THREE.PlaneGeometry(160, 90),
+            const body = new THREE.Mesh(
+                new THREE.PlaneGeometry(160,90),
                 new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
             );
-            enemyTankSprite.scale.x = -1;
-            enemyTankSprite.position.set(0, 10, 0);
-            group.add(enemyTankSprite);
+            body.scale.x = -1;
+            body.position.set(0,10,0);
+            g.add(body);
 
-            const enemyTurret = new THREE.Mesh(
-                new THREE.PlaneGeometry(100, 80),
+            const tur = new THREE.Mesh(
+                new THREE.PlaneGeometry(100,80),
                 new THREE.MeshBasicMaterial({ map: turretTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
             );
-            enemyTurret.scale.x = -1;
-            enemyTurret.position.set(-18, 42, 5);
-            group.add(enemyTurret);
+            tur.scale.x = -1;
+            tur.position.set(-18,42,5);
+            g.add(tur);
 
-            group.position.set(x, y, 5);
-            group.userData = { alive: true };
-            group.userData.hitbox = new THREE.Box3(new THREE.Vector3(-60,-35,-10), new THREE.Vector3(60,35,10));
-            scene.add(group);
-            return group;
+            g.position.set(x, y, 5);
+            g.userData = { alive: true };
+            g.userData.hitbox = new THREE.Box3(new THREE.Vector3(-60,-35,-10), new THREE.Vector3(60,35,10));
+            scene.add(g);
+            return g;
         }
 
-        function spawnLevel(levelIndex) {
+        function spawnLevel(idx) {
             setNewBackground();
             enemies.forEach(e => scene.remove(e));
             enemies = [];
-            levels[levelIndex % levels.length].enemies.forEach(pos => enemies.push(createEnemyTank(pos.x, pos.y)));
+            levels[idx % levels.length].enemies.forEach(p => enemies.push(createEnemyTank(p.x, p.y)));
             if (projectile) scene.remove(projectile);
             projectile = null;
-            isFlying = false;
-            followProjectile = false;
+            isFlying = followProjectile = false;
             turretGroup.rotation.z = 0;
             tryAgainCount = 0;
             updateBallsUI();
@@ -436,36 +415,34 @@
         }
 
         function updateUI() {
-            scoreEl.textContent = `SCORE: ${String(score).padStart(5, '0')}`;
+            scoreEl.textContent = `SCORE: ${score.toString().padStart(5,'0')}`;
             levelEl.textContent = `LEVEL ${currentLevel}`;
             updateBallsUI();
         }
 
-        function showMessage(text, color = '#ffff00', duration = 2000) {
-            messageEl.style.color = color;
-            messageEl.style.borderColor = color;
-            messageEl.textContent = text;
+        function showMessage(txt, col='#ffff00', dur=2000) {
+            messageEl.style.color = messageEl.style.borderColor = col;
+            messageEl.textContent = txt;
             messageEl.style.display = 'block';
-            setTimeout(() => messageEl.style.display = 'none', duration);
+            setTimeout(() => messageEl.style.display = 'none', dur);
         }
 
         function checkCollisions() {
             if (!projectile || !isFlying) return;
-            const projBox = new THREE.Box3().setFromObject(projectile);
+            const pBox = new THREE.Box3().setFromObject(projectile);
             for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                if (!enemy.userData.alive) continue;
-                const enemyHitbox = enemy.userData.hitbox.clone();
-                enemyHitbox.applyMatrix4(enemy.matrixWorld);
-                if (projBox.intersectsBox(enemyHitbox)) {
-                    scene.remove(enemy);
-                    enemies.splice(i, 1);
-                    enemy.userData.alive = false;
+                const e = enemies[i];
+                if (!e.userData.alive) continue;
+                const eBox = e.userData.hitbox.clone().applyMatrix4(e.matrixWorld);
+                if (pBox.intersectsBox(eBox)) {
+                    scene.remove(e);
+                    enemies.splice(i,1);
+                    e.userData.alive = false;
                     score += 500;
                     updateUI();
-                    createExplosion(enemy.position);
+                    createExplosion(e.position);
                     velocity.multiplyScalar(0.45);
-                    if (enemies.length === 0) levelComplete();
+                    if (!enemies.length) levelComplete();
                     return;
                 }
             }
@@ -473,18 +450,23 @@
 
         function createExplosion(pos) {
             for (let i = 0; i < 25; i++) {
-                const p = new THREE.Mesh(new THREE.SphereGeometry(6,6,6),
-                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 }));
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(6,6,6),
+                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 })
+                );
                 p.position.copy(pos);
-                p.userData.vel = new THREE.Vector3((Math.random()-0.5)*25, (Math.random()-0.5)*25 + 15, 0);
+                p.userData.vel = new THREE.Vector3(
+                    (Math.random()-0.5)*25,
+                    (Math.random()-0.5)*25 + 15,
+                    0
+                );
                 scene.add(p);
                 let life = 35;
-                const timer = setInterval(() => {
-                    life--;
+                const t = setInterval(() => {
+                    if (--life <= 0) { clearInterval(t); scene.remove(p); return; }
                     p.position.add(p.userData.vel);
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
-                    if (life <= 0) { clearInterval(timer); scene.remove(p); }
                 }, 16);
             }
         }
@@ -495,7 +477,7 @@
             setTimeout(() => {
                 currentLevel++;
                 tryAgainCount = 0;
-                spawnLevel(currentLevel - 1);
+                spawnLevel(currentLevel-1);
                 gameRunning = true;
                 updateUI();
             }, 2600);
@@ -505,7 +487,7 @@
             gameRunning = false;
             showMessage("GAME OVER\nNO MORE SHOTS!", "#ff4444", 4000);
             setTimeout(() => {
-                currentLevel = 1; score = 0; tryAgainCount = 0;
+                currentLevel = score = tryAgainCount = 0;
                 setNewBackground();
                 spawnLevel(0);
                 gameRunning = true;
@@ -516,8 +498,7 @@
         function resetAfterShot() {
             if (projectile) scene.remove(projectile);
             projectile = null;
-            isFlying = false;
-            followProjectile = false;
+            isFlying = followProjectile = false;
             turretGroup.rotation.z = 0;
             resetCamera(true);
             tryAgainCount++;
@@ -527,32 +508,23 @@
         }
 
         function getPointerPos(e) {
-            const rect = canvas.getBoundingClientRect();
-            let clientX = e.clientX, clientY = e.clientY;
-            if (e.touches && e.touches.length > 0) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            }
-            const normX = (clientX - rect.left) / rect.width;
-            const normY = (clientY - rect.top) / rect.height;
-            return {
-                x: normX * 720 - 360,
-                y: -(normY * 1280 - 640)
-            };
+            const r = canvas.getBoundingClientRect();
+            const x = e.touches?.[0]?.clientX ?? e.clientX;
+            const y = e.touches?.[0]?.clientY ?? e.clientY;
+            const nx = (x - r.left) / r.width;
+            const ny = (y - r.top)  / r.height;
+            return { x: nx * 720 - 360, y: -(ny * 1280 - 640) };
         }
 
-        // ==================== BIGGER TOUCH AREA (main fix) ====================
         function isClickOnTank(pos) {
-            const localX = pos.x - tankGroup.position.x;
-            const localY = pos.y - tankGroup.position.y;
-            // Enlarged for easy mobile tapping — covers full tank + platform + turret
-            return Math.abs(localX) < 120 && Math.abs(localY + 10) < 85;
+            const lx = pos.x - tankGroup.position.x;
+            const ly = pos.y - tankGroup.position.y;
+            return Math.abs(lx) < 120 && Math.abs(ly + 10) < 85;
         }
 
         function onDown(e) {
             e.preventDefault();
             if (!gameRunning || isFlying || isDragging) return;
-
             const pos = getPointerPos(e);
             if (isClickOnTank(pos)) {
                 isDragging = true;
@@ -562,25 +534,21 @@
             }
         }
 
-        // ... (onMove, onUp, animate, init etc. remain the same as before)
-
         function onMove(e) {
             e.preventDefault();
             if (!isDragging) return;
             const pos = getPointerPos(e);
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
-            let dist = Math.hypot(dx, dy);
-            if (dist > 150) {
-                dx *= 150 / dist;
-                dy *= 150 / dist;
-            }
+            let d = Math.hypot(dx, dy);
+            if (d > 150) { dx *= 150/d; dy *= 150/d; }
             pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
 
             const tip = getBarrelTip();
-            const dyFromCenter = pullPos.y - tip.y;
+            const dyFromTip = pullPos.y - tip.y;
             const maxTilt = Math.PI / 5.5;
-            turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));
+            turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromTip * 0.009));
+
             updateSpring(tip, pullPos);
         }
 
@@ -598,41 +566,40 @@
                 return;
             }
 
-            const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
+            const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
-            const origAngle = turretGroup.rotation.z;
+
+            const orig = turretGroup.rotation.z;
             turretGroup.rotation.z += 0.18;
-            setTimeout(() => { turretGroup.rotation.z = origAngle; }, 140);
+            setTimeout(() => turretGroup.rotation.z = orig, 140);
 
             createProjectile(tip);
-            velocity.copy(barrelDir.normalize()).multiplyScalar(power);
-            isFlying = true;
-            followProjectile = true;
-
-            if (loadedBall) {
-                scene.remove(loadedBall);
-                loadedBall = null;
-            }
+            velocity.copy(dir.normalize()).multiplyScalar(power);
+            isFlying = followProjectile = true;
+            if (loadedBall) { scene.remove(loadedBall); loadedBall = null; }
         }
 
         renderer.domElement.addEventListener('mousedown', onDown);
         renderer.domElement.addEventListener('mousemove', onMove);
         renderer.domElement.addEventListener('mouseup', onUp);
-        renderer.domElement.addEventListener('touchstart', onDown, { passive: false });
-        renderer.domElement.addEventListener('touchmove', onMove, { passive: false });
-        renderer.domElement.addEventListener('touchend', onUp, { passive: false });
+        renderer.domElement.addEventListener('touchstart', onDown, {passive:false});
+        renderer.domElement.addEventListener('touchmove', onMove, {passive:false});
+        renderer.domElement.addEventListener('touchend', onUp,   {passive:false});
 
-        quitBtn.addEventListener('click', () => window.location.reload());
+        quitBtn.addEventListener('click', () => location.reload());
         restartBtn.addEventListener('click', () => {
-            score = 0; currentLevel = 1; tryAgainCount = 0; turretGroup.rotation.z = 0;
+            score = currentLevel = tryAgainCount = 0;
+            turretGroup.rotation.z = 0;
             setNewBackground();
-            spawnLevel(0); updateUI(); gameRunning = true;
+            spawnLevel(0);
+            updateUI();
+            gameRunning = true;
             resetCamera(true);
         });
 
         function animate() {
             requestAnimationFrame(animate);
-            if (!gameRunning) { renderer.render(scene, camera); return; }
+            if (!gameRunning) return renderer.render(scene, camera);
 
             updateBackgroundFade();
 
@@ -649,23 +616,31 @@
                     if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) resetAfterShot();
                 }
 
-                // Full cannon travel distance
-                if (projectile.position.x > 1100 || projectile.position.x < -450 || projectile.position.y < -900) {
+                // ────────────────────────────────────────────────
+                // VERY LONG RANGE – main change
+                if (projectile.position.x > 2500 ||
+                    projectile.position.x < -450 ||
+                    projectile.position.y < -1200) {
                     resetAfterShot();
                 }
+                // ────────────────────────────────────────────────
 
                 checkCollisions();
             }
 
             if (followProjectile && projectile) {
-                const target = new THREE.Vector3(projectile.position.x, 0, 500);
-                camera.position.lerp(target, cameraLerpSpeedFollow);
+                camera.position.lerp(
+                    new THREE.Vector3(projectile.position.x, 0, 500),
+                    0.12
+                );
             } else {
-                camera.position.lerp(DEFAULT_CAMERA_POS, cameraLerpSpeedReturn);
+                camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
                 camera.lookAt(0, -100, 0);
             }
 
-            if (loadedBall && !isFlying) loadedBall.position.copy(getBarrelTip());
+            if (loadedBall && !isFlying) {
+                loadedBall.position.copy(getBarrelTip());
+            }
 
             renderer.render(scene, camera);
         }

@@ -59,6 +59,22 @@
             border-radius: 15px;
             border: 4px solid #00ffcc;
         }
+        #balls {
+            position: absolute;
+            top: 30px;
+            left: 30px;
+            display: flex;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .cannon-ball-icon {
+            width: 36px;
+            height: 36px;
+            background: #333;
+            border-radius: 50%;
+            box-shadow: inset 0 4px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(255,255,255,0.2);
+            border: 2px solid #555;
+        }
         .button {
             position: absolute;
             bottom: 30px;
@@ -105,6 +121,7 @@
         <div id="ui">
             <div id="score">SCORE: 00000</div>
             <div id="level">LEVEL 1</div>
+            <div id="balls"></div>
             <div id="quit" class="button">⏹</div>
             <div id="restart" class="button">⟳</div>
             <div id="message"></div>
@@ -113,13 +130,13 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.8 - TAP ONLY ON TANK BODY (NOT PLATFORM) ===============
-        // Cannon ball visible AFTER release (if no shot was fired)
+        // =============== ANGRY TANKS v7.9 - CANNON BALLS GUI (remaining shots) ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
         const levelEl = document.getElementById('level');
+        const ballsEl = document.getElementById('balls');
         const messageEl = document.getElementById('message');
         const quitBtn = document.getElementById('quit');
         const restartBtn = document.getElementById('restart');
@@ -355,6 +372,24 @@
 
         let enemies = [];
 
+        // GUI cannon ball icons (small 2D-like circles)
+        const ballIcons = [];
+
+        function updateBallsUI() {
+            // Clear old icons
+            ballIcons.forEach(icon => ballsEl.removeChild(icon));
+            ballIcons.length = 0;
+
+            // Create new icons (number of remaining attempts)
+            const remaining = MAX_TRIES - tryAgainCount;
+            for (let i = 0; i < remaining; i++) {
+                const div = document.createElement('div');
+                div.className = 'cannon-ball-icon';
+                ballsEl.appendChild(div);
+                ballIcons.push(div);
+            }
+        }
+
         function createLoadedBall() {
             if (loadedBall) scene.remove(loadedBall);
             loadedBall = new THREE.Mesh(
@@ -437,6 +472,8 @@
             isFlying = false;
             followProjectile = false;
             turretGroup.rotation.z = 0;
+            tryAgainCount = 0;              // Reset tries on new level
+            updateBallsUI();
             createLoadedBall();
             resetCamera(true);
         }
@@ -444,6 +481,7 @@
         function updateUI() {
             scoreEl.textContent = `SCORE: ${String(score).padStart(5, '0')}`;
             levelEl.textContent = `LEVEL ${currentLevel}`;
+            updateBallsUI();
         }
 
         function showMessage(text, color = '#ffff00', duration = 2000) {
@@ -517,7 +555,7 @@
 
         function gameOver() {
             gameRunning = false;
-            showMessage("GAME OVER", "#ff4444", 4000);
+            showMessage("GAME OVER\nNO MORE SHOTS!", "#ff4444", 4000);
             setTimeout(() => {
                 currentLevel = 1;
                 score = 0;
@@ -537,6 +575,7 @@
             turretGroup.rotation.z = 0;
             resetCamera(true);
             tryAgainCount++;
+            updateUI();  // updates ball icons
             if (tryAgainCount >= MAX_TRIES) {
                 gameOver();
             } else {
@@ -557,7 +596,7 @@
         function isClickOnTank(pos) {
             const localX = pos.x - tankGroup.position.x;
             const localY = pos.y - tankGroup.position.y;
-            // Tighter area focused on tank body (excludes most of the platform)
+            // Tight area - only tank body, not platform
             return Math.abs(localX) < 75 && Math.abs(localY - 10) < 45;
         }
 
@@ -572,7 +611,7 @@
                 dragStartPos.set(pos.x, pos.y);
                 pullPos.copy(getBarrelTip());
                 spring.visible = true;
-                // Ball stays hidden during pull
+                // Ball remains hidden during pull
             }
         }
 
@@ -610,7 +649,7 @@
             const stretch = tip.distanceTo(pullPos);
 
             if (stretch < 45) {
-                // Cancelled pull → show ball ready for next attempt
+                // Cancelled → show ball ready
                 turretGroup.rotation.z = 0;
                 if (loadedBall) loadedBall.visible = true;
                 return;
@@ -709,7 +748,7 @@
             updateUI();
             animate();
             setTimeout(() => {
-                showMessage("TAP THE TANK → PULL → RELEASE TO SEE THE BALL READY!", "#ffffff", 3200);
+                showMessage("TAP TANK → PULL → RELEASE\n(Shots left shown top-left)", "#ffffff", 3400);
             }, 600);
         }
 

@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.3 - PLATFORM VISIBILITY FIXED ===============
-        // alphaTest lowered, premultiplyAlpha added, depthWrite default, renderOrder enforced
+        // =============== ANGRY TANKS v7.4 - SMALLER TANK HITBOXES ===============
+        // Platforms visible + precise collision hitboxes (ignores transparent padding)
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -195,7 +195,7 @@
             }
         }
 
-        // Platform texture & material – FIXED
+        // Platform texture & material
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
@@ -263,6 +263,13 @@
 
         tankGroup.add(turretGroup);
         tankGroup.position.set(-220, -340, 10);
+
+        // Custom smaller hitbox for player tank (≈120×70 instead of 160×90)
+        tankGroup.userData.hitbox = new THREE.Box3(
+            new THREE.Vector3(-60, -35, -10),
+            new THREE.Vector3( 60,  35,  10)
+        );
+
         scene.add(tankGroup);
 
         function getBarrelTip() {
@@ -414,6 +421,13 @@
 
             group.position.set(x, y, 5);
             group.userData = { alive: true };
+
+            // Custom smaller hitbox for enemy tank (≈120×70)
+            group.userData.hitbox = new THREE.Box3(
+                new THREE.Vector3(-60, -35, -10),
+                new THREE.Vector3( 60,  35,  10)
+            );
+
             scene.add(group);
             return group;
         }
@@ -449,11 +463,18 @@
 
         function checkCollisions() {
             if (!projectile || !isFlying) return;
+
             const projBox = new THREE.Box3().setFromObject(projectile);
+
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
                 if (!enemy.userData.alive) continue;
-                if (projBox.intersectsBox(new THREE.Box3().setFromObject(enemy))) {
+
+                // Use custom smaller hitbox (transformed to world space)
+                const enemyHitbox = enemy.userData.hitbox.clone();
+                enemyHitbox.applyMatrix4(enemy.matrixWorld);
+
+                if (projBox.intersectsBox(enemyHitbox)) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
                     enemy.userData.alive = false;

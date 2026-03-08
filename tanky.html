@@ -137,7 +137,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - VERY LONG CANNON RANGE ===============
+        // =============== ANGRY TANKS - QUIT → HOME PAGE ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -178,7 +178,6 @@
             backgrounds.push(tex);
         }
 
-        // Very wide background so it covers long shots
         const bgGeometry = new THREE.PlaneGeometry(6000, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
@@ -586,7 +585,12 @@
         renderer.domElement.addEventListener('touchmove', onMove, {passive:false});
         renderer.domElement.addEventListener('touchend', onUp,   {passive:false});
 
-        quitBtn.addEventListener('click', () => location.reload());
+        // ────────────────────────────────────────────────
+        // CHANGED: Quit now goes back to main home page
+        quitBtn.addEventListener('click', () => {
+            window.location.href = 'https://rbiz01.github.io/fuzzy-chainsaw/';
+        });
+
         restartBtn.addEventListener('click', () => {
             score = currentLevel = tryAgainCount = 0;
             turretGroup.rotation.z = 0;
@@ -596,6 +600,7 @@
             gameRunning = true;
             resetCamera(true);
         });
+        // ────────────────────────────────────────────────
 
         function animate() {
             requestAnimationFrame(animate);
@@ -616,14 +621,11 @@
                     if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) resetAfterShot();
                 }
 
-                // ────────────────────────────────────────────────
-                // VERY LONG RANGE – main change
                 if (projectile.position.x > 2500 ||
                     projectile.position.x < -450 ||
                     projectile.position.y < -1200) {
                     resetAfterShot();
                 }
-                // ────────────────────────────────────────────────
 
                 checkCollisions();
             }

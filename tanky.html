@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v5.9 - ADJUSTED TURRET POSITION ===============
-        // Turret moved slightly higher and more to the left
+        // =============== ANGRY TANKS v6.0 - PERFECT 2D SIDE-VIEW CAMERA ===============
+        // Camera now perfectly face-on for true 2D game look
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -128,7 +128,7 @@
         scene.background = new THREE.Color(0x87CEEB);
 
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
-        camera.position.set(-120, 80, 500);
+        camera.position.set(0, 0, 500);  // ← PERFECTLY FACE-ON (no x/y offset)
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -183,7 +183,7 @@
                 shininess: 40
             })
         );
-        turretSprite.position.set(18, 42, 5);  // ← adjusted: slightly left + higher
+        turretSprite.position.set(18, 42, 5);
         turretGroup.add(turretSprite);
 
         tankGroup.add(turretGroup);
@@ -192,8 +192,7 @@
         scene.add(tankGroup);
 
         function getBarrelTip() {
-            // Adjusted slightly to match new turret position
-            const tipLocal = new THREE.Vector3(65, 18, 0);  // tune if shot origin feels off
+            const tipLocal = new THREE.Vector3(65, 18, 0);
             const worldPos = tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
             return worldPos;
         }
@@ -259,7 +258,7 @@
         const GRAVITY = 0.55;
 
         let followProjectile = false;
-        const cameraOffset = new THREE.Vector3(-120, 80, 500);
+        const cameraOffset = new THREE.Vector3(0, 0, 500);  // ← FACE-ON FOLLOW
         const cameraLerpSpeed = 0.08;
 
         const levels = [
@@ -314,7 +313,7 @@
                 })
             );
             enemyTurret.scale.x = -1;
-            enemyTurret.position.set(-18, 42, 5);  // ← mirrored adjustment
+            enemyTurret.position.set(-18, 42, 5);
             group.add(enemyTurret);
 
             group.position.set(x, y, 5);
@@ -563,7 +562,7 @@
                 camera.position.lerp(target, cameraLerpSpeed);
                 camera.lookAt(projectile.position);
             } else {
-                const def = new THREE.Vector3(-120, 80, 500);
+                const def = new THREE.Vector3(0, 0, 500);  // ← FACE-ON DEFAULT
                 camera.position.lerp(def, cameraLerpSpeed * 1.4);
                 camera.lookAt(0, -100, 0);
             }

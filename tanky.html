@@ -159,7 +159,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - FIXED LEVEL PROGRESSION ===============
+        // =============== ANGRY TANKS - FIXED VERSION (March 2025+) ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -380,7 +380,6 @@
         const GRAVITY = 0.7;
         let windForce = 0;
 
-        // 25 levels (0 = level 1, 1 = level 2, etc.)
         const levels = [
             { enemies: [{x:180,y:-200}], theme: 'flat', baseScore: 100 },
             { enemies: [{x:220,y:-200}, {x:320,y:-200}], theme: 'flat', baseScore: 150 },
@@ -413,6 +412,7 @@
         const ballIcons = [];
         let covers = [];
         let levelCleared = false;
+        let lastEnemyCount = 0;
 
         function updateBallsUI() {
             ballIcons.forEach(el => ballsEl.removeChild(el));
@@ -489,25 +489,19 @@
         }
 
         function spawnLevel(levelIndex) {
-            // Clear previous
             enemies.forEach(e => scene.remove(e));
             covers.forEach(c => scene.remove(c));
             enemies = [];
             covers = [];
-            
-            if (levelIndex >= levels.length) {
-                // Optional: loop back or end game - here we loop
-                levelIndex = levelIndex % levels.length;
-            }
 
-            const lvlData = levels[levelIndex];
+            const effectiveIndex = levelIndex % levels.length;
+            const lvlData = levels[effectiveIndex];
 
             lvlData.enemies.forEach(p => {
-                const armored = Math.random() < 0.1 + (levelIndex * 0.02);
+                const armored = Math.random() < 0.1 + (effectiveIndex * 0.02);
                 enemies.push(createEnemyTank(p.x, p.y, armored));
             });
 
-            // Theme-specific features
             switch(lvlData.theme) {
                 case 'hilly':
                     createCover(280, -320, 200, 60);
@@ -530,6 +524,7 @@
             turretGroup.rotation.z = 0;
             tryAgainCount = shotsUsed = 0;
             levelCleared = false;
+            lastEnemyCount = enemies.length;
             updateBallsUI();
             createLoadedBall();
             resetCamera(true);
@@ -591,34 +586,42 @@
                     new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 })
                 );
                 p.position.copy(pos);
-                p.userData.vel = new THREE.Vector3(
-                    (Math.random()-0.5)*25,
-                    (Math.random()-0.5)*25 + 15,
-                    0
-                );
+                p.userData = {
+                    vel: new THREE.Vector3(
+                        (Math.random()-0.5)*25,
+                        (Math.random()-0.5)*25 + 15,
+                        0
+                    ),
+                    life: 35
+                };
                 scene.add(p);
-                let life = 35;
-                const t = setInterval(() => {
-                    if (--life <= 0) { clearInterval(t); scene.remove(p); return; }
+
+                const interval = setInterval(() => {
+                    p.userData.life--;
+                    if (p.userData.life <= 0) {
+                        clearInterval(interval);
+                        scene.remove(p);
+                        return;
+                    }
                     p.position.add(p.userData.vel);
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
                     
                     if (chain && Math.random() < 0.3) {
                         const blastBox = new THREE.Box3().setFromObject(p);
-                        enemies.forEach(e => {
+                        for (let j = enemies.length - 1; j >= 0; j--) {
+                            const e = enemies[j];
                             if (e.userData.alive) {
                                 const eBox = e.userData.hitbox.clone().applyMatrix4(e.matrixWorld);
                                 if (blastBox.intersectsBox(eBox)) {
                                     e.userData.health = Math.max(0, e.userData.health - 1);
                                     if (e.userData.health <= 0) {
                                         scene.remove(e);
-                                        const deadIdx = enemies.indexOf(e);
-                                        if (deadIdx > -1) enemies.splice(deadIdx, 1);
+                                        enemies.splice(j, 1);
                                     }
                                 }
                             }
-                        });
+                        }
                     }
                 }, 16);
             }
@@ -626,7 +629,7 @@
 
         function levelComplete() {
             levelCleared = true;
-            const lvlData = levels[currentLevel - 1];
+            const lvlData = levels[(currentLevel - 1) % levels.length];
             const starMultiplier = shotsUsed <= 1 ? 3 : shotsUsed === 2 ? 2 : 1;
             score += lvlData.baseScore * starMultiplier * (MAX_TRIES - tryAgainCount + 1);
             
@@ -805,7 +808,9 @@
                     projectile.position.y = -375;
                     velocity.y *= -0.4;
                     velocity.x *= 0.8;
-                    if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) resetAfterShot();
+                    if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) {
+                        resetAfterShot();
+                    }
                 }
 
                 if (projectile.position.x > 3000 || projectile.position.x < -450 || projectile.position.y < -1200) {
@@ -813,11 +818,18 @@
                 }
 
                 checkCollisions();
-                
-                if (enemies.length === 0 && !levelCleared) {
-                    levelComplete();
-                }
             }
+
+            // Only check for level completion when:
+            // - Projectile is no longer flying
+            // - There are no enemies left
+            // - There were enemies before (prevents instant clear on spawn)
+            if (!isFlying && !levelCleared && enemies.length === 0 && lastEnemyCount > 0) {
+                levelComplete();
+            }
+
+            // Update tracking variable
+            lastEnemyCount = enemies.length;
 
             if (followProjectile && projectile) {
                 camera.position.lerp(

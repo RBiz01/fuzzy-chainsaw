@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.0 - PERFECT 2D SIDE-VIEW CAMERA ===============
-        // Camera now perfectly face-on for true 2D game look
+        // =============== ANGRY TANKS v6.1 - CUSTOM BACKGROUND IMAGE ===============
+        // Added bg1.jpg sky background
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -125,10 +125,10 @@
         const restartBtn = document.getElementById('restart');
 
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB);
+        // Removed: scene.background = new THREE.Color(0x87CEEB);
 
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
-        camera.position.set(0, 0, 500);  // ← PERFECTLY FACE-ON (no x/y offset)
+        camera.position.set(0, 0, 500);
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -139,6 +139,22 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
+        // =============== BACKGROUND SKY ===============
+        const textureLoader = new THREE.TextureLoader();
+        const bgTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg');
+        bgTexture.magFilter = THREE.LinearFilter;  // smooth for background
+        bgTexture.minFilter = THREE.LinearFilter;
+
+        const skyBackground = new THREE.Mesh(
+            new THREE.PlaneGeometry(2000, 2000),  // huge to fill entire view
+            new THREE.MeshBasicMaterial({ 
+                map: bgTexture,
+                transparent: true 
+            })
+        );
+        skyBackground.position.set(0, 0, -100);  // behind everything
+        scene.add(skyBackground);
+
         const ground = new THREE.Mesh(
             new THREE.PlaneGeometry(800, 100),
             new THREE.MeshPhongMaterial({ color: 0x3a9d23 })
@@ -147,8 +163,7 @@
         ground.position.y = -400;
         scene.add(ground);
 
-        // Texture loader
-        const textureLoader = new THREE.TextureLoader();
+        // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
 
@@ -258,7 +273,7 @@
         const GRAVITY = 0.55;
 
         let followProjectile = false;
-        const cameraOffset = new THREE.Vector3(0, 0, 500);  // ← FACE-ON FOLLOW
+        const cameraOffset = new THREE.Vector3(0, 0, 500);
         const cameraLerpSpeed = 0.08;
 
         const levels = [
@@ -562,7 +577,7 @@
                 camera.position.lerp(target, cameraLerpSpeed);
                 camera.lookAt(projectile.position);
             } else {
-                const def = new THREE.Vector3(0, 0, 500);  // ← FACE-ON DEFAULT
+                const def = new THREE.Vector3(0, 0, 500);
                 camera.position.lerp(def, cameraLerpSpeed * 1.4);
                 camera.lookAt(0, -100, 0);
             }

@@ -113,9 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.7 - BALL VISIBLE AFTER RELEASE ===============
-        // Click anywhere on tank → start pulling (spring appears)
-        // Release pull → ball becomes visible again (ready for next shot)
+        // =============== ANGRY TANKS v7.8 - TAP ONLY ON TANK BODY (NOT PLATFORM) ===============
+        // Cannon ball visible AFTER release (if no shot was fired)
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -363,7 +362,7 @@
                 new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
             );
             loadedBall.position.copy(getBarrelTip());
-            loadedBall.visible = false;  // always start hidden
+            loadedBall.visible = false;
             scene.add(loadedBall);
         }
 
@@ -541,7 +540,7 @@
             if (tryAgainCount >= MAX_TRIES) {
                 gameOver();
             } else {
-                createLoadedBall();           // new hidden ball
+                createLoadedBall();  // new hidden ball
             }
         }
 
@@ -558,7 +557,8 @@
         function isClickOnTank(pos) {
             const localX = pos.x - tankGroup.position.x;
             const localY = pos.y - tankGroup.position.y;
-            return Math.abs(localX) < 90 && Math.abs(localY - 10) < 55;
+            // Tighter area focused on tank body (excludes most of the platform)
+            return Math.abs(localX) < 75 && Math.abs(localY - 10) < 45;
         }
 
         function onDown(e) {
@@ -572,7 +572,7 @@
                 dragStartPos.set(pos.x, pos.y);
                 pullPos.copy(getBarrelTip());
                 spring.visible = true;
-                // Do NOT show loadedBall here — wait until release
+                // Ball stays hidden during pull
             }
         }
 
@@ -610,13 +610,13 @@
             const stretch = tip.distanceTo(pullPos);
 
             if (stretch < 45) {
-                // Short pull → cancel → SHOW ball again
+                // Cancelled pull → show ball ready for next attempt
                 turretGroup.rotation.z = 0;
                 if (loadedBall) loadedBall.visible = true;
                 return;
             }
 
-            // Real shot
+            // Fire
             const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
 
@@ -633,7 +633,6 @@
                 scene.remove(loadedBall);
                 loadedBall = null;
             }
-            // After firing → new hidden ball will be created in resetAfterShot()
         }
 
         renderer.domElement.addEventListener('mousedown', onDown);
@@ -710,7 +709,7 @@
             updateUI();
             animate();
             setTimeout(() => {
-                showMessage("TAP YOUR TANK → PULL → RELEASE → SEE THE BALL READY!", "#ffffff", 3200);
+                showMessage("TAP THE TANK → PULL → RELEASE TO SEE THE BALL READY!", "#ffffff", 3200);
             }, 600);
         }
 

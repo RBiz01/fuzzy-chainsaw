@@ -139,6 +139,22 @@
             border-radius: 2vmin;
             border: 0.6vmin solid #aa44ff;
         }
+        #debugOverlay {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: #0f0;
+            font-family: monospace;
+            font-size: 14px;
+            padding: 10px;
+            border-radius: 6px;
+            pointer-events: none;
+            max-width: 380px;
+            line-height: 1.4;
+            z-index: 9999;
+            white-space: pre;
+        }
     </style>
 </head>
 <body>
@@ -155,11 +171,13 @@
             <div id="restart" class="button">⟳</div>
             <div id="message"></div>
         </div>
+
+        <div id="debugOverlay"></div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - FIXED VERSION (March 2026) ===============
+        // =============== ANGRY TANKS - DEBUG & FIX VERSION ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -171,6 +189,7 @@
         const messageEl = document.getElementById('message');
         const quitBtn = document.getElementById('quit');
         const restartBtn = document.getElementById('restart');
+        const debugEl = document.getElementById('debugOverlay');
 
         const scene = new THREE.Scene();
 
@@ -806,9 +825,10 @@
 
                 if (projectile.position.y < -375) {
                     projectile.position.y = -375;
-                    velocity.y *= -0.4;
-                    velocity.x *= 0.8;
-                    if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) {
+                    velocity.y *= -0.42;
+                    velocity.x *= 0.78;
+                    velocity.multiplyScalar(0.94); // extra decay to settle faster
+                    if (Math.abs(velocity.y) < 7 && Math.abs(velocity.x) < 6) {
                         resetAfterShot();
                     }
                 }
@@ -820,13 +840,35 @@
                 checkCollisions();
             }
 
-            // IMPORTANT FIX: update tracker FIRST
-            lastEnemyCount = enemies.length;
+            // ────────────────────────────────────────────────
+            // Level completion check + on-screen debug
+            // ────────────────────────────────────────────────
+            if (!levelCleared) {
+                const shouldClear = (
+                    !isFlying &&
+                    enemies.length === 0 &&
+                    lastEnemyCount > 0
+                );
 
-            // Then check for level completion
-            if (!isFlying && !levelCleared && enemies.length === 0 && lastEnemyCount > 0) {
-                levelComplete();
+                // Show live debug on screen
+                if (debugEl) {
+                    debugEl.textContent = 
+                        `isFlying: ${isFlying}\n` +
+                        `enemies: ${enemies.length}\n` +
+                        `lastEnemyCount: ${lastEnemyCount}\n` +
+                        `levelCleared: ${levelCleared}\n` +
+                        `shotsUsed: ${shotsUsed}\n` +
+                        `tryAgainCount: ${tryAgainCount}\n` +
+                        `shouldClear now? ${shouldClear ? 'YES' : 'NO'}`;
+                }
+
+                if (shouldClear) {
+                    levelComplete();
+                }
             }
+
+            // Always update the tracker at the end
+            lastEnemyCount = enemies.length;
 
             if (followProjectile && projectile) {
                 camera.position.lerp(

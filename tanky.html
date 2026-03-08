@@ -121,8 +121,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v3 - Stationary Tank + Barrel Spring + Dark Gray Cannonball ===============
-        // Click barrel → drag spring back (tip → back) → release to fire with power based on stretch
+        // =============== ANGRY TANKS v4 - Barrel Aligns PERFECTLY with Drag Angle ===============
+        // Barrel rotates exactly to match drag direction (tip → pull position)
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -158,40 +158,42 @@
         ground.position.y = -400;
         scene.add(ground);
 
-        // Player tank (completely stationary except tiny barrel recoil)
+        // Player tank
         const tankGroup = new THREE.Group();
         const body = new THREE.Mesh(
             new THREE.BoxGeometry(90, 40, 50),
             new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 })
         );
         tankGroup.add(body);
-        const turret = new THREE.Mesh(
+        const turret = new THREE.Group(); // turret will rotate with barrel
+        const turretBase = new THREE.Mesh(
             new THREE.BoxGeometry(50, 30, 40),
             new THREE.MeshPhongMaterial({ color: 0x004d00 })
         );
+        turret.add(turretBase);
         turret.position.set(10, 25, 0);
         tankGroup.add(turret);
+        
         const barrel = new THREE.Mesh(
             new THREE.CylinderGeometry(10, 10, 80, 16),
             new THREE.MeshPhongMaterial({ color: 0x222222 })
         );
         barrel.rotation.z = Math.PI / 2;
         barrel.position.set(50, 25, 0);
-        tankGroup.add(barrel);
+        turret.add(barrel); // barrel attached to rotating turret
 
         tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
 
-        // Barrel tip helper
+        // Barrel tip position
         function getBarrelTip() {
-            return new THREE.Vector3(
-                tankGroup.position.x + barrel.position.x + 40,
-                tankGroup.position.y + barrel.position.y,
-                0
-            );
+            const tipLocal = new THREE.Vector3(40, 0, 0); // 40 units from barrel center
+            tipLocal.applyMatrix4(barrel.matrixWorld);
+            tipLocal.applyMatrix4(turret.matrixWorld);
+            return tipLocal;
         }
 
-        // Spring visual (helix)
+        // Spring visual
         let spring;
         function createSpring() {
             const points = new Array(48).fill().map(() => new THREE.Vector3());
@@ -203,6 +205,7 @@
             scene.add(spring);
             spring.visible = false;
         }
+        
         function updateSpring(start, end) {
             if (!spring) return;
             const dir = new THREE.Vector3().subVectors(end, start);
@@ -231,8 +234,8 @@
         // Game variables
         let score = 0;
         let currentLevel = 1;
-        let projectile = null;        // flying cannonball
-        let loadedBall = null;        // ready ball at barrel tip
+        let projectile = null;
+        let loadedBall = null;
         let velocity = new THREE.Vector3();
         let isDragging = false;
         let isFlying = false;
@@ -442,6 +445,16 @@
                 dx *= r; dy *= r;
             }
             pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
+            
+            // *** BARREL PERFECTLY ALIGNS WITH DRAG DIRECTION ***
+            const tip = getBarrelTip();
+            const dir = new THREE.Vector3().subVectors(pullPos, tip).normalize();
+            const angle = Math.atan2(dir.y, dir.x);
+            
+            // Rotate turret + barrel to exact drag angle
+            turret.rotation.z = angle;
+            
+            // Update spring from NEW barrel tip to pull position
             updateSpring(getBarrelTip(), pullPos);
         }
 
@@ -452,17 +465,25 @@
 
             const tip = getBarrelTip();
             const stretch = tip.distanceTo(pullPos);
-            if (stretch < 30) return; // too short, no fire
+            if (stretch < 30) {
+                // Reset barrel to forward position
+                turret.rotation.z = 0;
+                return;
+            }
 
-            // Launch direction & power
-            const dir = new THREE.Vector3().subVectors(tip, pullPos).normalize();
+            // *** FIRE EXACTLY IN BARREL DIRECTION ***
+            const dir = new THREE.Vector3().subVectors(pullPos, tip).normalize();
             const power = stretch * 0.27;
 
-            // Barrel recoil kick
-            barrel.position.x -= 18;
-            setTimeout(() => { barrel.position.x += 18; }, 90);
+            // Barrel recoil (turret kicks back)
+            const originalRot = turret.rotation.z;
+            turret.rotation.z += Math.PI / 6;
+            setTimeout(() => { 
+                turret.rotation.z = originalRot * 0.3; // slight forward snap
+                setTimeout(() => { turret.rotation.z = 0; }, 120);
+            }, 90);
 
-            // Create flying cannonball at tip
+            // Create flying cannonball from barrel tip
             createProjectile(tip);
             velocity.copy(dir).multiplyScalar(power);
             isFlying = true;
@@ -495,17 +516,15 @@
                 return;
             }
 
-            // Flying projectile physics
+            // Flying physics
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
                 projectile.position.x += velocity.x;
                 projectile.position.y += velocity.y;
 
-                // Rotation
                 projectile.rotation.x += velocity.y * 0.01;
                 projectile.rotation.z += velocity.x * 0.008;
 
-                // Ground bounce
                 if (projectile.position.y < -380) {
                     projectile.position.y = -380;
                     velocity.y *= -0.38;
@@ -515,7 +534,6 @@
                     }
                 }
 
-                // Out of bounds
                 if (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -750) {
                     resetAfterShot();
                 }
@@ -531,7 +549,7 @@
             spawnLevel(0);
             updateUI();
             animate();
-            setTimeout(() => showMessage("TAP BARREL → PULL SPRING BACK → RELEASE!", "#ffffff", 2800), 500);
+            setTimeout(() => showMessage("TAP BARREL → PULL SPRING → Barrel Aims Perfectly!", "#ffffff", 3000), 500);
         }
 
         window.addEventListener('resize', () => {

@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.1 - CUSTOM BACKGROUND IMAGE ===============
-        // Added bg1.jpg sky background
+        // =============== ANGRY TANKS v6.2 - FIXED BLACK HALOS (BasicMaterial) ===============
+        // Switched to MeshBasicMaterial to eliminate premultiplied alpha + lighting artifacts
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -125,7 +125,6 @@
         const restartBtn = document.getElementById('restart');
 
         const scene = new THREE.Scene();
-        // Removed: scene.background = new THREE.Color(0x87CEEB);
 
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
         camera.position.set(0, 0, 500);
@@ -139,20 +138,20 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // =============== BACKGROUND SKY ===============
+        // Background sky
         const textureLoader = new THREE.TextureLoader();
         const bgTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg');
-        bgTexture.magFilter = THREE.LinearFilter;  // smooth for background
+        bgTexture.magFilter = THREE.LinearFilter;
         bgTexture.minFilter = THREE.LinearFilter;
 
         const skyBackground = new THREE.Mesh(
-            new THREE.PlaneGeometry(2000, 2000),  // huge to fill entire view
+            new THREE.PlaneGeometry(2000, 2000),
             new THREE.MeshBasicMaterial({ 
                 map: bgTexture,
                 transparent: true 
             })
         );
-        skyBackground.position.set(0, 0, -100);  // behind everything
+        skyBackground.position.set(0, 0, -100);
         scene.add(skyBackground);
 
         const ground = new THREE.Mesh(
@@ -163,7 +162,7 @@
         ground.position.y = -400;
         scene.add(ground);
 
-        // Tank textures
+        // Tank & turret textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
 
@@ -177,11 +176,10 @@
 
         const tankSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(160, 90),
-            new THREE.MeshPhongMaterial({
+            new THREE.MeshBasicMaterial({
                 map: tankTexture,
                 transparent: true,
-                side: THREE.DoubleSide,
-                shininess: 30
+                side: THREE.DoubleSide
             })
         );
         tankSprite.position.set(0, 10, 0);
@@ -191,11 +189,10 @@
 
         const turretSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(100, 80),
-            new THREE.MeshPhongMaterial({
+            new THREE.MeshBasicMaterial({
                 map: turretTexture,
                 transparent: true,
-                side: THREE.DoubleSide,
-                shininess: 40
+                side: THREE.DoubleSide
             })
         );
         turretSprite.position.set(18, 42, 5);
@@ -309,7 +306,7 @@
 
             const enemyTankSprite = new THREE.Mesh(
                 new THREE.PlaneGeometry(160, 90),
-                new THREE.MeshPhongMaterial({
+                new THREE.MeshBasicMaterial({
                     map: tankTexture,
                     transparent: true,
                     side: THREE.DoubleSide
@@ -321,7 +318,7 @@
 
             const enemyTurret = new THREE.Mesh(
                 new THREE.PlaneGeometry(100, 80),
-                new THREE.MeshPhongMaterial({
+                new THREE.MeshBasicMaterial({
                     map: turretTexture,
                     transparent: true,
                     side: THREE.DoubleSide

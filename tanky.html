@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.2 - FIXED BLACK HALOS (BasicMaterial) ===============
-        // Switched to MeshBasicMaterial to eliminate premultiplied alpha + lighting artifacts
+        // =============== ANGRY TANKS v6.3 - IMPROVED TRANSPARENCY HANDLING ===============
+        // MeshBasicMaterial + alphaTest + premultiplyAlpha=false to fix black artifacts
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -168,8 +168,13 @@
 
         tankTexture.magFilter = THREE.NearestFilter;
         tankTexture.minFilter = THREE.NearestFilter;
+        tankTexture.premultiplyAlpha = false;
+        tankTexture.needsUpdate = true;
+
         turretTexture.magFilter = THREE.NearestFilter;
         turretTexture.minFilter = THREE.NearestFilter;
+        turretTexture.premultiplyAlpha = false;
+        turretTexture.needsUpdate = true;
 
         // =============== PLAYER TANK ===============
         const tankGroup = new THREE.Group();
@@ -179,7 +184,8 @@
             new THREE.MeshBasicMaterial({
                 map: tankTexture,
                 transparent: true,
-                side: THREE.DoubleSide
+                side: THREE.DoubleSide,
+                alphaTest: 0.05
             })
         );
         tankSprite.position.set(0, 10, 0);
@@ -192,7 +198,8 @@
             new THREE.MeshBasicMaterial({
                 map: turretTexture,
                 transparent: true,
-                side: THREE.DoubleSide
+                side: THREE.DoubleSide,
+                alphaTest: 0.05
             })
         );
         turretSprite.position.set(18, 42, 5);
@@ -309,7 +316,8 @@
                 new THREE.MeshBasicMaterial({
                     map: tankTexture,
                     transparent: true,
-                    side: THREE.DoubleSide
+                    side: THREE.DoubleSide,
+                    alphaTest: 0.05
                 })
             );
             enemyTankSprite.scale.x = -1;
@@ -321,7 +329,8 @@
                 new THREE.MeshBasicMaterial({
                     map: turretTexture,
                     transparent: true,
-                    side: THREE.DoubleSide
+                    side: THREE.DoubleSide,
+                    alphaTest: 0.05
                 })
             );
             enemyTurret.scale.x = -1;

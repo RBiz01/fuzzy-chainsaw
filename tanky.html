@@ -375,14 +375,14 @@
 
             // Larger & much lower platform behind enemy tank
             const enemyPlatform = new THREE.Mesh(
-                new THREE.PlaneGeometry(200, 120),  // same bigger size as player platform
+                new THREE.PlaneGeometry(220, 130),  // same bigger size as player platform
                 new THREE.MeshBasicMaterial({
                     map: platformTexture,
                     transparent: true,
                     side: THREE.DoubleSide
                 })
             );
-            enemyPlatform.position.set(0, -25, -5);  // much lower + behind
+            enemyPlatform.position.set(0, -55, -5);  // much lower + behind
             group.add(enemyPlatform);
 
             const enemyTankSprite = new THREE.Mesh(

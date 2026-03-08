@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v5.8 - SPRITE BASED TANKS ===============
-        // Using tank1.png and turret1.png sprites
+        // =============== ANGRY TANKS v5.9 - ADJUSTED TURRET POSITION ===============
+        // Turret moved slightly higher and more to the left
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -161,7 +161,7 @@
         const tankGroup = new THREE.Group();
 
         const tankSprite = new THREE.Mesh(
-            new THREE.PlaneGeometry(160, 90),  // adjusted size - tune if needed
+            new THREE.PlaneGeometry(160, 90),
             new THREE.MeshPhongMaterial({
                 map: tankTexture,
                 transparent: true,
@@ -169,13 +169,13 @@
                 shininess: 30
             })
         );
-        tankSprite.position.set(0, 10, 0);  // slight y offset to align better with ground
+        tankSprite.position.set(0, 10, 0);
         tankGroup.add(tankSprite);
 
         const turretGroup = new THREE.Group();
 
         const turretSprite = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 80),  // adjusted size - tune if needed
+            new THREE.PlaneGeometry(100, 80),
             new THREE.MeshPhongMaterial({
                 map: turretTexture,
                 transparent: true,
@@ -183,7 +183,7 @@
                 shininess: 40
             })
         );
-        turretSprite.position.set(25, 35, 5);  // pivot/offset - tune to feel natural
+        turretSprite.position.set(18, 42, 5);  // ← adjusted: slightly left + higher
         turretGroup.add(turretSprite);
 
         tankGroup.add(turretGroup);
@@ -192,8 +192,8 @@
         scene.add(tankGroup);
 
         function getBarrelTip() {
-            // Approximate barrel end position - tune these values after testing
-            const tipLocal = new THREE.Vector3(70, 15, 0);  // forward + slight up
+            // Adjusted slightly to match new turret position
+            const tipLocal = new THREE.Vector3(65, 18, 0);  // tune if shot origin feels off
             const worldPos = tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
             return worldPos;
         }
@@ -301,7 +301,7 @@
                     side: THREE.DoubleSide
                 })
             );
-            enemyTankSprite.scale.x = -1;  // flip to face left
+            enemyTankSprite.scale.x = -1;
             enemyTankSprite.position.set(0, 10, 0);
             group.add(enemyTankSprite);
 
@@ -313,8 +313,8 @@
                     side: THREE.DoubleSide
                 })
             );
-            enemyTurret.scale.x = -1;  // flip turret too
-            enemyTurret.position.set(-25, 35, 5);  // mirrored offset
+            enemyTurret.scale.x = -1;
+            enemyTurret.position.set(-18, 42, 5);  // ← mirrored adjustment
             group.add(enemyTurret);
 
             group.position.set(x, y, 5);
@@ -474,7 +474,6 @@
 
             const tip = getBarrelTip();
 
-            // Natural aiming: pull up → barrel up, pull down → barrel down
             const dyFromCenter = pullPos.y - tip.y;
             const maxTilt = Math.PI / 5.5;
             turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));

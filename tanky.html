@@ -100,17 +100,6 @@
             display: none;
             pointer-events: all;
         }
-        .slingshot {
-            position: absolute;
-            bottom: 180px;
-            left: 120px;
-            width: 60px;
-            height: 180px;
-            background: linear-gradient(#555, #222);
-            border-radius: 10px;
-            box-shadow: 0 0 20px #ffcc00;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -120,9 +109,6 @@
         <div id="ui">
             <div id="score">SCORE: 00000</div>
             <div id="level">LEVEL 1</div>
-            
-            <!-- Slingshot visual (HTML for nice look) -->
-            <div class="slingshot"></div>
             
             <!-- Buttons -->
             <div id="quit" class="button">⏹</div>
@@ -135,10 +121,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - Three.js Edition ===============
-        // Vertical mobile-ready (720x1280 aspect), touch + mouse support
-        // Beautiful colorful 3D scene with orthographic camera (2D gameplay feel)
-        // Tanks = colorful ammo projectiles, Enemies = enemy tank bases
+        // =============== ANGRY TANKS v2 - Stationary Tank + Dark Gray Cannonball ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -150,9 +133,8 @@
 
         // Scene setup
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x87CEEB); // Beautiful sky blue
+        scene.background = new THREE.Color(0x87CEEB);
 
-        // Orthographic camera for perfect 2D Angry Birds feel
         const aspect = 720 / 1280;
         let width = 720;
         const camera = new THREE.OrthographicCamera(-width/2, width/2, width/(2*aspect), -width/(2*aspect), 0.1, 1000);
@@ -161,149 +143,127 @@
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.setSize(720, 1280);
-        container.appendChild(renderer.domElement);
 
-        // Lighting for beautiful colors
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambientLight);
-        const sunLight = new THREE.DirectionalLight(0xffeecc, 1);
-        sunLight.position.set(100, 200, 100);
-        scene.add(sunLight);
+        // Lights
+        scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+        const sun = new THREE.DirectionalLight(0xffeecc, 1);
+        sun.position.set(100, 200, 100);
+        scene.add(sun);
 
-        // Ground (green battlefield)
-        const groundGeo = new THREE.PlaneGeometry(800, 100);
-        const groundMat = new THREE.MeshPhongMaterial({ color: 0x3a9d23, shininess: 10 });
-        const ground = new THREE.Mesh(groundGeo, groundMat);
+        // Ground
+        const ground = new THREE.Mesh(
+            new THREE.PlaneGeometry(800, 100),
+            new THREE.MeshPhongMaterial({ color: 0x3a9d23 })
+        );
         ground.rotation.x = -Math.PI / 2;
         ground.position.y = -400;
         scene.add(ground);
 
-        // Add some grass detail
-        const grass = new THREE.Mesh(
-            new THREE.PlaneGeometry(800, 60),
-            new THREE.MeshPhongMaterial({ color: 0x2e7d1f })
+        // Player tank (stationary)
+        const tankGroup = new THREE.Group();
+        // Body
+        const body = new THREE.Mesh(
+            new THREE.BoxGeometry(90, 40, 50),
+            new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 })
         );
-        grass.rotation.x = -Math.PI / 2;
-        grass.position.y = -380;
-        scene.add(grass);
-
-        // Slingshot base (visual)
-        const slingshotBase = new THREE.Mesh(
-            new THREE.BoxGeometry(60, 120, 30),
-            new THREE.MeshPhongMaterial({ color: 0x555555, shininess: 30 })
+        tankGroup.add(body);
+        // Turret
+        const turret = new THREE.Mesh(
+            new THREE.BoxGeometry(50, 30, 40),
+            new THREE.MeshPhongMaterial({ color: 0x004d00 })
         );
-        slingshotBase.position.set(-220, -380, 0);
-        scene.add(slingshotBase);
+        turret.position.set(10, 25, 0);
+        tankGroup.add(turret);
+        // Barrel (will rotate slightly)
+        const barrel = new THREE.Mesh(
+            new THREE.CylinderGeometry(10, 10, 80, 16),
+            new THREE.MeshPhongMaterial({ color: 0x222222 })
+        );
+        barrel.rotation.z = Math.PI / 2;
+        barrel.position.set(50, 25, 0);
+        tankGroup.add(barrel);
 
-        // Slingshot rubber band (two lines)
-        const rubberMat = new THREE.LineBasicMaterial({ color: 0x111111, linewidth: 8 });
-        const rubberPoints = [new THREE.Vector3(-250, -300, 0), new THREE.Vector3(-190, -300, 0)];
-        const rubberGeo = new THREE.BufferGeometry().setFromPoints(rubberPoints);
-        const rubberBand = new THREE.Line(rubberGeo, rubberMat);
-        scene.add(rubberBand);
+        tankGroup.position.set(-220, -340, 10);
+        scene.add(tankGroup);
 
         // Game variables
         let score = 0;
         let currentLevel = 1;
-        let ammo;
-        let enemies = [];
+        let projectile;           // the dark gray ball
         let velocity = new THREE.Vector3();
         let isDragging = false;
         let dragStartPos = new THREE.Vector2();
         let gameRunning = true;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
-        const GRAVITY = 0.6;
+        const GRAVITY = 0.55;
+        let barrelOriginalRotZ = barrel.rotation.z;
 
-        // Level configurations (easy to expand)
         const levels = [
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-180}] },
             { enemies: [{x:150,y:-180}, {x:280,y:-280}, {x:380,y:-150}, {x:500,y:-250}] },
             { enemies: [{x:120,y:-200}, {x:250,y:-300}, {x:380,y:-180}, {x:480,y:-260}, {x:550,y:-140}] }
         ];
 
-        function createAmmo() {
-            const group = new THREE.Group();
-            
-            // Tank body (green with yellow stripes)
-            const body = new THREE.Mesh(
-                new THREE.BoxGeometry(50, 28, 30),
-                new THREE.MeshPhongMaterial({ color: 0x00aa00, shininess: 50 })
+        function createProjectile() {
+            const ball = new THREE.Mesh(
+                new THREE.SphereGeometry(18, 16, 16),
+                new THREE.MeshPhongMaterial({
+                    color: 0x333333,          // dark gray
+                    shininess: 80,
+                    specular: 0x555555
+                })
             );
-            group.add(body);
-            
-            // Turret
-            const turret = new THREE.Mesh(
-                new THREE.BoxGeometry(30, 20, 25),
-                new THREE.MeshPhongMaterial({ color: 0x008800 })
-            );
-            turret.position.set(8, 15, 0);
-            group.add(turret);
-            
-            // Cannon barrel
-            const barrel = new THREE.Mesh(
-                new THREE.CylinderGeometry(6, 6, 40, 16),
-                new THREE.MeshPhongMaterial({ color: 0x333333 })
-            );
-            barrel.rotation.z = Math.PI / 2;
-            barrel.position.set(25, 15, 0);
-            group.add(barrel);
-            
-            group.position.set(-220, -280, 10);
-            group.userData = { alive: true, type: 'ammo' };
-            scene.add(group);
-            return group;
+            ball.position.copy(tankGroup.position).add(new THREE.Vector3(65, 25, 0)); // start at barrel tip
+            ball.userData = { alive: true };
+            scene.add(ball);
+            return ball;
         }
 
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
-            
-            // Red enemy tank body
             const body = new THREE.Mesh(
                 new THREE.BoxGeometry(65, 32, 35),
-                new THREE.MeshPhongMaterial({ color: 0xcc0000, shininess: 40 })
+                new THREE.MeshPhongMaterial({ color: 0xcc0000 })
             );
             group.add(body);
-            
-            // Enemy turret (darker)
             const turret = new THREE.Mesh(
                 new THREE.BoxGeometry(40, 25, 30),
                 new THREE.MeshPhongMaterial({ color: 0x880000 })
             );
             turret.position.set(-5, 20, 0);
             group.add(turret);
-            
-            // Enemy barrel
-            const barrel = new THREE.Mesh(
+            const barrelE = new THREE.Mesh(
                 new THREE.CylinderGeometry(7, 7, 45, 16),
                 new THREE.MeshPhongMaterial({ color: 0x222222 })
             );
-            barrel.rotation.z = Math.PI / 2;
-            barrel.position.set(-25, 20, 0);
-            group.add(barrel);
-            
+            barrelE.rotation.z = Math.PI / 2;
+            barrelE.position.set(-25, 20, 0);
+            group.add(barrelE);
             group.position.set(x, y, 5);
-            group.userData = { alive: true, type: 'enemy', health: 1 };
+            group.userData = { alive: true, type: 'enemy' };
             scene.add(group);
             return group;
         }
 
+        let enemies = [];
+
         function spawnLevel(levelIndex) {
-            // Clear old enemies
             enemies.forEach(e => scene.remove(e));
             enemies = [];
-            
             const config = levels[levelIndex % levels.length];
             config.enemies.forEach(pos => {
-                const tank = createEnemyTank(pos.x, pos.y);
-                enemies.push(tank);
+                enemies.push(createEnemyTank(pos.x, pos.y));
             });
-            
-            // Reset ammo
-            if (ammo) scene.remove(ammo);
-            ammo = createAmmo();
-            velocity.set(0, 0, 0);
+            resetProjectile();
+        }
+
+        function resetProjectile() {
+            if (projectile) scene.remove(projectile);
+            projectile = createProjectile();
+            velocity.set(0,0,0);
             isDragging = false;
+            barrel.rotation.z = barrelOriginalRotZ;
         }
 
         function updateUI() {
@@ -316,91 +276,59 @@
             messageEl.style.borderColor = color;
             messageEl.textContent = text;
             messageEl.style.display = 'block';
-            setTimeout(() => {
-                messageEl.style.display = 'none';
-            }, duration);
+            setTimeout(() => messageEl.style.display = 'none', duration);
         }
 
         function checkCollisions() {
-            if (!ammo || !ammo.userData.alive) return;
-            
-            const ammoBox = new THREE.Box3().setFromObject(ammo);
-            
+            if (!projectile?.userData.alive) return;
+            const projBox = new THREE.Box3().setFromObject(projectile);
             for (let i = enemies.length - 1; i >= 0; i--) {
-                const enemy = enemies[i];
-                if (!enemy.userData.alive) continue;
-                
-                const enemyBox = new THREE.Box3().setFromObject(enemy);
-                
-                if (ammoBox.intersectsBox(enemyBox)) {
-                    // Hit!
-                    scene.remove(enemy);
+                const e = enemies[i];
+                if (!e.userData.alive) continue;
+                const eBox = new THREE.Box3().setFromObject(e);
+                if (projBox.intersectsBox(eBox)) {
+                    scene.remove(e);
                     enemies.splice(i, 1);
                     score += 500;
                     updateUI();
-                    
-                    // Explosion effect
-                    createExplosion(enemy.position);
-                    
-                    // Knockback on ammo
-                    velocity.multiplyScalar(0.4);
-                    
-                    if (enemies.length === 0) {
-                        levelComplete();
-                    }
+                    createExplosion(e.position);
+                    velocity.multiplyScalar(0.45);
+                    if (enemies.length === 0) levelComplete();
                     return;
                 }
             }
         }
 
         function createExplosion(pos) {
-            const particles = [];
-            for (let i = 0; i < 25; i++) {
+            for (let i = 0; i < 20; i++) {
                 const p = new THREE.Mesh(
-                    new THREE.SphereGeometry(8, 6, 6),
-                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff00 })
+                    new THREE.SphereGeometry(6, 6, 6),
+                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 })
                 );
                 p.position.copy(pos);
-                p.velocity = new THREE.Vector3(
-                    (Math.random() - 0.5) * 18,
-                    (Math.random() - 0.5) * 18 + 10,
+                p.userData.velocity = new THREE.Vector3(
+                    (Math.random()-0.5)*20,
+                    (Math.random()-0.5)*20 + 12,
                     0
                 );
                 scene.add(p);
-                particles.push(p);
-            }
-            
-            // Remove after animation
-            let life = 25;
-            const anim = setInterval(() => {
-                life--;
-                particles.forEach((p, i) => {
-                    p.position.add(p.velocity);
-                    p.velocity.y -= 1.2;
-                    p.scale.multiplyScalar(0.92);
-                });
-                if (life <= 0) {
-                    clearInterval(anim);
-                    particles.forEach(p => scene.remove(p));
-                }
-            }, 16);
-        }
-
-        function resetAmmo() {
-            if (ammo) scene.remove(ammo);
-            ammo = createAmmo();
-            velocity.set(0, 0, 0);
-            tryAgainCount++;
-            
-            if (tryAgainCount >= MAX_TRIES) {
-                gameOver();
+                let life = 30;
+                const id = setInterval(() => {
+                    life--;
+                    p.position.add(p.userData.velocity);
+                    p.userData.velocity.y -= 1.4;
+                    p.scale.multiplyScalar(0.93);
+                    if (life <= 0) {
+                        clearInterval(id);
+                        scene.remove(p);
+                    }
+                }, 16);
             }
         }
 
         function levelComplete() {
             gameRunning = false;
             showMessage("LEVEL CLEAR!", "#00ffcc", 2500);
-            
             setTimeout(() => {
                 currentLevel++;
                 tryAgainCount = 0;
@@ -414,7 +342,6 @@
             gameRunning = false;
             showMessage("GAME OVER", "#ff4444", 4000);
             setTimeout(() => {
-                // Auto restart
                 currentLevel = 1;
                 score = 0;
                 tryAgainCount = 0;
@@ -424,176 +351,115 @@
             }, 4200);
         }
 
-        // Input handling (Mouse + Touch)
-        let pointerDown = false;
-        
+        // Input
         function getPointerPos(e) {
             const rect = renderer.domElement.getBoundingClientRect();
-            let clientX, clientY;
-            
-            if (e.touches) {
-                clientX = e.touches[0].clientX;
-                clientY = e.touches[0].clientY;
-            } else {
-                clientX = e.clientX;
-                clientY = e.clientY;
-            }
-            
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             return {
                 x: (clientX - rect.left) * (720 / rect.width) - 360,
                 y: -(clientY - rect.top) * (1280 / rect.height) + 640
             };
         }
 
-        function onPointerDown(e) {
-            if (!gameRunning || !ammo) return;
-            
+        function onDown(e) {
+            if (!gameRunning || !projectile) return;
             const pos = getPointerPos(e);
-            const ammoPos = ammo.position;
-            
-            const dx = pos.x - ammoPos.x;
-            const dy = pos.y - ammoPos.y;
-            
-            if (Math.sqrt(dx*dx + dy*dy) < 60) {
-                pointerDown = true;
+            const pPos = projectile.position;
+            const dx = pos.x - pPos.x;
+            const dy = pos.y - pPos.y;
+            if (Math.hypot(dx, dy) < 50) {
                 isDragging = true;
                 dragStartPos.set(pos.x, pos.y);
             }
         }
 
-        function onPointerMove(e) {
-            if (!isDragging || !ammo) return;
-            
+        function onMove(e) {
+            if (!isDragging || !projectile) return;
             const pos = getPointerPos(e);
-            
-            // Limit drag distance (classic Angry Birds feel)
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
-            const dist = Math.sqrt(dx*dx + dy*dy);
-            if (dist > 160) {
-                const ratio = 160 / dist;
-                dx *= ratio;
-                dy *= ratio;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 180) {
+                const r = 180 / dist;
+                dx *= r; dy *= r;
             }
-            
-            ammo.position.x = dragStartPos.x + dx;
-            ammo.position.y = dragStartPos.y + dy;
-            
-            // Update rubber band
-            const points = rubberBand.geometry.attributes.position.array;
-            points[0] = dragStartPos.x + dx * 0.3 - 20;
-            points[1] = dragStartPos.y + dy * 0.3;
-            points[3] = dragStartPos.x + dx * 0.3 + 20;
-            points[4] = dragStartPos.y + dy * 0.3;
-            rubberBand.geometry.attributes.position.needsUpdate = true;
+            projectile.position.x = dragStartPos.x + dx;
+            projectile.position.y = dragStartPos.y + dy;
+
+            // Rotate barrel toward drag
+            const angle = Math.atan2(dy, dx);
+            barrel.rotation.z = barrelOriginalRotZ + angle * 0.4;
         }
 
-        function onPointerUp(e) {
-            if (!isDragging || !ammo) return;
-            
+        function onUp() {
+            if (!isDragging || !projectile) return;
             isDragging = false;
-            pointerDown = false;
-            
-            const currentPos = ammo.position;
-            
-            // Calculate launch velocity (opposite of drag direction)
-            velocity.x = (dragStartPos.x - currentPos.x) * 0.22;
-            velocity.y = (dragStartPos.y - currentPos.y) * 0.22;
-            
-            // Reset rubber band
-            const points = rubberBand.geometry.attributes.position.array;
-            points[0] = -250; points[1] = -300;
-            points[3] = -190; points[4] = -300;
-            rubberBand.geometry.attributes.position.needsUpdate = true;
+            const currentPos = projectile.position;
+            velocity.x = (dragStartPos.x - currentPos.x) * 0.24;
+            velocity.y = (dragStartPos.y - currentPos.y) * 0.24;
+            barrel.rotation.z = barrelOriginalRotZ;
         }
 
-        // Event listeners
-        renderer.domElement.addEventListener('mousedown', onPointerDown);
-        renderer.domElement.addEventListener('mousemove', onPointerMove);
-        renderer.domElement.addEventListener('mouseup', onPointerUp);
-        renderer.domElement.addEventListener('touchstart', onPointerDown);
-        renderer.domElement.addEventListener('touchmove', onPointerMove);
-        renderer.domElement.addEventListener('touchend', onPointerUp);
+        renderer.domElement.addEventListener('mousedown', onDown);
+        renderer.domElement.addEventListener('mousemove', onMove);
+        renderer.domElement.addEventListener('mouseup', onUp);
+        renderer.domElement.addEventListener('touchstart', onDown);
+        renderer.domElement.addEventListener('touchmove', onMove);
+        renderer.domElement.addEventListener('touchend', onUp);
 
-        quitBtn.addEventListener('click', () => {
-            window.location.reload();
-        });
-        
+        quitBtn.addEventListener('click', () => window.location.reload());
         restartBtn.addEventListener('click', () => {
-            score = 0;
-            currentLevel = 1;
-            tryAgainCount = 0;
-            spawnLevel(0);
-            updateUI();
-            gameRunning = true;
+            score = 0; currentLevel = 1; tryAgainCount = 0;
+            spawnLevel(0); updateUI(); gameRunning = true;
         });
 
-        // Main game loop
         function animate() {
             requestAnimationFrame(animate);
-            
-            if (!gameRunning || !ammo) {
+
+            if (!gameRunning || !projectile) {
                 renderer.render(scene, camera);
                 return;
             }
-            
-            // Physics
+
             if (!isDragging) {
                 velocity.y -= GRAVITY;
-                ammo.position.x += velocity.x;
-                ammo.position.y += velocity.y;
-                
-                // Gentle rotation for realism
-                ammo.rotation.z = Math.atan2(velocity.y, velocity.x) * 0.6;
-            }
-            
-            // Ground bounce (soft)
-            if (ammo.position.y < -380) {
-                ammo.position.y = -380;
-                velocity.y *= -0.35;
-                velocity.x *= 0.8;
-                
-                if (Math.abs(velocity.y) < 3) {
-                    velocity.set(0, 0, 0);
+                projectile.position.x += velocity.x;
+                projectile.position.y += velocity.y;
+                projectile.rotation.x += velocity.y * 0.008;
+                projectile.rotation.z += velocity.x * 0.005;
+
+                if (projectile.position.y < -380) {
+                    projectile.position.y = -380;
+                    velocity.y *= -0.38;
+                    velocity.x *= 0.82;
+                    if (Math.abs(velocity.y) < 4) velocity.set(0,0,0);
+                }
+
+                if (projectile.position.x > 600 || projectile.position.x < -400 || projectile.position.y < -700) {
+                    tryAgainCount++;
+                    if (tryAgainCount >= MAX_TRIES) gameOver();
+                    else resetProjectile();
                 }
             }
-            
-            // Out of bounds reset
-            if (ammo.position.x > 500 || ammo.position.x < -400 || ammo.position.y < -600) {
-                resetAmmo();
-            }
-            
+
             checkCollisions();
-            updateUI();
-            
             renderer.render(scene, camera);
         }
 
-        // Start the game
-        function initGame() {
+        function init() {
             spawnLevel(0);
             updateUI();
             animate();
-            
-            // Welcome message
-            setTimeout(() => {
-                showMessage("DRAG & LAUNCH!", "#ffffff", 1800);
-            }, 800);
+            setTimeout(() => showMessage("DRAG CANNONBALL & FIRE!", "#ffffff", 2000), 600);
         }
 
-        // Responsive resize
         window.addEventListener('resize', () => {
-            const newAspect = window.innerWidth / window.innerHeight;
             renderer.setSize(720, 1280);
-            camera.left = -360;
-            camera.right = 360;
-            camera.top = 640;
-            camera.bottom = -640;
             camera.updateProjectionMatrix();
         });
 
-        // Boot the game
-        initGame();
+        init();
     </script>
 </body>
 </html>

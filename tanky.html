@@ -113,11 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.7 ===============
-        // - Camera follows projectile only horizontally (no rotation/tilt)
-        // - No green ground plane (background image only)
-        // - Red aiming spring kept
-        // - Camera snaps to exact default position on level start & after miss
+        // =============== ANGRY TANKS v6.8 - 13 ROTATING BACKGROUNDS ===============
+        // New random background per level + smooth fade transitions
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -141,18 +138,67 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // Background
+        // =============== 13 BACKGROUND TEXTURES ===============
         const textureLoader = new THREE.TextureLoader();
-        const bgTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg');
-        bgTexture.magFilter = THREE.LinearFilter;
-        bgTexture.minFilter = THREE.LinearFilter;
+        const backgrounds = [];
+        for (let i = 1; i <= 13; i++) {
+            const texture = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
+            texture.magFilter = THREE.LinearFilter;
+            texture.minFilter = THREE.LinearFilter;
+            backgrounds.push(texture);
+        }
 
-        const skyBackground = new THREE.Mesh(
-            new THREE.PlaneGeometry(2000, 2000),
-            new THREE.MeshBasicMaterial({ map: bgTexture, transparent: true })
-        );
-        skyBackground.position.set(0, 0, -100);
-        scene.add(skyBackground);
+        // Two background planes for smooth crossfade
+        const bgGeometry = new THREE.PlaneGeometry(2000, 2000);
+        const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
+        const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
+        
+        const skyBackground1 = new THREE.Mesh(bgGeometry, bgMaterial1);
+        const skyBackground2 = new THREE.Mesh(bgGeometry, bgMaterial2);
+        skyBackground1.position.set(0, 0, -100);
+        skyBackground2.position.set(0, 0, -101);
+        scene.add(skyBackground1);
+        scene.add(skyBackground2);
+
+        let currentBgIndex = -1;
+        let previousBgIndex = -1;
+        let bgFadeProgress = 0;
+        let bgFadeDirection = 1; // 1 = fade in new, -1 = fade out old
+
+        function setNewBackground() {
+            // Pick random background, different from previous
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * 13);
+            } while (newIndex === previousBgIndex);
+            
+            previousBgIndex = currentBgIndex;
+            currentBgIndex = newIndex;
+            
+            // Assign to background planes
+            bgMaterial1.map = backgrounds[currentBgIndex];
+            bgMaterial2.map = backgrounds[previousBgIndex !== -1 ? previousBgIndex : currentBgIndex];
+            
+            bgMaterial1.needsUpdate = true;
+            bgMaterial2.needsUpdate = true;
+            
+            // Start fade transition
+            bgFadeProgress = 0;
+            bgFadeDirection = 1;
+        }
+
+        function updateBackgroundFade() {
+            if (bgFadeDirection === 1) {
+                // Fade in new background
+                bgMaterial1.opacity = Math.min(1.0, bgFadeProgress);
+                bgMaterial2.opacity = Math.max(0.0, 1.0 - bgFadeProgress);
+                bgFadeProgress += 0.025; // smooth fade speed
+                
+                if (bgFadeProgress >= 1.0) {
+                    bgFadeDirection = 0; // transition complete
+                }
+            }
+        }
 
         // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
@@ -347,6 +393,9 @@
         }
 
         function spawnLevel(levelIndex) {
+            // NEW: Change background on level spawn
+            setNewBackground();
+            
             enemies.forEach(e => scene.remove(e));
             enemies = [];
             levels[levelIndex % levels.length].enemies.forEach(pos => {
@@ -440,6 +489,7 @@
                 currentLevel = 1;
                 score = 0;
                 tryAgainCount = 0;
+                setNewBackground();  // NEW: random background on restart
                 spawnLevel(0);
                 gameRunning = true;
                 updateUI();
@@ -547,6 +597,7 @@
         quitBtn.addEventListener('click', () => window.location.reload());
         restartBtn.addEventListener('click', () => {
             score = 0; currentLevel = 1; tryAgainCount = 0; turretGroup.rotation.z = 0;
+            setNewBackground();  // NEW: random background on restart
             spawnLevel(0); updateUI(); gameRunning = true;
             resetCamera(true);
         });
@@ -558,6 +609,9 @@
                 renderer.render(scene, camera);
                 return;
             }
+
+            // Update background fade
+            updateBackgroundFade();
 
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
@@ -585,12 +639,11 @@
             // Camera: horizontal follow only - no rotation
             if (followProjectile && projectile) {
                 const target = new THREE.Vector3(
-                    projectile.position.x,   // follow horizontally
-                    0,                       // lock vertical position
+                    projectile.position.x,
+                    0,
                     500
                 );
                 camera.position.lerp(target, cameraLerpSpeedFollow);
-                // No lookAt → camera stays perfectly level
             } else {
                 camera.position.lerp(DEFAULT_CAMERA_POS, cameraLerpSpeedReturn);
                 camera.lookAt(0, -100, 0);
@@ -605,6 +658,7 @@
 
         function init() {
             createSpring();
+            setNewBackground();  // NEW: random starting background
             spawnLevel(0);
             updateUI();
             animate();

@@ -113,8 +113,10 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.3 - IMPROVED TRANSPARENCY HANDLING ===============
-        // MeshBasicMaterial + alphaTest + premultiplyAlpha=false to fix black artifacts
+        // =============== ANGRY TANKS v6.6 ===============
+        // - Camera forced reset on level start & after miss
+        // - Removed green ground plane (only background image visible)
+        // - Red aiming spring kept
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -138,7 +140,7 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // Background sky
+        // Background
         const textureLoader = new THREE.TextureLoader();
         const bgTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg');
         bgTexture.magFilter = THREE.LinearFilter;
@@ -146,23 +148,14 @@
 
         const skyBackground = new THREE.Mesh(
             new THREE.PlaneGeometry(2000, 2000),
-            new THREE.MeshBasicMaterial({ 
-                map: bgTexture,
-                transparent: true 
-            })
+            new THREE.MeshBasicMaterial({ map: bgTexture, transparent: true })
         );
         skyBackground.position.set(0, 0, -100);
         scene.add(skyBackground);
 
-        const ground = new THREE.Mesh(
-            new THREE.PlaneGeometry(800, 100),
-            new THREE.MeshPhongMaterial({ color: 0x3a9d23 })
-        );
-        ground.rotation.x = -Math.PI / 2;
-        ground.position.y = -400;
-        scene.add(ground);
+        // NO GREEN GROUND ANYMORE — removed
 
-        // Tank & turret textures
+        // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
 
@@ -176,7 +169,7 @@
         turretTexture.premultiplyAlpha = false;
         turretTexture.needsUpdate = true;
 
-        // =============== PLAYER TANK ===============
+        // Player tank
         const tankGroup = new THREE.Group();
 
         const tankSprite = new THREE.Mesh(
@@ -206,15 +199,17 @@
         turretGroup.add(turretSprite);
 
         tankGroup.add(turretGroup);
-
         tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
 
         function getBarrelTip() {
             const tipLocal = new THREE.Vector3(65, 18, 0);
-            const worldPos = tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
-            return worldPos;
+            return tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
         }
+
+        // ────────────────────────────────────────────────
+        // Aiming spring (red stretch line) — kept
+        // ────────────────────────────────────────────────
 
         let spring;
         function createSpring() {
@@ -262,6 +257,26 @@
             spring.visible = true;
         }
 
+        // ────────────────────────────────────────────────
+        // Camera control
+        // ────────────────────────────────────────────────
+
+        const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
+        const cameraLerpSpeedFollow = 0.12;
+        const cameraLerpSpeedReturn = 0.04;
+
+        function resetCamera(immediate = false) {
+            followProjectile = false;
+            if (immediate) {
+                camera.position.copy(DEFAULT_CAMERA_POS);
+                camera.lookAt(0, -100, 0);
+            }
+        }
+
+        // ────────────────────────────────────────────────
+        // Game variables
+        // ────────────────────────────────────────────────
+
         let score = 0;
         let currentLevel = 1;
         let projectile = null;
@@ -277,8 +292,6 @@
         const GRAVITY = 0.55;
 
         let followProjectile = false;
-        const cameraOffset = new THREE.Vector3(0, 0, 500);
-        const cameraLerpSpeed = 0.08;
 
         const levels = [
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-180}] },
@@ -355,6 +368,7 @@
             followProjectile = false;
             turretGroup.rotation.z = 0;
             createLoadedBall();
+            resetCamera(true);          // Force exact reset
         }
 
         function updateUI() {
@@ -448,6 +462,7 @@
             isFlying = false;
             followProjectile = false;
             turretGroup.rotation.z = 0;
+            resetCamera(true);          // Force exact reset
             tryAgainCount++;
             if (tryAgainCount >= MAX_TRIES) gameOver();
             else createLoadedBall();
@@ -493,7 +508,6 @@
             pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
 
             const tip = getBarrelTip();
-
             const dyFromCenter = pullPos.y - tip.y;
             const maxTilt = Math.PI / 5.5;
             turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));
@@ -544,6 +558,7 @@
         restartBtn.addEventListener('click', () => {
             score = 0; currentLevel = 1; tryAgainCount = 0; turretGroup.rotation.z = 0;
             spawnLevel(0); updateUI(); gameRunning = true;
+            resetCamera(true);
         });
 
         function animate() {
@@ -570,8 +585,7 @@
                     }
                 }
 
-                if (isFlying && projectile &&
-                    (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -800)) {
+                if (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -800) {
                     resetAfterShot();
                 }
 
@@ -579,12 +593,11 @@
             }
 
             if (followProjectile && projectile) {
-                const target = projectile.position.clone().add(cameraOffset);
-                camera.position.lerp(target, cameraLerpSpeed);
+                const target = projectile.position.clone().add(new THREE.Vector3(0, 0, 500));
+                camera.position.lerp(target, cameraLerpSpeedFollow);
                 camera.lookAt(projectile.position);
             } else {
-                const def = new THREE.Vector3(0, 0, 500);
-                camera.position.lerp(def, cameraLerpSpeed * 1.4);
+                camera.position.lerp(DEFAULT_CAMERA_POS, cameraLerpSpeedReturn);
                 camera.lookAt(0, -100, 0);
             }
 

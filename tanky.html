@@ -141,19 +141,22 @@
         }
         #debugOverlay {
             position: absolute;
-            bottom: 10px;
+            bottom: 80px;
             left: 10px;
-            background: rgba(0,0,0,0.7);
-            color: #0f0;
+            background: rgba(0,0,0,0.85);
+            color: #0f8;
             font-family: monospace;
-            font-size: 14px;
-            padding: 10px;
+            font-size: 13px;
+            padding: 8px 10px;
             border-radius: 6px;
             pointer-events: none;
-            max-width: 380px;
-            line-height: 1.4;
+            max-width: 320px;
+            max-height: 180px;
+            overflow-y: auto;
+            line-height: 1.35;
             z-index: 9999;
             white-space: pre;
+            border: 1px solid #333;
         }
     </style>
 </head>
@@ -177,7 +180,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - DEBUG & FIX VERSION ===============
+        // =============== ANGRY TANKS - SIMPLIFIED LEVEL CLEAR + COMPACT DEBUG ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -431,7 +434,6 @@
         const ballIcons = [];
         let covers = [];
         let levelCleared = false;
-        let lastEnemyCount = 0;
 
         function updateBallsUI() {
             ballIcons.forEach(el => ballsEl.removeChild(el));
@@ -543,7 +545,6 @@
             turretGroup.rotation.z = 0;
             tryAgainCount = shotsUsed = 0;
             levelCleared = false;
-            lastEnemyCount = enemies.length;
             updateBallsUI();
             createLoadedBall();
             resetCamera(true);
@@ -827,7 +828,7 @@
                     projectile.position.y = -375;
                     velocity.y *= -0.42;
                     velocity.x *= 0.78;
-                    velocity.multiplyScalar(0.94); // extra decay to settle faster
+                    velocity.multiplyScalar(0.94);
                     if (Math.abs(velocity.y) < 7 && Math.abs(velocity.x) < 6) {
                         resetAfterShot();
                     }
@@ -841,34 +842,30 @@
             }
 
             // ────────────────────────────────────────────────
-            // Level completion check + on-screen debug
+            // Level completion check
             // ────────────────────────────────────────────────
             if (!levelCleared) {
+                const hasBeenAttempted = (shotsUsed + tryAgainCount > 0);
                 const shouldClear = (
                     !isFlying &&
                     enemies.length === 0 &&
-                    lastEnemyCount > 0
+                    hasBeenAttempted
                 );
 
-                // Show live debug on screen
                 if (debugEl) {
                     debugEl.textContent = 
-                        `isFlying: ${isFlying}\n` +
-                        `enemies: ${enemies.length}\n` +
-                        `lastEnemyCount: ${lastEnemyCount}\n` +
-                        `levelCleared: ${levelCleared}\n` +
-                        `shotsUsed: ${shotsUsed}\n` +
-                        `tryAgainCount: ${tryAgainCount}\n` +
-                        `shouldClear now? ${shouldClear ? 'YES' : 'NO'}`;
+                        `flying: ${isFlying ? 'yes' : 'no'}\n` +
+                        `enemies left: ${enemies.length}\n` +
+                        `cleared: ${levelCleared ? 'yes' : 'no'}\n` +
+                        `shots: ${shotsUsed} / retries: ${tryAgainCount}\n` +
+                        `attempted: ${hasBeenAttempted ? 'yes' : 'no'}\n` +
+                        `→ clear? ${shouldClear ? 'YES' : 'NO'}`;
                 }
 
                 if (shouldClear) {
                     levelComplete();
                 }
             }
-
-            // Always update the tracker at the end
-            lastEnemyCount = enemies.length;
 
             if (followProjectile && projectile) {
                 camera.position.lerp(

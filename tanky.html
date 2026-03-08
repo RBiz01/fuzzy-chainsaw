@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v5.7 - NATURAL AIMING DIRECTION ===============
-        // Pull finger/mouse UP → barrel tilts UP, DOWN → barrel tilts DOWN
+        // =============== ANGRY TANKS v5.8 - SPRITE BASED TANKS ===============
+        // Using tank1.png and turret1.png sprites
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -147,28 +147,55 @@
         ground.position.y = -400;
         scene.add(ground);
 
+        // Texture loader
+        const textureLoader = new THREE.TextureLoader();
+        const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
+        const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
+
+        tankTexture.magFilter = THREE.NearestFilter;
+        tankTexture.minFilter = THREE.NearestFilter;
+        turretTexture.magFilter = THREE.NearestFilter;
+        turretTexture.minFilter = THREE.NearestFilter;
+
+        // =============== PLAYER TANK ===============
         const tankGroup = new THREE.Group();
-        const body = new THREE.Mesh(new THREE.BoxGeometry(90, 40, 50), new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 }));
-        tankGroup.add(body);
 
-        const turret = new THREE.Group();
-        const turretBase = new THREE.Mesh(new THREE.BoxGeometry(50, 30, 40), new THREE.MeshPhongMaterial({ color: 0x004d00 }));
-        turret.add(turretBase);
-        turret.position.set(10, 25, 0);
-        tankGroup.add(turret);
+        const tankSprite = new THREE.Mesh(
+            new THREE.PlaneGeometry(160, 90),  // adjusted size - tune if needed
+            new THREE.MeshPhongMaterial({
+                map: tankTexture,
+                transparent: true,
+                side: THREE.DoubleSide,
+                shininess: 30
+            })
+        );
+        tankSprite.position.set(0, 10, 0);  // slight y offset to align better with ground
+        tankGroup.add(tankSprite);
 
-        const barrel = new THREE.Mesh(new THREE.CylinderGeometry(10, 10, 80, 16), new THREE.MeshPhongMaterial({ color: 0x222222 }));
-        barrel.rotation.z = Math.PI / 2;
-        barrel.position.set(35, 0, 0);
-        turret.add(barrel);
+        const turretGroup = new THREE.Group();
+
+        const turretSprite = new THREE.Mesh(
+            new THREE.PlaneGeometry(100, 80),  // adjusted size - tune if needed
+            new THREE.MeshPhongMaterial({
+                map: turretTexture,
+                transparent: true,
+                side: THREE.DoubleSide,
+                shininess: 40
+            })
+        );
+        turretSprite.position.set(25, 35, 5);  // pivot/offset - tune to feel natural
+        turretGroup.add(turretSprite);
+
+        tankGroup.add(turretGroup);
 
         tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
 
         function getBarrelTip() {
-            const tipLocal = new THREE.Vector3(40, 0, 0);
-            tipLocal.applyMatrix4(barrel.matrixWorld);
-            return tipLocal;
+            // Approximate barrel end position - tune these values after testing
+            const tipLocal = new THREE.Vector3(70, 15, 0);  // forward + slight up
+            const worldPos = tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
+            return worldPos;
         }
 
         let spring;
@@ -265,14 +292,31 @@
 
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
-            group.add(new THREE.Mesh(new THREE.BoxGeometry(65, 32, 35), new THREE.MeshPhongMaterial({ color: 0xcc0000 })));
-            const turretE = new THREE.Mesh(new THREE.BoxGeometry(40, 25, 30), new THREE.MeshPhongMaterial({ color: 0x880000 }));
-            turretE.position.set(-5, 20, 0);
-            group.add(turretE);
-            const barrelE = new THREE.Mesh(new THREE.CylinderGeometry(7, 7, 45, 16), new THREE.MeshPhongMaterial({ color: 0x222222 }));
-            barrelE.rotation.z = Math.PI / 2;
-            barrelE.position.set(-25, 20, 0);
-            group.add(barrelE);
+
+            const enemyTankSprite = new THREE.Mesh(
+                new THREE.PlaneGeometry(160, 90),
+                new THREE.MeshPhongMaterial({
+                    map: tankTexture,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                })
+            );
+            enemyTankSprite.scale.x = -1;  // flip to face left
+            enemyTankSprite.position.set(0, 10, 0);
+            group.add(enemyTankSprite);
+
+            const enemyTurret = new THREE.Mesh(
+                new THREE.PlaneGeometry(100, 80),
+                new THREE.MeshPhongMaterial({
+                    map: turretTexture,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                })
+            );
+            enemyTurret.scale.x = -1;  // flip turret too
+            enemyTurret.position.set(-25, 35, 5);  // mirrored offset
+            group.add(enemyTurret);
+
             group.position.set(x, y, 5);
             group.userData = { alive: true };
             scene.add(group);
@@ -289,7 +333,7 @@
             projectile = null;
             isFlying = false;
             followProjectile = false;
-            turret.rotation.z = 0;
+            turretGroup.rotation.z = 0;
             createLoadedBall();
         }
 
@@ -383,7 +427,7 @@
             projectile = null;
             isFlying = false;
             followProjectile = false;
-            turret.rotation.z = 0;
+            turretGroup.rotation.z = 0;
             tryAgainCount++;
             if (tryAgainCount >= MAX_TRIES) gameOver();
             else createLoadedBall();
@@ -433,7 +477,7 @@
             // Natural aiming: pull up → barrel up, pull down → barrel down
             const dyFromCenter = pullPos.y - tip.y;
             const maxTilt = Math.PI / 5.5;
-            turret.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));
+            turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));
 
             updateSpring(tip, pullPos);
         }
@@ -448,16 +492,16 @@
             const stretch = tip.distanceTo(pullPos);
 
             if (stretch < 45) {
-                turret.rotation.z = 0;
+                turretGroup.rotation.z = 0;
                 return;
             }
 
-            const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turret.rotation.z);
+            const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
 
-            const origAngle = turret.rotation.z;
-            turret.rotation.z += 0.18;
-            setTimeout(() => { turret.rotation.z = origAngle; }, 140);
+            const origAngle = turretGroup.rotation.z;
+            turretGroup.rotation.z += 0.18;
+            setTimeout(() => { turretGroup.rotation.z = origAngle; }, 140);
 
             createProjectile(tip);
             velocity.copy(barrelDir.normalize()).multiplyScalar(power);
@@ -479,7 +523,7 @@
 
         quitBtn.addEventListener('click', () => window.location.reload());
         restartBtn.addEventListener('click', () => {
-            score = 0; currentLevel = 1; tryAgainCount = 0; turret.rotation.z = 0;
+            score = 0; currentLevel = 1; tryAgainCount = 0; turretGroup.rotation.z = 0;
             spawnLevel(0); updateUI(); gameRunning = true;
         });
 

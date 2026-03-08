@@ -159,7 +159,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - FULL ANGRY BIRDS EXPERIENCE ===============
+        // =============== ANGRY TANKS - FIXED LEVEL PROGRESSION ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -340,12 +340,12 @@
             const pts = [];
             let pos = startPos.clone();
             let vel = velocity.clone();
-            const GRAVITY = 0.7; // Increased for more arc
+            const GRAVITY = 0.7;
             for (let i = 0; i <= 50; i++) {
                 pts.push(pos.clone());
                 pos.add(vel);
-                vel.y -= GRAVITY * 0.016; // Simulate gravity over time
-                if (pos.y < -400) break; // Ground
+                vel.y -= GRAVITY * 0.016;
+                if (pos.y < -400) break;
             }
             trajectoryLine.geometry.setFromPoints(pts);
             trajectoryLine.geometry.attributes.position.needsUpdate = true;
@@ -377,40 +377,31 @@
         let gameRunning = true;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
-        const GRAVITY = 0.7; // Increased for Angry Birds arc feel
+        const GRAVITY = 0.7;
         let windForce = 0;
 
-        // 25+ LEVELS with progression
+        // 25 levels (0 = level 1, 1 = level 2, etc.)
         const levels = [
-            // Levels 1-5: Tutorial - Basic aiming
             { enemies: [{x:180,y:-200}], theme: 'flat', baseScore: 100 },
             { enemies: [{x:220,y:-200}, {x:320,y:-200}], theme: 'flat', baseScore: 150 },
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-200}], theme: 'flat', baseScore: 200 },
             { enemies: [{x:150,y:-180}, {x:280,y:-280}, {x:380,y:-150}, {x:500,y:-250}], theme: 'flat', baseScore: 250 },
             { enemies: [{x:120,y:-200}, {x:250,y:-300}, {x:380,y:-180}, {x:480,y:-260}, {x:550,y:-140}], theme: 'flat', baseScore: 300 },
-
-            // Levels 6-10: Hilly - Height variation
             { enemies: [{x:200,y:-150}, {x:300,y:-100}, {x:400,y:-150}], theme: 'hilly', baseScore: 350 },
             { enemies: [{x:180,y:-250}, {x:280,y:-180}, {x:380,y:-250}, {x:480,y:-180}], theme: 'hilly', baseScore: 400 },
             { enemies: [{x:220,y:-300}, {x:320,y:-220}, {x:420,y:-300}, {x:520,y:-220}], theme: 'hilly', baseScore: 450 },
             { enemies: [{x:150,y:-120}, {x:250,y:-280}, {x:350,y:-120}, {x:450,y:-280}, {x:550,y:-120}], theme: 'hilly', baseScore: 500 },
             { enemies: [{x:200,y:-100}, {x:300,y:-250}, {x:400,y:-100}, {x:500,y:-250}, {x:600,y:-100}], theme: 'hilly', baseScore: 550 },
-
-            // Levels 11-15: Clusters - Chain reactions
             { enemies: [{x:250,y:-180}, {x:280,y:-180}, {x:310,y:-180}], theme: 'cluster', baseScore: 600 },
             { enemies: [{x:300,y:-250}, {x:350,y:-200}, {x:400,y:-250}], theme: 'cluster', baseScore: 650 },
             { enemies: [{x:200,y:-300}, {x:250,y:-250}, {x:300,y:-300}, {x:350,y:-250}, {x:400,y:-300}], theme: 'cluster', baseScore: 700 },
             { enemies: [{x:180,y:-220}, {x:230,y:-220}, {x:280,y:-220}, {x:330,y:-220}, {x:380,y:-220}], theme: 'cluster', baseScore: 750 },
             { enemies: [{x:250,y:-150}, {x:300,y:-200}, {x:350,y:-150}, {x:300,y:-100}], theme: 'cluster', baseScore: 800 },
-
-            // Levels 16-20: Defended - Cover platforms
             { enemies: [{x:220,y:-350}, {x:320,y:-300}, {x:420,y:-350}], theme: 'defended', baseScore: 900 },
             { enemies: [{x:200,y:-380}, {x:300,y:-320}, {x:400,y:-380}, {x:500,y:-340}], theme: 'defended', baseScore: 950 },
             { enemies: [{x:180,y:-400}, {x:260,y:-360}, {x:340,y:-360}, {x:420,y:-400}, {x:500,y:-380}], theme: 'defended', baseScore: 1000 },
             { enemies: [{x:150,y:-420}, {x:240,y:-380}, {x:330,y:-360}, {x:420,y:-380}, {x:510,y:-420}], theme: 'defended', baseScore: 1050 },
             { enemies: [{x:200,y:-450}, {x:280,y:-410}, {x:360,y:-370}, {x:440,y:-410}, {x:520,y:-450}], theme: 'defended', baseScore: 1100 },
-
-            // Levels 21-25: Expert - Dense + modifiers
             { enemies: [{x:180,y:-380}, {x:240,y:-340}, {x:300,y:-360}, {x:360,y:-340}, {x:420,y:-380}, {x:480,y:-360}], theme: 'expert', baseScore: 1200 },
             { enemies: [{x:200,y:-400}, {x:260,y:-370}, {x:320,y:-340}, {x:380,y:-370}, {x:440,y:-400}, {x:500,y:-370}], theme: 'expert', baseScore: 1250 },
             { enemies: [{x:220,y:-420}, {x:280,y:-390}, {x:340,y:-360}, {x:400,y:-390}, {x:460,y:-420}, {x:520,y:-390}, {x:580,y:-410}], theme: 'expert', baseScore: 1300 },
@@ -420,7 +411,7 @@
 
         let enemies = [];
         const ballIcons = [];
-        let covers = []; // Cover platforms
+        let covers = [];
         let levelCleared = false;
 
         function updateBallsUI() {
@@ -497,23 +488,28 @@
             return g;
         }
 
-        function spawnLevel(idx) {
+        function spawnLevel(levelIndex) {
             // Clear previous
             enemies.forEach(e => scene.remove(e));
             covers.forEach(c => scene.remove(c));
             enemies = [];
             covers = [];
             
-            const lvlData = levels[idx % levels.length];
+            if (levelIndex >= levels.length) {
+                // Optional: loop back or end game - here we loop
+                levelIndex = levelIndex % levels.length;
+            }
+
+            const lvlData = levels[levelIndex];
+
             lvlData.enemies.forEach(p => {
-                const armored = Math.random() < 0.1 + (idx * 0.02); // 10%+ chance
+                const armored = Math.random() < 0.1 + (levelIndex * 0.02);
                 enemies.push(createEnemyTank(p.x, p.y, armored));
             });
 
             // Theme-specific features
             switch(lvlData.theme) {
                 case 'hilly':
-                    // Extra platforms for height variation
                     createCover(280, -320, 200, 60);
                     break;
                 case 'defended':
@@ -522,8 +518,10 @@
                     break;
                 case 'expert':
                     createCover(350, -400, 350, 150);
-                    windForce = (Math.random() - 0.5) * 0.3; // Random wind
+                    windForce = (Math.random() - 0.5) * 0.3;
                     break;
+                default:
+                    windForce = 0;
             }
 
             if (projectile) scene.remove(projectile);
@@ -535,18 +533,17 @@
             updateBallsUI();
             createLoadedBall();
             resetCamera(true);
+
+            levelEl.textContent = `LEVEL ${levelIndex + 1}`;
         }
 
         function updateUI() {
             scoreEl.textContent = `SCORE: ${score.toString().padStart(5,'0')}`;
-            levelEl.textContent = `LEVEL ${currentLevel}`;
             highscoreEl.textContent = `BEST: ${highScore.toString().padStart(5,'0')}`;
             
-            // Stars based on shots used
             let stars = '☆☆☆';
-            if (shotsUsed === 1) stars = '★★★';
+            if (shotsUsed <= 1) stars = '★★★';
             else if (shotsUsed === 2) stars = '★★☆';
-            else if (shotsUsed === 0) stars = '★★★';
             starsEl.textContent = stars;
             
             updateBallsUI();
@@ -576,14 +573,13 @@
                         e.userData.alive = false;
                         hitsThisFrame++;
                     }
-                    // Chain reaction - explosion damages nearby
                     createExplosion(e.position, true);
                     velocity.multiplyScalar(0.45);
                 }
             }
             
             if (hitsThisFrame > 1) {
-                score += 500 * hitsThisFrame; // Chain bonus
+                score += 500 * hitsThisFrame;
                 showMessage(`${hitsThisFrame}x COMBO!`, '#ff00ff', 1000);
             }
         }
@@ -608,7 +604,6 @@
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
                     
-                    // Chain reaction damage
                     if (chain && Math.random() < 0.3) {
                         const blastBox = new THREE.Box3().setFromObject(p);
                         enemies.forEach(e => {
@@ -631,8 +626,8 @@
 
         function levelComplete() {
             levelCleared = true;
-            const lvlData = levels[(currentLevel-1) % levels.length];
-            const starMultiplier = shotsUsed === 1 ? 3 : shotsUsed === 2 ? 2 : 1;
+            const lvlData = levels[currentLevel - 1];
+            const starMultiplier = shotsUsed <= 1 ? 3 : shotsUsed === 2 ? 2 : 1;
             score += lvlData.baseScore * starMultiplier * (MAX_TRIES - tryAgainCount + 1);
             
             if (score > highScore) {
@@ -641,16 +636,16 @@
             }
             
             let msg = `LEVEL CLEAR!\n`;
-            if (shotsUsed === 1) msg += 'PERFECT! ★★★';
+            if (shotsUsed <= 1) msg += 'PERFECT! ★★★';
             else if (shotsUsed === 2) msg += 'GREAT! ★★';
             else msg += '★★☆';
             
             gameRunning = false;
             showMessage(msg, "#00ffcc", 3000);
+
             setTimeout(() => {
                 currentLevel++;
-                shotsUsed = 0;
-                spawnLevel(currentLevel-1);
+                spawnLevel(currentLevel - 1);
                 gameRunning = true;
                 updateUI();
             }, 3200);
@@ -734,7 +729,6 @@
 
             updateSpring(tip, pullPos);
             
-            // Update trajectory preview
             const stretch = tip.distanceTo(pullPos);
             if (stretch > 45) {
                 const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
@@ -760,7 +754,7 @@
             const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
             velocity.copy(dir.normalize()).multiplyScalar(power);
-            velocity.x += windForce; // Wind effect
+            velocity.x += windForce;
 
             const orig = turretGroup.rotation.z;
             turretGroup.rotation.z += 0.18;
@@ -802,7 +796,7 @@
 
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
-                velocity.x += windForce * 0.1; // Continuous wind
+                velocity.x += windForce * 0.1;
                 projectile.position.add(velocity);
                 projectile.rotation.x += velocity.y * 0.012;
                 projectile.rotation.z += velocity.x * 0.01;
@@ -820,8 +814,7 @@
 
                 checkCollisions();
                 
-                // Auto level complete check
-                if (enemies.length === 0 && levelCleared === false && isFlying === false) {
+                if (enemies.length === 0 && !levelCleared) {
                     levelComplete();
                 }
             }

@@ -29,8 +29,8 @@
             display: block;
             width: 100%;
             height: 100%;
-            max-width: 1080px;
-            max-height: 1920px;
+            max-width: 720px;
+            max-height: 1280px;
             object-fit: contain;
             image-rendering: pixelated;
             background: #000;
@@ -137,7 +137,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.9 - RESPONSIVE FIXED WORLD ===============
+        // =============== ANGRY TANKS v7.9 - FULL CANNON RANGE ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -732,7 +732,8 @@
                     }
                 }
 
-                if (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -800) {
+                // *** FULL RANGE BOUNDS - OPTION 4 ***
+                if (projectile.position.x > 1100 || projectile.position.x < -450 || projectile.position.y < -900) {
                     resetAfterShot();
                 }
 

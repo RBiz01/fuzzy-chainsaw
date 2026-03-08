@@ -30,7 +30,7 @@
             width: 100%;
             height: 100%;
             max-width: 720px;
-            max-height: 1280px;
+            max-height: 1080px;
             object-fit: contain;
             image-rendering: pixelated;
             background: #000;
@@ -137,7 +137,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.9 - FULL CANNON RANGE ===============
+        // =============== ANGRY TANKS v8.0 - EASY TOUCH + FULL RANGE + WIDE BG ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -156,11 +156,10 @@
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
-        // Responsive renderer size (physical pixels)
         function updateRendererSize() {
             const width = container.clientWidth;
             const height = container.clientHeight;
-            renderer.setSize(width, height, false); // false = don't touch style
+            renderer.setSize(width, height, false);
         }
         updateRendererSize();
         window.addEventListener('resize', updateRendererSize);
@@ -179,7 +178,8 @@
             backgrounds.push(texture);
         }
 
-        const bgGeometry = new THREE.PlaneGeometry(3000, 1500);
+        // WIDER BACKGROUND so it covers full cannon travel distance
+        const bgGeometry = new THREE.PlaneGeometry(3400, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
         
@@ -219,10 +219,7 @@
                 bgMaterial1.opacity = Math.min(1.0, bgFadeProgress);
                 bgMaterial2.opacity = Math.max(0.0, 1.0 - bgFadeProgress);
                 bgFadeProgress += 0.025;
-                
-                if (bgFadeProgress >= 1.0) {
-                    bgFadeDirection = 0;
-                }
+                if (bgFadeProgress >= 1.0) bgFadeDirection = 0;
             }
         }
 
@@ -256,47 +253,28 @@
         // =============== PLAYER TANK ===============
         const tankGroup = new THREE.Group();
 
-        const playerPlatform = new THREE.Mesh(
-            new THREE.PlaneGeometry(220, 130),
-            platformMaterial
-        );
+        const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8);
         playerPlatform.renderOrder = -2;
         tankGroup.add(playerPlatform);
 
         const tankSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(160, 90),
-            new THREE.MeshBasicMaterial({
-                map: tankTexture,
-                transparent: true,
-                side: THREE.DoubleSide,
-                alphaTest: 0.05
-            })
+            new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
         );
         tankSprite.position.set(0, 10, 0);
         tankGroup.add(tankSprite);
 
         const turretGroup = new THREE.Group();
-
         const turretSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(100, 80),
-            new THREE.MeshBasicMaterial({
-                map: turretTexture,
-                transparent: true,
-                side: THREE.DoubleSide,
-                alphaTest: 0.05
-            })
+            new THREE.MeshBasicMaterial({ map: turretTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
         );
         turretSprite.position.set(18, 42, 5);
         turretGroup.add(turretSprite);
 
         tankGroup.add(turretGroup);
         tankGroup.position.set(-220, -340, 10);
-
-        tankGroup.userData.hitbox = new THREE.Box3(
-            new THREE.Vector3(-60, -35, -10),
-            new THREE.Vector3( 60,  35,  10)
-        );
 
         scene.add(tankGroup);
 
@@ -310,10 +288,7 @@
             const points = [];
             for(let i = 0; i < 60; i++) points.push(new THREE.Vector3());
             const geo = new THREE.BufferGeometry().setFromPoints(points);
-            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({
-                color: 0xff4444,
-                linewidth: 10
-            }));
+            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 10 }));
             spring.renderOrder = -1;
             scene.add(spring);
             spring.visible = false;
@@ -323,20 +298,15 @@
             if (!spring) return;
             const dir = new THREE.Vector3().subVectors(end, start);
             const len = dir.length();
-            if (len < 25) {
-                spring.visible = false;
-                return;
-            }
+            if (len < 25) { spring.visible = false; return; }
 
             dir.normalize();
             const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
-
             const offsetStart = start.clone().addScaledVector(dir, -3);
             const offsetEnd   = end.clone().addScaledVector(dir, -5);
 
             const points = [];
             const numCoils = Math.min(14, len * 0.055);
-
             for (let i = 0; i <= 60; i++) {
                 const t = i / 60;
                 let p = offsetStart.clone().lerp(offsetEnd, t);
@@ -345,7 +315,6 @@
                 p.add(perp.clone().multiplyScalar(Math.sin(angle) * coilRadius));
                 points.push(p);
             }
-
             spring.geometry.setFromPoints(points);
             spring.geometry.attributes.position.needsUpdate = true;
             spring.visible = true;
@@ -354,7 +323,6 @@
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const cameraLerpSpeedFollow = 0.12;
         const cameraLerpSpeedReturn = 0.04;
-
         let followProjectile = false;
 
         function resetCamera(immediate = false) {
@@ -386,13 +354,11 @@
         ];
 
         let enemies = [];
-
         const ballIcons = [];
 
         function updateBallsUI() {
             ballIcons.forEach(icon => ballsEl.removeChild(icon));
             ballIcons.length = 0;
-
             const remaining = MAX_TRIES - tryAgainCount;
             for (let i = 0; i < remaining; i++) {
                 const div = document.createElement('div');
@@ -425,23 +391,14 @@
 
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
-
-            const enemyPlatform = new THREE.Mesh(
-                new THREE.PlaneGeometry(220, 130),
-                platformMaterial
-            );
+            const enemyPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
             enemyPlatform.position.set(0, -55, -8);
             enemyPlatform.renderOrder = -2;
             group.add(enemyPlatform);
 
             const enemyTankSprite = new THREE.Mesh(
                 new THREE.PlaneGeometry(160, 90),
-                new THREE.MeshBasicMaterial({
-                    map: tankTexture,
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    alphaTest: 0.05
-                })
+                new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
             );
             enemyTankSprite.scale.x = -1;
             enemyTankSprite.position.set(0, 10, 0);
@@ -449,12 +406,7 @@
 
             const enemyTurret = new THREE.Mesh(
                 new THREE.PlaneGeometry(100, 80),
-                new THREE.MeshBasicMaterial({
-                    map: turretTexture,
-                    transparent: true,
-                    side: THREE.DoubleSide,
-                    alphaTest: 0.05
-                })
+                new THREE.MeshBasicMaterial({ map: turretTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
             );
             enemyTurret.scale.x = -1;
             enemyTurret.position.set(-18, 42, 5);
@@ -462,12 +414,7 @@
 
             group.position.set(x, y, 5);
             group.userData = { alive: true };
-
-            group.userData.hitbox = new THREE.Box3(
-                new THREE.Vector3(-60, -35, -10),
-                new THREE.Vector3( 60,  35,  10)
-            );
-
+            group.userData.hitbox = new THREE.Box3(new THREE.Vector3(-60,-35,-10), new THREE.Vector3(60,35,10));
             scene.add(group);
             return group;
         }
@@ -476,9 +423,7 @@
             setNewBackground();
             enemies.forEach(e => scene.remove(e));
             enemies = [];
-            levels[levelIndex % levels.length].enemies.forEach(pos => {
-                enemies.push(createEnemyTank(pos.x, pos.y));
-            });
+            levels[levelIndex % levels.length].enemies.forEach(pos => enemies.push(createEnemyTank(pos.x, pos.y)));
             if (projectile) scene.remove(projectile);
             projectile = null;
             isFlying = false;
@@ -528,16 +473,10 @@
 
         function createExplosion(pos) {
             for (let i = 0; i < 25; i++) {
-                const p = new THREE.Mesh(
-                    new THREE.SphereGeometry(6, 6, 6),
-                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 })
-                );
+                const p = new THREE.Mesh(new THREE.SphereGeometry(6,6,6),
+                    new THREE.MeshPhongMaterial({ color: Math.random() > 0.5 ? 0xff8800 : 0xffff44 }));
                 p.position.copy(pos);
-                p.userData.vel = new THREE.Vector3(
-                    (Math.random()-0.5)*25,
-                    (Math.random()-0.5)*25 + 15,
-                    0
-                );
+                p.userData.vel = new THREE.Vector3((Math.random()-0.5)*25, (Math.random()-0.5)*25 + 15, 0);
                 scene.add(p);
                 let life = 35;
                 const timer = setInterval(() => {
@@ -545,10 +484,7 @@
                     p.position.add(p.userData.vel);
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
-                    if (life <= 0) {
-                        clearInterval(timer);
-                        scene.remove(p);
-                    }
+                    if (life <= 0) { clearInterval(timer); scene.remove(p); }
                 }, 16);
             }
         }
@@ -569,9 +505,7 @@
             gameRunning = false;
             showMessage("GAME OVER\nNO MORE SHOTS!", "#ff4444", 4000);
             setTimeout(() => {
-                currentLevel = 1;
-                score = 0;
-                tryAgainCount = 0;
+                currentLevel = 1; score = 0; tryAgainCount = 0;
                 setNewBackground();
                 spawnLevel(0);
                 gameRunning = true;
@@ -588,36 +522,31 @@
             resetCamera(true);
             tryAgainCount++;
             updateUI();
-            if (tryAgainCount >= MAX_TRIES) {
-                gameOver();
-            } else {
-                createLoadedBall();
-            }
+            if (tryAgainCount >= MAX_TRIES) gameOver();
+            else createLoadedBall();
         }
 
         function getPointerPos(e) {
             const rect = canvas.getBoundingClientRect();
-
-            let clientX = e.clientX;
-            let clientY = e.clientY;
+            let clientX = e.clientX, clientY = e.clientY;
             if (e.touches && e.touches.length > 0) {
                 clientX = e.touches[0].clientX;
                 clientY = e.touches[0].clientY;
             }
-
             const normX = (clientX - rect.left) / rect.width;
-            const normY = (clientY - rect.top)  / rect.height;
-
+            const normY = (clientY - rect.top) / rect.height;
             return {
                 x: normX * 720 - 360,
                 y: -(normY * 1280 - 640)
             };
         }
 
+        // ==================== BIGGER TOUCH AREA (main fix) ====================
         function isClickOnTank(pos) {
             const localX = pos.x - tankGroup.position.x;
             const localY = pos.y - tankGroup.position.y;
-            return Math.abs(localX) < 75 && Math.abs(localY - 10) < 45;
+            // Enlarged for easy mobile tapping — covers full tank + platform + turret
+            return Math.abs(localX) < 120 && Math.abs(localY + 10) < 85;
         }
 
         function onDown(e) {
@@ -625,7 +554,6 @@
             if (!gameRunning || isFlying || isDragging) return;
 
             const pos = getPointerPos(e);
-
             if (isClickOnTank(pos)) {
                 isDragging = true;
                 dragStartPos.set(pos.x, pos.y);
@@ -634,27 +562,25 @@
             }
         }
 
+        // ... (onMove, onUp, animate, init etc. remain the same as before)
+
         function onMove(e) {
             e.preventDefault();
             if (!isDragging) return;
-
             const pos = getPointerPos(e);
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
             let dist = Math.hypot(dx, dy);
-
             if (dist > 150) {
                 dx *= 150 / dist;
                 dy *= 150 / dist;
             }
-
             pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
 
             const tip = getBarrelTip();
             const dyFromCenter = pullPos.y - tip.y;
             const maxTilt = Math.PI / 5.5;
             turretGroup.rotation.z = Math.max(-maxTilt, Math.min(maxTilt, dyFromCenter * 0.009));
-
             updateSpring(tip, pullPos);
         }
 
@@ -666,7 +592,6 @@
 
             const tip = getBarrelTip();
             const stretch = tip.distanceTo(pullPos);
-
             if (stretch < 45) {
                 turretGroup.rotation.z = 0;
                 if (loadedBall) loadedBall.visible = true;
@@ -675,7 +600,6 @@
 
             const barrelDir = new THREE.Vector3(1, 0, 0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
             const power = stretch * 0.16;
-
             const origAngle = turretGroup.rotation.z;
             turretGroup.rotation.z += 0.18;
             setTimeout(() => { turretGroup.rotation.z = origAngle; }, 140);
@@ -708,18 +632,13 @@
 
         function animate() {
             requestAnimationFrame(animate);
-
-            if (!gameRunning) {
-                renderer.render(scene, camera);
-                return;
-            }
+            if (!gameRunning) { renderer.render(scene, camera); return; }
 
             updateBackgroundFade();
 
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
                 projectile.position.add(velocity);
-
                 projectile.rotation.x += velocity.y * 0.012;
                 projectile.rotation.z += velocity.x * 0.01;
 
@@ -727,12 +646,10 @@
                     projectile.position.y = -375;
                     velocity.y *= -0.4;
                     velocity.x *= 0.8;
-                    if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) {
-                        resetAfterShot();
-                    }
+                    if (Math.abs(velocity.y) < 4 && Math.abs(velocity.x) < 3) resetAfterShot();
                 }
 
-                // *** FULL RANGE BOUNDS - OPTION 4 ***
+                // Full cannon travel distance
                 if (projectile.position.x > 1100 || projectile.position.x < -450 || projectile.position.y < -900) {
                     resetAfterShot();
                 }
@@ -741,20 +658,14 @@
             }
 
             if (followProjectile && projectile) {
-                const target = new THREE.Vector3(
-                    projectile.position.x,
-                    0,
-                    500
-                );
+                const target = new THREE.Vector3(projectile.position.x, 0, 500);
                 camera.position.lerp(target, cameraLerpSpeedFollow);
             } else {
                 camera.position.lerp(DEFAULT_CAMERA_POS, cameraLerpSpeedReturn);
                 camera.lookAt(0, -100, 0);
             }
 
-            if (loadedBall && !isFlying) {
-                loadedBall.position.copy(getBarrelTip());
-            }
+            if (loadedBall && !isFlying) loadedBall.position.copy(getBarrelTip());
 
             renderer.render(scene, camera);
         }

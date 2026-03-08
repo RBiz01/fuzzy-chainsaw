@@ -159,7 +159,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - FIXED VERSION (March 2025+) ===============
+        // =============== ANGRY TANKS - FIXED VERSION (March 2026) ===============
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -820,16 +820,13 @@
                 checkCollisions();
             }
 
-            // Only check for level completion when:
-            // - Projectile is no longer flying
-            // - There are no enemies left
-            // - There were enemies before (prevents instant clear on spawn)
+            // IMPORTANT FIX: update tracker FIRST
+            lastEnemyCount = enemies.length;
+
+            // Then check for level completion
             if (!isFlying && !levelCleared && enemies.length === 0 && lastEnemyCount > 0) {
                 levelComplete();
             }
-
-            // Update tracking variable
-            lastEnemyCount = enemies.length;
 
             if (followProjectile && projectile) {
                 camera.position.lerp(

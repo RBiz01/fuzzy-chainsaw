@@ -1,0 +1,485 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Hold or Fold - Flat Cards</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: Arial, sans-serif; }
+        canvas { display: block; }
+
+        #controls { 
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.7); color: white; padding: 16px 32px; border-radius: 20px;
+            z-index: 10; font-size: 1.15em; pointer-events: auto; user-select: none;
+        }
+        #controls button {
+            padding: 10px 24px; font-size: 1.1em; background: #2e7d32; color: white;
+            border: none; border-radius: 10px; cursor: pointer; transition: 0.2s;
+        }
+        #controls button:hover { background: #388e3c; }
+
+        #result-container {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0,0,0,0.78); color: #fff; padding: 16px 28px; border-radius: 14px;
+            z-index: 10; min-width: 380px; text-align: center; font-size: 1.1em;
+        }
+
+        #current-cards {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            gap: 6px;                /* reduced spacing */
+            flex-wrap: wrap;
+        }
+
+        .mini-card {
+            width: 42px;             /* smaller */
+            height: 62px;            /* smaller */
+            border-radius: 6px;
+            background: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            font-size: 16px;         /* smaller ranks */
+            font-weight: bold;
+            padding: 3px 4px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .mini-card .rank-top { text-align: left; }
+        .mini-card .suit-center {
+            font-size: 26px;         /* smaller suit */
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+        }
+        .mini-card .rank-bottom {
+            text-align: right;
+            transform: rotate(180deg);
+        }
+
+        .mini-card.red { color: #c62828; }
+        .mini-card.black { color: #000; }
+
+        #notification {
+            position: absolute; top: 140px; left: 50%; transform: translateX(-50%);
+            background: rgba(30, 60, 30, 0.9); color: #aaffaa; padding: 14px 32px;
+            border-radius: 12px; font-size: 1.05em; z-index: 12; pointer-events: none;
+            opacity: 0; transition: opacity 0.6s; border: 1px solid #4caf50;
+        }
+        #notification.visible { opacity: 1; }
+
+        #card-selector {
+            display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.88);
+            z-index: 20; justify-content: center; align-items: center; flex-direction: column;
+        }
+        #selector-content {
+            background: #1c1c1c; padding: 28px; border-radius: 18px;
+            max-width: 94%; max-height: 82vh; overflow-y: auto; box-shadow: 0 10px 40px rgba(0,0,0,0.7);
+        }
+        .suit-group { margin: 20px 0; }
+        .suit-group h3 { margin: 12px 0; color: #ccc; font-size: 1.45em; text-align: center; }
+        .card-option {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 78px; height: 110px; margin: 8px; border-radius: 12px; background: white;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.6); font-size: 36px; cursor: pointer;
+            transition: all 0.18s ease;
+        }
+        .card-option:hover { transform: scale(1.14); box-shadow: 0 10px 24px rgba(0,0,0,0.7); }
+        .card-option.disabled { opacity: 0.28; cursor: not-allowed; pointer-events: none; transform: none; }
+        #close-selector { 
+            margin-top: 28px; padding: 14px 48px; font-size: 1.2em;
+            background: #444; color: white; border: none; border-radius: 12px; cursor: pointer;
+            transition: background 0.2s;
+        }
+        #close-selector:hover { background: #666; }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls"><button onclick="updateScene()">Calculate Equity</button></div>
+    
+    <div id="result-container">
+        <div id="result">Tap any card to reveal it • Start with your two hole cards</div>
+        <div id="current-cards"></div>
+    </div>
+
+    <div id="notification"></div>
+
+    <div id="card-selector">
+        <div id="selector-content">
+            <h2 style="color:#eee; text-align:center; margin-bottom:28px;">Choose a Card</h2>
+            <div class="suit-group" id="spades"></div>
+            <div class="suit-group" id="hearts"></div>
+            <div class="suit-group" id="diamonds"></div>
+            <div class="suit-group" id="clubs"></div>
+            <button id="close-selector">Cancel</button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.134.0/examples/js/controls/OrbitControls.min.js"></script>
+
+    <script>
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x083822);
+
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 3000);
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.10;
+        controls.minDistance = 10;
+        controls.maxDistance = 70;
+        controls.maxPolarAngle = Math.PI * 0.48;
+
+        camera.position.set(0, 20.5, -28.0);
+        controls.target.set(0, 0, 1.5);
+        controls.update();
+
+        const table = new THREE.Mesh(
+            new THREE.PlaneGeometry(36, 24),
+            new THREE.MeshStandardMaterial({ color: 0x005022, roughness: 0.92 })
+        );
+        table.rotation.x = -Math.PI / 2;
+        table.receiveShadow = true;
+        scene.add(table);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.74));
+        const dirLight = new THREE.DirectionalLight(0xffffe8, 1.2);
+        dirLight.position.set(12, 22, -10);
+        dirLight.castShadow = true;
+        dirLight.shadow.mapSize.set(2048, 2048);
+        scene.add(dirLight);
+
+        const positions = {
+            hole1:  { x: -2.4, z: -10.0, rotY: 0, rotX: -Math.PI / 2 },
+            hole2:  { x:  2.4, z: -10.0, rotY: 0, rotX: -Math.PI / 2 },
+            flop1:  { x: -5.2, z:  0.0, rotY: 0, rotX: -Math.PI / 2 },
+            flop2:  { x: -1.7, z:  0.0, rotY: 0, rotX: -Math.PI / 2 },
+            flop3:  { x:  1.8, z:  0.0, rotY: 0, rotX: -Math.PI / 2 },
+            turn:   { x:  6.5, z:  0.0, rotY: 0, rotX: -Math.PI / 2 },
+            river:  { x: 10.2, z:  0.0, rotY: 0, rotX: -Math.PI / 2 }
+        };
+
+        const cardMeshes = {};
+        let selectedPositionKey = null;
+
+        const suits = { s:'♠', h:'♥', d:'♦', c:'♣' };
+        const suitColors = { s:'#000000', h:'#c62828', d:'#c62828', c:'#000000' };
+        const ranks = '23456789TJQKA';
+
+        let cardBackTexture = null;
+        function getCardBackTexture() {
+            if (cardBackTexture) return cardBackTexture;
+            const cv = document.createElement('canvas');
+            cv.width = 240; cv.height = 360;
+            const ctx = cv.getContext('2d');
+            ctx.fillStyle = '#0b1e5b';
+            ctx.fillRect(0,0,240,360);
+            ctx.strokeStyle = '#1c40a0';
+            ctx.lineWidth = 10;
+            ctx.strokeRect(5,5,230,350);
+            ctx.fillStyle = 'rgba(255,255,255,0.07)';
+            for (let i = 0; i < 12; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random()*240, Math.random()*360, Math.random()*35+15, 0, Math.PI*2);
+                ctx.fill();
+            }
+            cardBackTexture = new THREE.CanvasTexture(cv);
+            return cardBackTexture;
+        }
+
+        function createCard(isRevealed = false, code = null) {
+            const group = new THREE.Group();
+            const geo = new THREE.PlaneGeometry(2.6, 3.9);
+
+            if (!isRevealed) {
+                const backMat = new THREE.MeshStandardMaterial({
+                    map: getCardBackTexture(),
+                    roughness: 0.88,
+                    metalness: 0.08,
+                    side: THREE.DoubleSide
+                });
+                const back = new THREE.Mesh(geo, backMat);
+                back.position.y = 0.008;
+                group.add(back);
+            } else if (isRevealed && code) {
+                const frontCanvas = document.createElement('canvas');
+                frontCanvas.width = 260; frontCanvas.height = 390;
+                const ctx = frontCanvas.getContext('2d');
+                ctx.fillStyle = 'white'; ctx.fillRect(0,0,260,390);
+                ctx.strokeStyle = '#444'; ctx.lineWidth = 5; ctx.strokeRect(3,3,254,384);
+
+                const rank = code[0], suit = code[1];
+                ctx.fillStyle = suitColors[suit];
+                ctx.font = 'bold 68px Arial'; ctx.fillText(rank, 18, 78);
+                ctx.font = 'bold 110px Arial'; ctx.fillText(suits[suit], 28, 210);
+
+                ctx.save(); ctx.translate(260,390); ctx.rotate(Math.PI);
+                ctx.fillText(rank, -242, -68);
+                ctx.font = 'bold 68px Arial'; ctx.fillText(suits[suit], -232, -188);
+                ctx.restore();
+
+                const tex = new THREE.CanvasTexture(frontCanvas);
+                const frontMat = new THREE.MeshStandardMaterial({ 
+                    map: tex, 
+                    roughness: 0.9, 
+                    side: THREE.DoubleSide 
+                });
+                const front = new THREE.Mesh(geo, frontMat);
+                front.position.y = 0.012;
+                group.add(front);
+            }
+
+            group.castShadow = true;
+            group.receiveShadow = true;
+            return group;
+        }
+
+        function initTable() {
+            Object.keys(positions).forEach(key => {
+                const mesh = createCard(false);
+                const p = positions[key];
+                
+                mesh.position.set(p.x, 0.01 + Math.random() * 0.012, p.z);
+                mesh.rotation.y = p.rotY || 0;
+                mesh.rotation.x = p.rotX;
+                mesh.rotation.z = (Math.random() - 0.5) * 0.06;
+                
+                scene.add(mesh);
+                cardMeshes[key] = mesh;
+                mesh.userData = { positionKey: key, revealed: false, code: null };
+            });
+        }
+
+        function buildCardSelector() {
+            const groups = { s: document.getElementById('spades'), h: document.getElementById('hearts'),
+                             d: document.getElementById('diamonds'), c: document.getElementById('clubs') };
+            for (let suit in groups) {
+                const cont = groups[suit];
+                cont.innerHTML = `<h3>${suits[suit]} ${suit.toUpperCase()}</h3>`;
+                for (let r of ranks) {
+                    const code = r + suit;
+                    const el = document.createElement('div');
+                    el.className = 'card-option'; 
+                    el.style.color = suitColors[suit];
+                    el.textContent = r + suits[suit]; 
+                    el.dataset.code = code;
+                    el.onclick = () => {
+                        if (el.classList.contains('disabled')) return;
+                        revealCard(selectedPositionKey, code);
+                        closeSelector();
+                        updateCurrentCardsDisplay();
+                    };
+                    cont.appendChild(el);
+                }
+            }
+        }
+
+        function openSelector(key) {
+            selectedPositionKey = key;
+            updateDisabledCards();
+            document.getElementById('card-selector').style.display = 'flex';
+        }
+
+        function closeSelector() { 
+            document.getElementById('card-selector').style.display = 'none'; 
+            selectedPositionKey = null; 
+        }
+
+        function updateDisabledCards() {
+            const used = new Set();
+            Object.values(cardMeshes).forEach(m => { 
+                if (m.userData.revealed && m.userData.code) used.add(m.userData.code); 
+            });
+            document.querySelectorAll('.card-option').forEach(el => {
+                el.classList.toggle('disabled', used.has(el.dataset.code));
+            });
+        }
+
+        function revealCard(positionKey, cardCode) {
+            const old = cardMeshes[positionKey];
+            if (old) scene.remove(old);
+
+            const mesh = createCard(true, cardCode);
+            const p = positions[positionKey];
+            
+            mesh.position.set(p.x, 0.01 + Math.random() * 0.012, p.z);
+            mesh.rotation.y = p.rotY || 0;
+            mesh.rotation.x = p.rotX;
+            mesh.rotation.z = (Math.random() - 0.5) * 0.06;
+            
+            scene.add(mesh);
+            cardMeshes[positionKey] = mesh;
+            mesh.userData = { positionKey, revealed: true, code: cardCode };
+
+            updateCurrentCardsDisplay();
+        }
+
+        function updateCurrentCardsDisplay() {
+            const container = document.getElementById('current-cards');
+            container.innerHTML = '';
+
+            const hole = [];
+            const board = [];
+
+            if (cardMeshes.hole1?.userData.revealed) hole.push(cardMeshes.hole1.userData.code);
+            if (cardMeshes.hole2?.userData.revealed) hole.push(cardMeshes.hole2.userData.code);
+
+            ['flop1','flop2','flop3','turn','river'].forEach(k => {
+                if (cardMeshes[k]?.userData.revealed) board.push(cardMeshes[k].userData.code);
+            });
+
+            const allRevealed = [...hole, ...board];
+
+            if (allRevealed.length === 0) {
+                container.innerHTML = '<div style="color:#aaa; font-style:italic; font-size:0.9em;">No cards revealed yet</div>';
+                return;
+            }
+
+            allRevealed.forEach(code => {
+                const rank = code[0];
+                const suit = code[1];
+                const colorClass = (suit === 'h' || suit === 'd') ? 'red' : 'black';
+
+                const mini = document.createElement('div');
+                mini.className = `mini-card ${colorClass}`;
+                mini.innerHTML = `
+                    <div class="rank-top">${rank}</div>
+                    <div class="suit-center">${suits[suit]}</div>
+                    <div class="rank-bottom">${rank}</div>
+                `;
+                container.appendChild(mini);
+            });
+        }
+
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+
+        function onPointerDown(event) {
+            if (event.target.tagName !== 'CANVAS') return;
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+            const intersects = raycaster.intersectObjects(Object.values(cardMeshes), true);
+            if (intersects.length > 0) {
+                let obj = intersects[0].object;
+                while (obj && !obj.userData.positionKey) obj = obj.parent;
+                if (obj && obj.userData.positionKey) {
+                    openSelector(obj.userData.positionKey);
+                }
+            }
+        }
+
+        const order = "23456789TJQKA";
+        function getHandDetails(hand) {
+            const cards = hand.split(' ');
+            const faces = cards.map(c => String.fromCharCode(65 + order.indexOf(c[0]))).sort();
+            const suitsArr = cards.map(c => c[1]).sort();
+            const counts = faces.reduce((c,a)=>{c[a]=(c[a]||0)+1;return c},{});
+            const dups = Object.values(counts).reduce((c,a)=>{c[a]=(c[a]||0)+1;return c},{});
+            const flush = suitsArr[0] === suitsArr[4];
+            const straight = faces.every((f,i)=>f.charCodeAt(0)-faces[0].charCodeAt(0)===i) || faces.join('')==='ABCDM';
+            let rank = flush && straight ? 10 : dups[4]?9 : dups[3]&&dups[2]?8 : flush?7 : straight?6 : dups[3]?5 : dups[2]===2?4 : dups[2]?3 : 2;
+            let val = faces.slice().sort((a,b)=>b.charCodeAt(0)-a.charCodeAt(0)).join('');
+            if (straight && faces.join('')==='ABCDM') val = 'EDCBA';
+            return {rank, value: val};
+        }
+        function evaluate(cards) {
+            let best = {rank:0, value:''};
+            combinations(cards, 5).forEach(c => {
+                const d = getHandDetails(c.join(' '));
+                if (d.rank > best.rank || (d.rank === best.rank && d.value > best.value)) best = d;
+            });
+            return best;
+        }
+        function combinations(arr, k) {
+            const res = []; function go(s, p) {
+                if (p.length === k) { res.push(p.slice()); return; }
+                for (let i=s; i<=arr.length-k+p.length; i++) { p.push(arr[i]); go(i+1,p); p.pop(); }
+            } go(0,[]); return res;
+        }
+        function buildDeck() { return ranks.split('').flatMap(r => 'shdc'.split('').map(s => r+s)); }
+        function shuffle(a) { for (let i=a.length-1;i>0;i--) { const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+        function calculateEquity(hole, board, iters=2500) {
+            const deck = buildDeck().filter(c => !hole.includes(c) && !board.includes(c));
+            let w=0, t=0;
+            for (let i=0; i<iters; i++) {
+                const d = shuffle(deck.slice());
+                const need = 5-board.length;
+                const rest = d.splice(0, need+2);
+                const full = board.concat(rest.slice(0,need));
+                const opp = rest.slice(need);
+                const my = evaluate(hole.concat(full));
+                const op = evaluate(opp.concat(full));
+                if (my.rank > op.rank || (my.rank===op.rank && my.value>op.value)) w++;
+                else if (my.rank===op.rank && my.value===op.value) t++;
+            }
+            return ((w + t/2)/iters * 100).toFixed(1);
+        }
+
+        function updateScene() {
+            const hole = [];
+            const board = [];
+            if (cardMeshes.hole1?.userData.revealed) hole.push(cardMeshes.hole1.userData.code);
+            if (cardMeshes.hole2?.userData.revealed) hole.push(cardMeshes.hole2.userData.code);
+            ['flop1','flop2','flop3','turn','river'].forEach(k => {
+                if (cardMeshes[k]?.userData.revealed) board.push(cardMeshes[k].userData.code);
+            });
+
+            if (hole.length < 2) {
+                showNotification("Please reveal your two hole cards first", 3000);
+                document.getElementById('result').innerText = "Reveal your two hole cards first";
+                updateCurrentCardsDisplay();
+                return;
+            }
+
+            const eq = calculateEquity(hole, board);
+            let msg = `Equity vs random: <b>${eq}%</b>`;
+            if (eq > 55) msg += " → <span style='color:#4caf50'>STRONG HOLD</span>";
+            else if (eq > 38) msg += " → <span style='color:#ff9800'>MARGINAL</span>";
+            else msg += " → <span style='color:#f44336'>FOLD</span>";
+            document.getElementById('result').innerHTML = msg;
+
+            updateCurrentCardsDisplay();
+        }
+
+        function showNotification(text, duration = 2800) {
+            const notif = document.getElementById('notification');
+            notif.textContent = text;
+            notif.classList.add('visible');
+            setTimeout(() => notif.classList.remove('visible'), duration);
+        }
+
+        window.addEventListener('pointerdown', onPointerDown);
+        document.getElementById('close-selector').onclick = closeSelector;
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        initTable();
+        buildCardSelector();
+        animate();
+
+        setTimeout(() => {
+            showNotification("Tap cards to select • Click Calculate Equity when ready", 4500);
+        }, 800);
+    </script>
+</body>
+</html>

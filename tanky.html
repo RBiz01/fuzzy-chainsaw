@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.8 - 13 ROTATING BACKGROUNDS ===============
-        // New random background per level + smooth fade transitions
+        // =============== ANGRY TANKS v6.9 - PLATFORM ADDED ===============
+        // platform.png behind tanks, slightly lower
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -138,7 +138,7 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // =============== 13 BACKGROUND TEXTURES ===============
+        // Background (13 rotating)
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
@@ -148,7 +148,6 @@
             backgrounds.push(texture);
         }
 
-        // Two background planes for smooth crossfade
         const bgGeometry = new THREE.PlaneGeometry(2000, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
@@ -163,10 +162,9 @@
         let currentBgIndex = -1;
         let previousBgIndex = -1;
         let bgFadeProgress = 0;
-        let bgFadeDirection = 1; // 1 = fade in new, -1 = fade out old
+        let bgFadeDirection = 1;
 
         function setNewBackground() {
-            // Pick random background, different from previous
             let newIndex;
             do {
                 newIndex = Math.floor(Math.random() * 13);
@@ -175,30 +173,44 @@
             previousBgIndex = currentBgIndex;
             currentBgIndex = newIndex;
             
-            // Assign to background planes
             bgMaterial1.map = backgrounds[currentBgIndex];
             bgMaterial2.map = backgrounds[previousBgIndex !== -1 ? previousBgIndex : currentBgIndex];
             
             bgMaterial1.needsUpdate = true;
             bgMaterial2.needsUpdate = true;
             
-            // Start fade transition
             bgFadeProgress = 0;
             bgFadeDirection = 1;
         }
 
         function updateBackgroundFade() {
             if (bgFadeDirection === 1) {
-                // Fade in new background
                 bgMaterial1.opacity = Math.min(1.0, bgFadeProgress);
                 bgMaterial2.opacity = Math.max(0.0, 1.0 - bgFadeProgress);
-                bgFadeProgress += 0.025; // smooth fade speed
+                bgFadeProgress += 0.025;
                 
                 if (bgFadeProgress >= 1.0) {
-                    bgFadeDirection = 0; // transition complete
+                    bgFadeDirection = 0;
                 }
             }
         }
+
+        // Platform (new)
+        const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
+        platformTexture.magFilter = THREE.NearestFilter;
+        platformTexture.minFilter = THREE.NearestFilter;
+        platformTexture.transparent = true;
+
+        const platform = new THREE.Mesh(
+            new THREE.PlaneGeometry(800, 200),  // adjust size as needed
+            new THREE.MeshBasicMaterial({
+                map: platformTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            })
+        );
+        platform.position.set(0, -360, 0);     // slightly lower than tank (-340)
+        scene.add(platform);
 
         // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
@@ -393,9 +405,7 @@
         }
 
         function spawnLevel(levelIndex) {
-            // NEW: Change background on level spawn
             setNewBackground();
-            
             enemies.forEach(e => scene.remove(e));
             enemies = [];
             levels[levelIndex % levels.length].enemies.forEach(pos => {
@@ -489,7 +499,7 @@
                 currentLevel = 1;
                 score = 0;
                 tryAgainCount = 0;
-                setNewBackground();  // NEW: random background on restart
+                setNewBackground();
                 spawnLevel(0);
                 gameRunning = true;
                 updateUI();
@@ -597,7 +607,7 @@
         quitBtn.addEventListener('click', () => window.location.reload());
         restartBtn.addEventListener('click', () => {
             score = 0; currentLevel = 1; tryAgainCount = 0; turretGroup.rotation.z = 0;
-            setNewBackground();  // NEW: random background on restart
+            setNewBackground();
             spawnLevel(0); updateUI(); gameRunning = true;
             resetCamera(true);
         });
@@ -610,7 +620,6 @@
                 return;
             }
 
-            // Update background fade
             updateBackgroundFade();
 
             if (isFlying && projectile) {
@@ -636,7 +645,6 @@
                 checkCollisions();
             }
 
-            // Camera: horizontal follow only - no rotation
             if (followProjectile && projectile) {
                 const target = new THREE.Vector3(
                     projectile.position.x,
@@ -658,7 +666,7 @@
 
         function init() {
             createSpring();
-            setNewBackground();  // NEW: random starting background
+            setNewBackground();
             spawnLevel(0);
             updateUI();
             animate();

@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v6.9 - PLATFORM ADDED ===============
-        // platform.png behind tanks, slightly lower
+        // =============== ANGRY TANKS v7.0 - PLATFORM BEHIND EVERY TANK ===============
+        // platform.png sized same as tanks, behind each tank (player + enemies)
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -138,7 +138,7 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // Background (13 rotating)
+        // Backgrounds (13 rotating)
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
@@ -195,22 +195,11 @@
             }
         }
 
-        // Platform (new)
+        // Platform texture (shared)
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
         platformTexture.transparent = true;
-
-        const platform = new THREE.Mesh(
-            new THREE.PlaneGeometry(800, 200),  // adjust size as needed
-            new THREE.MeshBasicMaterial({
-                map: platformTexture,
-                transparent: true,
-                side: THREE.DoubleSide
-            })
-        );
-        platform.position.set(0, -360, 0);     // slightly lower than tank (-340)
-        scene.add(platform);
 
         // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
@@ -226,8 +215,20 @@
         turretTexture.premultiplyAlpha = false;
         turretTexture.needsUpdate = true;
 
-        // Player tank
+        // =============== PLAYER TANK + PLATFORM ===============
         const tankGroup = new THREE.Group();
+
+        // Platform behind player tank
+        const playerPlatform = new THREE.Mesh(
+            new THREE.PlaneGeometry(160, 90),  // same size as tank sprite
+            new THREE.MeshBasicMaterial({
+                map: platformTexture,
+                transparent: true,
+                side: THREE.DoubleSide
+            })
+        );
+        playerPlatform.position.set(0, -5, -5);  // slightly lower + behind
+        tankGroup.add(playerPlatform);
 
         const tankSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(160, 90),
@@ -371,6 +372,18 @@
 
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
+
+            // Platform behind enemy tank
+            const enemyPlatform = new THREE.Mesh(
+                new THREE.PlaneGeometry(160, 90),  // same size as tank sprite
+                new THREE.MeshBasicMaterial({
+                    map: platformTexture,
+                    transparent: true,
+                    side: THREE.DoubleSide
+                })
+            );
+            enemyPlatform.position.set(0, -5, -5);  // slightly lower + behind
+            group.add(enemyPlatform);
 
             const enemyTankSprite = new THREE.Mesh(
                 new THREE.PlaneGeometry(160, 90),

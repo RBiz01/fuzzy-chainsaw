@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.4 - SMALLER TANK HITBOXES ===============
-        // Platforms visible + precise collision hitboxes (ignores transparent padding)
+        // =============== ANGRY TANKS v7.6 - LOADED BALL HIDDEN UNTIL DRAG ===============
+        // Turret always visible • Loaded ball appears only when pulling to aim
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -138,7 +138,6 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // Backgrounds (13 rotating)
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
@@ -195,7 +194,6 @@
             }
         }
 
-        // Platform texture & material
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
@@ -210,7 +208,6 @@
             color: 0xffffff
         });
 
-        // Tank textures
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
 
@@ -224,7 +221,7 @@
         turretTexture.premultiplyAlpha = false;
         turretTexture.needsUpdate = true;
 
-        // =============== PLAYER TANK + PLATFORM ===============
+        // =============== PLAYER TANK ===============
         const tankGroup = new THREE.Group();
 
         const playerPlatform = new THREE.Mesh(
@@ -264,7 +261,6 @@
         tankGroup.add(turretGroup);
         tankGroup.position.set(-220, -340, 10);
 
-        // Custom smaller hitbox for player tank (≈120×70 instead of 160×90)
         tankGroup.userData.hitbox = new THREE.Box3(
             new THREE.Vector3(-60, -35, -10),
             new THREE.Vector3( 60,  35,  10)
@@ -277,7 +273,6 @@
             return tipLocal.clone().applyMatrix4(turretGroup.matrixWorld);
         }
 
-        // Aiming spring (red stretch line)
         let spring;
         function createSpring() {
             const points = [];
@@ -324,7 +319,6 @@
             spring.visible = true;
         }
 
-        // Camera control
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const cameraLerpSpeedFollow = 0.12;
         const cameraLerpSpeedReturn = 0.04;
@@ -339,7 +333,6 @@
             }
         }
 
-        // Game variables
         let score = 0;
         let currentLevel = 1;
         let projectile = null;
@@ -369,6 +362,7 @@
                 new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
             );
             loadedBall.position.copy(getBarrelTip());
+            loadedBall.visible = false;  // hidden until drag starts
             scene.add(loadedBall);
         }
 
@@ -422,7 +416,6 @@
             group.position.set(x, y, 5);
             group.userData = { alive: true };
 
-            // Custom smaller hitbox for enemy tank (≈120×70)
             group.userData.hitbox = new THREE.Box3(
                 new THREE.Vector3(-60, -35, -10),
                 new THREE.Vector3( 60,  35,  10)
@@ -463,17 +456,12 @@
 
         function checkCollisions() {
             if (!projectile || !isFlying) return;
-
             const projBox = new THREE.Box3().setFromObject(projectile);
-
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const enemy = enemies[i];
                 if (!enemy.userData.alive) continue;
-
-                // Use custom smaller hitbox (transformed to world space)
                 const enemyHitbox = enemy.userData.hitbox.clone();
                 enemyHitbox.applyMatrix4(enemy.matrixWorld);
-
                 if (projBox.intersectsBox(enemyHitbox)) {
                     scene.remove(enemy);
                     enemies.splice(i, 1);
@@ -550,7 +538,7 @@
             resetCamera(true);
             tryAgainCount++;
             if (tryAgainCount >= MAX_TRIES) gameOver();
-            else createLoadedBall();
+            else createLoadedBall();  // creates new hidden ball
         }
 
         function getPointerPos(e) {
@@ -563,16 +551,22 @@
             };
         }
 
+        function isClickOnTank(pos) {
+            const localX = pos.x - tankGroup.position.x;
+            const localY = pos.y - tankGroup.position.y;
+            return Math.abs(localX) < 90 && Math.abs(localY - 10) < 55;
+        }
+
         function onDown(e) {
             e.preventDefault();
             if (!gameRunning || isFlying || isDragging) return;
             const pos = getPointerPos(e);
-            const tip = getBarrelTip();
-            if (Math.hypot(pos.x - tip.x, pos.y - tip.y) < 120) {
+            if (isClickOnTank(pos)) {
                 isDragging = true;
                 dragStartPos.set(pos.x, pos.y);
-                pullPos.copy(tip);
+                pullPos.copy(getBarrelTip());
                 spring.visible = true;
+                if (loadedBall) loadedBall.visible = true;  // show ball when aiming starts
             }
         }
 
@@ -611,6 +605,7 @@
 
             if (stretch < 45) {
                 turretGroup.rotation.z = 0;
+                if (loadedBall) loadedBall.visible = false;  // hide again if no shot
                 return;
             }
 
@@ -692,7 +687,7 @@
                 camera.lookAt(0, -100, 0);
             }
 
-            if (loadedBall && !isFlying) {
+            if (loadedBall && !isFlying && !isDragging) {
                 loadedBall.position.copy(getBarrelTip());
             }
 
@@ -706,7 +701,7 @@
             updateUI();
             animate();
             setTimeout(() => {
-                showMessage("PULL ANY DIRECTION → RELEASE TO FIRE!", "#ffffff", 2800);
+                showMessage("TAP YOUR TANK → PULL TO LOAD & AIM → RELEASE TO FIRE!", "#ffffff", 3200);
             }, 600);
         }
 

@@ -121,7 +121,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v2 - Stationary Tank + Dark Gray Cannonball ===============
+        // =============== ANGRY TANKS v3 - Stationary Tank + Barrel Spring + Dark Gray Cannonball ===============
+        // Click barrel → drag spring back (tip → back) → release to fire with power based on stretch
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -135,9 +136,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x87CEEB);
 
-        const aspect = 720 / 1280;
-        let width = 720;
-        const camera = new THREE.OrthographicCamera(-width/2, width/2, width/(2*aspect), -width/(2*aspect), 0.1, 1000);
+        const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 1000);
         camera.position.z = 500;
 
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
@@ -159,22 +158,19 @@
         ground.position.y = -400;
         scene.add(ground);
 
-        // Player tank (stationary)
+        // Player tank (completely stationary except tiny barrel recoil)
         const tankGroup = new THREE.Group();
-        // Body
         const body = new THREE.Mesh(
             new THREE.BoxGeometry(90, 40, 50),
             new THREE.MeshPhongMaterial({ color: 0x006600, shininess: 60 })
         );
         tankGroup.add(body);
-        // Turret
         const turret = new THREE.Mesh(
             new THREE.BoxGeometry(50, 30, 40),
             new THREE.MeshPhongMaterial({ color: 0x004d00 })
         );
         turret.position.set(10, 25, 0);
         tankGroup.add(turret);
-        // Barrel (will rotate slightly)
         const barrel = new THREE.Mesh(
             new THREE.CylinderGeometry(10, 10, 80, 16),
             new THREE.MeshPhongMaterial({ color: 0x222222 })
@@ -186,18 +182,66 @@
         tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
 
+        // Barrel tip helper
+        function getBarrelTip() {
+            return new THREE.Vector3(
+                tankGroup.position.x + barrel.position.x + 40,
+                tankGroup.position.y + barrel.position.y,
+                0
+            );
+        }
+
+        // Spring visual (helix)
+        let spring;
+        function createSpring() {
+            const points = new Array(48).fill().map(() => new THREE.Vector3());
+            const geo = new THREE.BufferGeometry().setFromPoints(points);
+            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({
+                color: 0xffdd00,
+                linewidth: 9
+            }));
+            scene.add(spring);
+            spring.visible = false;
+        }
+        function updateSpring(start, end) {
+            if (!spring) return;
+            const dir = new THREE.Vector3().subVectors(end, start);
+            const len = dir.length();
+            if (len < 20) {
+                spring.visible = false;
+                return;
+            }
+            dir.normalize();
+            const perp = new THREE.Vector3(-dir.y, dir.x, 0).normalize();
+            const numCoils = 8;
+            const points = [];
+            for (let i = 0; i <= 48; i++) {
+                const t = i / 48;
+                let p = start.clone().lerp(end, t);
+                const angle = t * numCoils * Math.PI * 2;
+                const offset = perp.clone().multiplyScalar(Math.sin(angle) * 7);
+                p.add(offset);
+                points.push(p);
+            }
+            spring.geometry.setFromPoints(points);
+            spring.geometry.attributes.position.needsUpdate = true;
+            spring.visible = true;
+        }
+
         // Game variables
         let score = 0;
         let currentLevel = 1;
-        let projectile;           // the dark gray ball
+        let projectile = null;        // flying cannonball
+        let loadedBall = null;        // ready ball at barrel tip
         let velocity = new THREE.Vector3();
         let isDragging = false;
+        let isFlying = false;
         let dragStartPos = new THREE.Vector2();
+        let pullPos = new THREE.Vector3();
         let gameRunning = true;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
         const GRAVITY = 0.55;
-        let barrelOriginalRotZ = barrel.rotation.z;
 
         const levels = [
             { enemies: [{x:180,y:-200}, {x:320,y:-280}, {x:420,y:-180}] },
@@ -205,19 +249,26 @@
             { enemies: [{x:120,y:-200}, {x:250,y:-300}, {x:380,y:-180}, {x:480,y:-260}, {x:550,y:-140}] }
         ];
 
-        function createProjectile() {
-            const ball = new THREE.Mesh(
+        let enemies = [];
+
+        function createLoadedBall() {
+            if (loadedBall) scene.remove(loadedBall);
+            loadedBall = new THREE.Mesh(
                 new THREE.SphereGeometry(18, 16, 16),
-                new THREE.MeshPhongMaterial({
-                    color: 0x333333,          // dark gray
-                    shininess: 80,
-                    specular: 0x555555
-                })
+                new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
             );
-            ball.position.copy(tankGroup.position).add(new THREE.Vector3(65, 25, 0)); // start at barrel tip
-            ball.userData = { alive: true };
-            scene.add(ball);
-            return ball;
+            loadedBall.position.copy(getBarrelTip());
+            scene.add(loadedBall);
+        }
+
+        function createProjectile(pos) {
+            if (projectile) scene.remove(projectile);
+            projectile = new THREE.Mesh(
+                new THREE.SphereGeometry(18, 16, 16),
+                new THREE.MeshPhongMaterial({ color: 0x333333, shininess: 80, specular: 0x555555 })
+            );
+            projectile.position.copy(pos);
+            scene.add(projectile);
         }
 
         function createEnemyTank(x, y) {
@@ -246,24 +297,16 @@
             return group;
         }
 
-        let enemies = [];
-
         function spawnLevel(levelIndex) {
             enemies.forEach(e => scene.remove(e));
             enemies = [];
             const config = levels[levelIndex % levels.length];
-            config.enemies.forEach(pos => {
-                enemies.push(createEnemyTank(pos.x, pos.y));
-            });
-            resetProjectile();
-        }
-
-        function resetProjectile() {
+            config.enemies.forEach(pos => enemies.push(createEnemyTank(pos.x, pos.y)));
+            
             if (projectile) scene.remove(projectile);
-            projectile = createProjectile();
-            velocity.set(0,0,0);
-            isDragging = false;
-            barrel.rotation.z = barrelOriginalRotZ;
+            projectile = null;
+            isFlying = false;
+            createLoadedBall();
         }
 
         function updateUI() {
@@ -280,7 +323,7 @@
         }
 
         function checkCollisions() {
-            if (!projectile?.userData.alive) return;
+            if (!projectile || !isFlying) return;
             const projBox = new THREE.Box3().setFromObject(projectile);
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const e = enemies[i];
@@ -351,6 +394,18 @@
             }, 4200);
         }
 
+        function resetAfterShot() {
+            if (projectile) scene.remove(projectile);
+            projectile = null;
+            isFlying = false;
+            tryAgainCount++;
+            if (tryAgainCount >= MAX_TRIES) {
+                gameOver();
+            } else {
+                createLoadedBall();
+            }
+        }
+
         // Input
         function getPointerPos(e) {
             const rect = renderer.domElement.getBoundingClientRect();
@@ -363,42 +418,60 @@
         }
 
         function onDown(e) {
-            if (!gameRunning || !projectile) return;
+            if (!gameRunning || isFlying || isDragging) return;
             const pos = getPointerPos(e);
-            const pPos = projectile.position;
-            const dx = pos.x - pPos.x;
-            const dy = pos.y - pPos.y;
-            if (Math.hypot(dx, dy) < 50) {
+            const tip = getBarrelTip();
+            const dx = pos.x - tip.x;
+            const dy = pos.y - tip.y;
+            if (Math.hypot(dx, dy) < 95) {   // click on barrel area
                 isDragging = true;
                 dragStartPos.set(pos.x, pos.y);
+                pullPos.copy(tip);
+                spring.visible = true;
             }
         }
 
         function onMove(e) {
-            if (!isDragging || !projectile) return;
+            if (!isDragging) return;
             const pos = getPointerPos(e);
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
             const dist = Math.hypot(dx, dy);
-            if (dist > 180) {
-                const r = 180 / dist;
+            if (dist > 220) {
+                const r = 220 / dist;
                 dx *= r; dy *= r;
             }
-            projectile.position.x = dragStartPos.x + dx;
-            projectile.position.y = dragStartPos.y + dy;
-
-            // Rotate barrel toward drag
-            const angle = Math.atan2(dy, dx);
-            barrel.rotation.z = barrelOriginalRotZ + angle * 0.4;
+            pullPos.set(dragStartPos.x + dx, dragStartPos.y + dy, 0);
+            updateSpring(getBarrelTip(), pullPos);
         }
 
         function onUp() {
-            if (!isDragging || !projectile) return;
+            if (!isDragging) return;
             isDragging = false;
-            const currentPos = projectile.position;
-            velocity.x = (dragStartPos.x - currentPos.x) * 0.24;
-            velocity.y = (dragStartPos.y - currentPos.y) * 0.24;
-            barrel.rotation.z = barrelOriginalRotZ;
+            spring.visible = false;
+
+            const tip = getBarrelTip();
+            const stretch = tip.distanceTo(pullPos);
+            if (stretch < 30) return; // too short, no fire
+
+            // Launch direction & power
+            const dir = new THREE.Vector3().subVectors(tip, pullPos).normalize();
+            const power = stretch * 0.27;
+
+            // Barrel recoil kick
+            barrel.position.x -= 18;
+            setTimeout(() => { barrel.position.x += 18; }, 90);
+
+            // Create flying cannonball at tip
+            createProjectile(tip);
+            velocity.copy(dir).multiplyScalar(power);
+            isFlying = true;
+
+            // Remove loaded ball
+            if (loadedBall) {
+                scene.remove(loadedBall);
+                loadedBall = null;
+            }
         }
 
         renderer.domElement.addEventListener('mousedown', onDown);
@@ -417,41 +490,48 @@
         function animate() {
             requestAnimationFrame(animate);
 
-            if (!gameRunning || !projectile) {
+            if (!gameRunning) {
                 renderer.render(scene, camera);
                 return;
             }
 
-            if (!isDragging) {
+            // Flying projectile physics
+            if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
                 projectile.position.x += velocity.x;
                 projectile.position.y += velocity.y;
-                projectile.rotation.x += velocity.y * 0.008;
-                projectile.rotation.z += velocity.x * 0.005;
 
+                // Rotation
+                projectile.rotation.x += velocity.y * 0.01;
+                projectile.rotation.z += velocity.x * 0.008;
+
+                // Ground bounce
                 if (projectile.position.y < -380) {
                     projectile.position.y = -380;
                     velocity.y *= -0.38;
                     velocity.x *= 0.82;
-                    if (Math.abs(velocity.y) < 4) velocity.set(0,0,0);
+                    if (Math.abs(velocity.y) < 3.5 && Math.abs(velocity.x) < 2) {
+                        resetAfterShot();
+                    }
                 }
 
-                if (projectile.position.x > 600 || projectile.position.x < -400 || projectile.position.y < -700) {
-                    tryAgainCount++;
-                    if (tryAgainCount >= MAX_TRIES) gameOver();
-                    else resetProjectile();
+                // Out of bounds
+                if (projectile.position.x > 650 || projectile.position.x < -450 || projectile.position.y < -750) {
+                    resetAfterShot();
                 }
+
+                checkCollisions();
             }
 
-            checkCollisions();
             renderer.render(scene, camera);
         }
 
         function init() {
+            createSpring();
             spawnLevel(0);
             updateUI();
             animate();
-            setTimeout(() => showMessage("DRAG CANNONBALL & FIRE!", "#ffffff", 2000), 600);
+            setTimeout(() => showMessage("TAP BARREL → PULL SPRING BACK → RELEASE!", "#ffffff", 2800), 500);
         }
 
         window.addEventListener('resize', () => {

@@ -113,8 +113,8 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS v7.0 - PLATFORM BEHIND EVERY TANK ===============
-        // platform.png sized same as tanks, behind each tank (player + enemies)
+        // =============== ANGRY TANKS v7.1 - LARGER & LOWER PLATFORMS ===============
+        // platform.png: bigger (200×120), much lower (y = -25)
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -218,16 +218,16 @@
         // =============== PLAYER TANK + PLATFORM ===============
         const tankGroup = new THREE.Group();
 
-        // Platform behind player tank
+        // Larger & lower platform behind player tank
         const playerPlatform = new THREE.Mesh(
-            new THREE.PlaneGeometry(160, 90),  // same size as tank sprite
+            new THREE.PlaneGeometry(200, 120),  // bigger than tank (160×90)
             new THREE.MeshBasicMaterial({
                 map: platformTexture,
                 transparent: true,
                 side: THREE.DoubleSide
             })
         );
-        playerPlatform.position.set(0, -5, -5);  // slightly lower + behind
+        playerPlatform.position.set(0, -25, -5);  // much lower + behind
         tankGroup.add(playerPlatform);
 
         const tankSprite = new THREE.Mesh(
@@ -373,16 +373,16 @@
         function createEnemyTank(x, y) {
             const group = new THREE.Group();
 
-            // Platform behind enemy tank
+            // Larger & much lower platform behind enemy tank
             const enemyPlatform = new THREE.Mesh(
-                new THREE.PlaneGeometry(160, 90),  // same size as tank sprite
+                new THREE.PlaneGeometry(200, 120),  // same bigger size as player platform
                 new THREE.MeshBasicMaterial({
                     map: platformTexture,
                     transparent: true,
                     side: THREE.DoubleSide
                 })
             );
-            enemyPlatform.position.set(0, -5, -5);  // slightly lower + behind
+            enemyPlatform.position.set(0, -25, -5);  // much lower + behind
             group.add(enemyPlatform);
 
             const enemyTankSprite = new THREE.Mesh(

@@ -175,9 +175,10 @@
         </div>
         <div id="debugOverlay"></div>
     </div>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // =============== ANGRY TANKS - FIXED LEVEL CLEAR BUG ===============
+        // =============== ANGRY TANKS - FIXED GHOST PLATFORMS + LAST-SHOT CLEAR ===============
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -189,11 +190,14 @@
         const quitBtn = document.getElementById('quit');
         const restartBtn = document.getElementById('restart');
         const debugEl = document.getElementById('debugOverlay');
+
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
         camera.position.set(0, 0, 500);
+
         const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
         function updateRendererSize() {
             const w = container.clientWidth;
             const h = container.clientHeight;
@@ -201,11 +205,14 @@
         }
         updateRendererSize();
         window.addEventListener('resize', updateRendererSize);
+
         scene.add(new THREE.AmbientLight(0xffffff, 0.7));
         const sun = new THREE.DirectionalLight(0xffeecc, 1);
         sun.position.set(100, 200, 100);
         scene.add(sun);
+
         const textureLoader = new THREE.TextureLoader();
+
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
             const tex = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
@@ -213,6 +220,7 @@
             tex.minFilter = THREE.LinearFilter;
             backgrounds.push(tex);
         }
+
         const bgGeometry = new THREE.PlaneGeometry(6000, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
@@ -223,10 +231,12 @@
         skyBackground2.position.set(0, 0, -101);
         scene.add(skyBackground1);
         scene.add(skyBackground2);
+
         let currentBgIndex = -1;
         let previousBgIndex = -1;
         let bgFadeProgress = 0;
         let bgFadeDirection = 1;
+
         function setNewBackground() {
             let idx;
             do { idx = Math.floor(Math.random() * 13); } while (idx === previousBgIndex);
@@ -238,6 +248,7 @@
             bgFadeProgress = 0;
             bgFadeDirection = 1;
         }
+
         function updateBackgroundFade() {
             if (bgFadeDirection === 1) {
                 bgMaterial1.opacity = Math.min(1.0, bgFadeProgress);
@@ -246,11 +257,13 @@
                 if (bgFadeProgress >= 1.0) bgFadeDirection = 0;
             }
         }
+
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
         platformTexture.transparent = true;
         platformTexture.premultiplyAlpha = true;
+
         const platformMaterial = new THREE.MeshBasicMaterial({
             map: platformTexture,
             transparent: true,
@@ -258,22 +271,26 @@
             alphaTest: 0.1,
             color: 0xffffff
         });
+
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
         tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
         turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
+
         // PLAYER TANK
         const tankGroup = new THREE.Group();
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8);
         playerPlatform.renderOrder = -2;
         tankGroup.add(playerPlatform);
+
         const tankSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(160, 90),
             new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
         );
         tankSprite.position.set(0, 10, 0);
         tankGroup.add(tankSprite);
+
         const turretGroup = new THREE.Group();
         const turretSprite = new THREE.Mesh(
             new THREE.PlaneGeometry(100, 80),
@@ -282,12 +299,16 @@
         turretSprite.position.set(18, 42, 5);
         turretGroup.add(turretSprite);
         tankGroup.add(turretGroup);
+
         tankGroup.position.set(-220, -340, 10);
         scene.add(tankGroup);
+
         function getBarrelTip() {
             return new THREE.Vector3(65, 18, 0).applyMatrix4(turretGroup.matrixWorld);
         }
+
         let spring, trajectoryLine;
+
         function createSpring() {
             const pts = Array(61).fill().map(() => new THREE.Vector3());
             const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -296,6 +317,7 @@
             scene.add(spring);
             spring.visible = false;
         }
+
         function createTrajectoryLine() {
             const pts = Array(51).fill().map(() => new THREE.Vector3());
             const geo = new THREE.BufferGeometry().setFromPoints(pts);
@@ -304,6 +326,7 @@
             scene.add(trajectoryLine);
             trajectoryLine.visible = false;
         }
+
         function updateSpring(start, end) {
             if (!spring) return;
             const dir = new THREE.Vector3().subVectors(end, start);
@@ -327,6 +350,7 @@
             spring.geometry.attributes.position.needsUpdate = true;
             spring.visible = true;
         }
+
         function updateTrajectory(startPos, velocity) {
             if (!trajectoryLine) return;
             const pts = [];
@@ -343,8 +367,10 @@
             trajectoryLine.geometry.attributes.position.needsUpdate = true;
             trajectoryLine.visible = true;
         }
+
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         let followProjectile = false;
+
         function resetCamera(immediate = false) {
             followProjectile = false;
             if (immediate) {
@@ -352,6 +378,7 @@
                 camera.lookAt(0, -100, 0);
             }
         }
+
         let score = 0;
         let highScore = localStorage.getItem('angryTanksHighScore') || 0;
         let currentLevel = 1;
@@ -368,6 +395,7 @@
         const MAX_TRIES = 3;
         const GRAVITY = 0.7;
         let windForce = 0;
+
         const levels = [
             { enemies: [{x:180,y:-200}], theme: 'flat', baseScore: 100 },
             { enemies: [{x:220,y:-200}, {x:320,y:-200}], theme: 'flat', baseScore: 150 },
@@ -395,10 +423,12 @@
             { enemies: [{x:180,y:-440}, {x:240,y:-410}, {x:300,y:-380}, {x:360,y:-410}, {x:420,y:-440}, {x:480,y:-410}, {x:540,y:-390}], theme: 'expert', baseScore: 1350 },
             { enemies: [{x:200,y:-460}, {x:260,y:-430}, {x:320,y:-400}, {x:380,y:-430}, {x:440,y:-460}, {x:500,y:-430}, {x:560,y:-410}, {x:620,y:-440}], theme: 'expert', baseScore: 1400 }
         ];
+
         let enemies = [];
         const ballIcons = [];
         let covers = [];
         let levelCleared = false;
+
         function updateBallsUI() {
             ballIcons.forEach(el => ballsEl.removeChild(el));
             ballIcons.length = 0;
@@ -410,6 +440,7 @@
                 ballIcons.push(d);
             }
         }
+
         function createLoadedBall() {
             if (loadedBall) scene.remove(loadedBall);
             loadedBall = new THREE.Mesh(
@@ -420,6 +451,7 @@
             loadedBall.visible = false;
             scene.add(loadedBall);
         }
+
         function createProjectile(pos) {
             if (projectile) scene.remove(projectile);
             projectile = new THREE.Mesh(
@@ -429,6 +461,7 @@
             projectile.position.copy(pos);
             scene.add(projectile);
         }
+
         function createCover(x, y, width = 300, height = 80) {
             const cover = new THREE.Mesh(new THREE.PlaneGeometry(width, height), platformMaterial);
             cover.position.set(x, y, -5);
@@ -436,6 +469,7 @@
             scene.add(cover);
             covers.push(cover);
         }
+
         function createEnemyTank(x, y, armored = false) {
             const g = new THREE.Group();
             g.add(new THREE.Mesh(new THREE.PlaneGeometry(220,130), platformMaterial));
@@ -465,17 +499,33 @@
             scene.add(g);
             return g;
         }
+
         function spawnLevel(levelIndex) {
+            // ────────────────────────────────────────────────
+            // CLEAN UP ALL PREVIOUS PLATFORM MESHES (ghost fix)
+            // ────────────────────────────────────────────────
+            scene.traverse((obj) => {
+                if (obj.isMesh && obj.material && obj.material.map === platformTexture) {
+                    if (obj.geometry) obj.geometry.dispose();
+                    if (obj.material) obj.material.dispose();
+                    scene.remove(obj);
+                }
+            });
+
+            // Clear tracked arrays
             enemies.forEach(e => scene.remove(e));
             covers.forEach(c => scene.remove(c));
             enemies = [];
             covers = [];
+
             const effectiveIndex = levelIndex % levels.length;
             const lvlData = levels[effectiveIndex];
+
             lvlData.enemies.forEach(p => {
                 const armored = Math.random() < 0.1 + (effectiveIndex * 0.02);
                 enemies.push(createEnemyTank(p.x, p.y, armored));
             });
+
             switch(lvlData.theme) {
                 case 'hilly':
                     createCover(280, -320, 200, 60);
@@ -491,6 +541,7 @@
                 default:
                     windForce = 0;
             }
+
             if (projectile) scene.remove(projectile);
             projectile = null;
             isFlying = followProjectile = false;
@@ -502,6 +553,7 @@
             resetCamera(true);
             levelEl.textContent = `LEVEL ${levelIndex + 1}`;
         }
+
         function updateUI() {
             scoreEl.textContent = `SCORE: ${score.toString().padStart(5,'0')}`;
             highscoreEl.textContent = `BEST: ${highScore.toString().padStart(5,'0')}`;
@@ -513,12 +565,14 @@
            
             updateBallsUI();
         }
+
         function showMessage(txt, col='#ffff00', dur=2000) {
             messageEl.style.color = messageEl.style.borderColor = col;
             messageEl.textContent = txt;
             messageEl.style.display = 'block';
             setTimeout(() => messageEl.style.display = 'none', dur);
         }
+
         function checkCollisions() {
             if (!projectile || !isFlying) return;
             const pBox = new THREE.Box3().setFromObject(projectile);
@@ -546,6 +600,7 @@
                 showMessage(`${hitsThisFrame}x COMBO!`, '#ff00ff', 1000);
             }
         }
+
         function createExplosion(pos, chain = false) {
             for (let i = 0; i < (chain ? 15 : 25); i++) {
                 const p = new THREE.Mesh(
@@ -592,6 +647,7 @@
                 }, 16);
             }
         }
+
         function levelComplete() {
             levelCleared = true;
             const lvlData = levels[(currentLevel - 1) % levels.length];
@@ -617,6 +673,7 @@
                 updateUI();
             }, 3200);
         }
+
         function gameOver() {
             gameRunning = false;
             if (score > highScore) {
@@ -636,6 +693,7 @@
                 updateUI();
             }, 4200);
         }
+
         function resetAfterShot() {
             if (projectile) scene.remove(projectile);
             if (trajectoryLine) trajectoryLine.visible = false;
@@ -647,7 +705,7 @@
             shotsUsed++;
             updateUI();
             
-            // 🔥 FIXED BUG: Check for instant clear BEFORE failing the level
+            // Check for instant clear BEFORE failing the level
             if (enemies.length === 0 && !levelCleared) {
                 levelComplete();
                 return;
@@ -656,6 +714,7 @@
             if (tryAgainCount >= MAX_TRIES) gameOver();
             else createLoadedBall();
         }
+
         function getPointerPos(e) {
             const r = canvas.getBoundingClientRect();
             const x = e.touches?.[0]?.clientX ?? e.clientX;
@@ -664,11 +723,13 @@
             const ny = (y - r.top) / r.height;
             return { x: nx * 720 - 360, y: -(ny * 1280 - 640) };
         }
+
         function isClickOnTank(pos) {
             const lx = pos.x - tankGroup.position.x;
             const ly = pos.y - tankGroup.position.y;
             return Math.abs(lx) < 120 && Math.abs(ly + 10) < 85;
         }
+
         function onDown(e) {
             e.preventDefault();
             if (!gameRunning || isFlying || isDragging) return;
@@ -680,6 +741,7 @@
                 spring.visible = true;
             }
         }
+
         function onMove(e) {
             e.preventDefault();
             if (!isDragging) return;
@@ -702,6 +764,7 @@
                 updateTrajectory(tip, dir.normalize().multiplyScalar(power));
             }
         }
+
         function onUp(e) {
             e.preventDefault();
             if (!isDragging) return;
@@ -725,15 +788,18 @@
             isFlying = followProjectile = true;
             if (loadedBall) { scene.remove(loadedBall); loadedBall = null; }
         }
+
         renderer.domElement.addEventListener('mousedown', onDown);
         renderer.domElement.addEventListener('mousemove', onMove);
         renderer.domElement.addEventListener('mouseup', onUp);
         renderer.domElement.addEventListener('touchstart', onDown, {passive:false});
         renderer.domElement.addEventListener('touchmove', onMove, {passive:false});
         renderer.domElement.addEventListener('touchend', onUp, {passive:false});
+
         quitBtn.addEventListener('click', () => {
             window.location.href = 'https://rbiz01.github.io/fuzzy-chainsaw/';
         });
+
         restartBtn.addEventListener('click', () => {
             score = 0;
             currentLevel = 1;
@@ -745,16 +811,20 @@
             gameRunning = true;
             resetCamera(true);
         });
+
         function animate() {
             requestAnimationFrame(animate);
             if (!gameRunning) return renderer.render(scene, camera);
+
             updateBackgroundFade();
+
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
                 velocity.x += windForce * 0.1;
                 projectile.position.add(velocity);
                 projectile.rotation.x += velocity.y * 0.012;
                 projectile.rotation.z += velocity.x * 0.01;
+
                 if (projectile.position.y < -375) {
                     projectile.position.y = -375;
                     velocity.y *= -0.42;
@@ -764,14 +834,14 @@
                         resetAfterShot();
                     }
                 }
+
                 if (projectile.position.x > 3000 || projectile.position.x < -450 || projectile.position.y < -1200) {
                     resetAfterShot();
                 }
+
                 checkCollisions();
             }
-            // ────────────────────────────────────────────────
-            // Level completion check
-            // ────────────────────────────────────────────────
+
             if (!levelCleared) {
                 const hasBeenAttempted = (shotsUsed + tryAgainCount > 0);
                 const shouldClear = (
@@ -779,6 +849,7 @@
                     enemies.length === 0 &&
                     hasBeenAttempted
                 );
+
                 if (debugEl) {
                     debugEl.textContent =
                         `flying: ${isFlying ? 'yes' : 'no'}\n` +
@@ -788,10 +859,12 @@
                         `attempted: ${hasBeenAttempted ? 'yes' : 'no'}\n` +
                         `→ clear? ${shouldClear ? 'YES' : 'NO'}`;
                 }
+
                 if (shouldClear) {
                     levelComplete();
                 }
             }
+
             if (followProjectile && projectile) {
                 camera.position.lerp(
                     new THREE.Vector3(projectile.position.x, 0, 500),
@@ -801,11 +874,14 @@
                 camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
                 camera.lookAt(0, -100, 0);
             }
+
             if (loadedBall && !isFlying) {
                 loadedBall.position.copy(getBarrelTip());
             }
+
             renderer.render(scene, camera);
         }
+
         function init() {
             highscoreEl.textContent = `BEST: ${highScore.toString().padStart(5,'0')}`;
             createSpring();
@@ -814,10 +890,12 @@
             spawnLevel(0);
             updateUI();
             animate();
+
             setTimeout(() => {
                 showMessage("PULL TANK → AIM → FIRE!\nGreen line shows trajectory\n3 shots max per level", "#ffffff", 5000);
             }, 600);
         }
+
         init();
     </script>
 </body>

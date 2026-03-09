@@ -778,7 +778,7 @@
                 return;
             }
             const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-            const power = stretch * 0.36;
+            const power = stretch * 0.20;
             velocity.copy(dir.normalize()).multiplyScalar(power);
             velocity.x += windForce;
             const orig = turretGroup.rotation.z;

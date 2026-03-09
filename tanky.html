@@ -760,7 +760,7 @@
             const stretch = tip.distanceTo(pullPos);
             if (stretch > 45) {
                 const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-                const power = stretch * 0.26;
+                const power = stretch * 0.86;
                 updateTrajectory(tip, dir.normalize().multiplyScalar(power));
             }
         }

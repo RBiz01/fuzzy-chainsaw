@@ -168,18 +168,18 @@
     <!-- Load Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 
-    <!-- Load levels from external file (must exist in fuzzy-chainsaw/tanky_assets/) -->
-    <script src="fuzzy-chainsaw/tanky_assets/levels.js"></script>
+    <!-- Load levels from the hosted GitHub location -->
+    <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
     <script>
         // Safety check: make sure levels.js loaded successfully
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
-            console.error("levels.js failed to load or is empty");
-            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels.js</h1><p style="color:white;text-align:center;">Check file path: fuzzy-chainsaw/tanky_assets/levels.js</p>';
+            console.error("Failed to load levels from https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js");
+            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels</h1><p style="color:white;text-align:center;">Check that levels.js exists and is publicly accessible at:<br>https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js</p>';
             throw new Error("No levels available");
         }
 
-        console.log(`Loaded ${window.levels.length} levels from levels.js`);
+        console.log(`Loaded ${window.levels.length} levels from GitHub`);
 
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
@@ -216,7 +216,7 @@
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
-            const tex = textureLoader.load(`fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
+            const tex = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
             tex.magFilter = THREE.LinearFilter;
             tex.minFilter = THREE.LinearFilter;
             backgrounds.push(tex);
@@ -258,7 +258,7 @@
             }
         }
 
-        const platformTexture = textureLoader.load('fuzzy-chainsaw/tanky_assets/platform.png');
+        const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
         platformTexture.transparent = true;
@@ -272,8 +272,8 @@
             color: 0xffffff
         });
 
-        const tankTexture = textureLoader.load('fuzzy-chainsaw/tanky_assets/tank1.png');
-        const turretTexture = textureLoader.load('fuzzy-chainsaw/tanky_assets/turret1.png');
+        const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
+        const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
         tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
         turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
 

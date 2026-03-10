@@ -83,7 +83,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – tanks now reliably show on level switch
+// Level Editor – FIXED: changes now persist across level switches
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -217,7 +217,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED
+// Level / Tank management – FIXED persistence
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -239,25 +239,24 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // 1. Clear ALL editor tanks from scene
+  // Clear scene tanks
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
     }
   });
 
-  // 2. Get the level data (do NOT clear enemies here – we want to preserve edits!)
   const level = levelsData[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  // 3. Add tanks from this level's stored enemies array
+  // Re-add tanks from this level's data (no clearing of array here!)
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {
-      addTankToScene(data.x, data.y);
+      addTankToScene(data.x, data.y, false); // false = don't push again
     });
   } else {
-    level.enemies = []; // ensure it's an array
+    level.enemies = [];
   }
 
   updateExportPreview();
@@ -295,11 +294,11 @@ function updateCurrentBaseScore() {
 function addEnemyTank() {
   const centerX = camera.position.x;
   const centerY = camera.position.y;
-  addTankToScene(centerX, centerY);
+  addTankToScene(centerX, centerY, true); // true = push to data
   updateExportPreview();
 }
 
-function addTankToScene(x, y) {
+function addTankToScene(x, y, pushToData = true) {
   const group = new THREE.Group();
   group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1);
 
@@ -324,11 +323,9 @@ function addTankToScene(x, y) {
   };
   scene.add(group);
 
-  // Add to current level's data (this keeps it persistent)
-  levelsData[currentLevelIndex].enemies.push({
-    x: group.userData.data.x,
-    y: group.userData.data.y
-  });
+  if (pushToData) {
+    levelsData[currentLevelIndex].enemies.push(group.userData.data);
+  }
 }
 
 function clearCurrentLevel() {
@@ -336,12 +333,12 @@ function clearCurrentLevel() {
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
-  levelsData[currentLevelIndex].enemies = []; // Clear stored data
+  levelsData[currentLevelIndex].enemies = [];
   updateExportPreview();
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag
+// Input – natural drag (drag down → view down)
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -350,6 +347,11 @@ function onMouseDown(e) {
     const mouse = getMousePos(e);
     const tank = findTankAt(mouse.x, mouse.y);
     if (tank) {
+      // Remove from data too
+      const index = levelsData[currentLevelIndex].enemies.findIndex(
+        e => e.x === tank.userData.data.x && e.y === tank.userData.data.y
+      );
+      if (index !== -1) levelsData[currentLevelIndex].enemies.splice(index, 1);
       scene.remove(tank);
       updateExportPreview();
     }
@@ -367,13 +369,22 @@ function onMouseMove(e) {
   if (!isDraggingCamera) return;
 
   const dx = (e.clientX - prevMouse.x) * 0.8;
-  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural: drag down → view down
+  const dy = (prevMouse.y - e.clientY) * 0.8;
 
   if (selectedTank) {
     selectedTank.position.x += dx;
     selectedTank.position.y += dy;
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
+
+    // Update the matching entry in levelsData
+    const enemy = levelsData[currentLevelIndex].enemies.find(
+      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
+    );
+    if (enemy) {
+      enemy.x = selectedTank.userData.data.x;
+      enemy.y = selectedTank.userData.data.y;
+    }
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -413,6 +424,15 @@ function onTouchMove(e) {
     selectedTank.position.y += dy;
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
+
+    // Update data
+    const enemy = levelsData[currentLevelIndex].enemies.find(
+      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
+    );
+    if (enemy) {
+      enemy.x = selectedTank.userData.data.x;
+      enemy.y = selectedTank.userData.data.y;
+    }
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -460,22 +480,11 @@ function findTankAt(mx, my) {
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  const cleanLevels = levelsData.map((level, idx) => {
-    const cleanEnemies = [];
-    scene.traverse(obj => {
-      if (obj.userData && obj.userData.isEditorTank) {
-        cleanEnemies.push({
-          x: obj.userData.data.x,
-          y: obj.userData.data.y
-        });
-      }
-    });
-    return {
-      enemies: cleanEnemies,
-      theme: level.theme || "flat",
-      baseScore: level.baseScore || 100
-    };
-  });
+  const cleanLevels = levelsData.map(level => ({
+    enemies: level.enemies || [],
+    theme: level.theme || "flat",
+    baseScore: level.baseScore || 100
+  }));
 
   const json = JSON.stringify(cleanLevels, null, 2);
   const code = 

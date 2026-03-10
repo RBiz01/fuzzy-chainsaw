@@ -167,7 +167,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // ANGRY TANKS - Smooth horizontal preview pan (fixed version)
+        // ANGRY TANKS - Preview camera: starts and ends at exact same position
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -359,9 +359,10 @@
         }
 
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
-        const PREVIEW_START_X = -400;   // left edge
-        const PREVIEW_END_X = 800;      // right edge (adjust if your levels are wider)
-        const PREVIEW_DURATION = 3000;  // ms to sweep one way
+        const PREVIEW_START_X = 0;          // exactly the normal position
+        const PREVIEW_END_X = 700;          // right edge — adjust if needed
+        const PREVIEW_GO_DURATION = 3000;   // ms to go right
+        const PREVIEW_RETURN_DURATION = 2000; // ms to return (faster)
 
         let followProjectile = false;
 
@@ -806,7 +807,7 @@
             previewStartTime = performance.now();
             previewBtn.classList.add('active');
 
-            // Hide aiming aids
+            // Hide aiming aids during preview
             if (spring) spring.visible = false;
             if (trajectoryLine) trajectoryLine.visible = false;
         });
@@ -847,23 +848,23 @@
                 levelComplete();
             }
 
-            // Preview camera - smooth horizontal sweep
+            // Preview camera - smooth horizontal sweep, start & end at same position
             if (isPreviewActive) {
                 const elapsed = performance.now() - previewStartTime;
                 let progress;
 
                 if (previewPhase === 0) {
-                    // Going right
-                    progress = Math.min(elapsed / PREVIEW_DURATION, 1);
+                    // Going right from 0 → right edge
+                    progress = Math.min(elapsed / PREVIEW_GO_DURATION, 1);
                     camera.position.x = THREE.MathUtils.lerp(PREVIEW_START_X, PREVIEW_END_X, progress);
                     if (progress >= 1) {
                         previewPhase = 1;
-                        previewStartTime = performance.now(); // reset timer for return
+                        previewStartTime = performance.now(); // reset for return
                     }
                 } else {
-                    // Returning left
-                    progress = Math.min(elapsed / (PREVIEW_DURATION * 0.7), 1); // return faster
-                    camera.position.x = THREE.MathUtils.lerp(PREVIEW_END_X, DEFAULT_CAMERA_POS.x, progress);
+                    // Returning left from right edge → 0
+                    progress = Math.min(elapsed / PREVIEW_RETURN_DURATION, 1);
+                    camera.position.x = THREE.MathUtils.lerp(PREVIEW_END_X, PREVIEW_START_X, progress);
                     if (progress >= 1) {
                         isPreviewActive = false;
                         previewBtn.classList.remove('active');
@@ -871,10 +872,10 @@
                     }
                 }
 
-                // Keep y and z fixed, no rotation
+                // Keep y and z fixed - no jumping
                 camera.position.y = DEFAULT_CAMERA_POS.y;
                 camera.position.z = DEFAULT_CAMERA_POS.z;
-                camera.lookAt(camera.position.x, -100, 0); // look straight ahead horizontally
+                camera.lookAt(camera.position.x, -100, 0); // horizontal forward look
             } else {
                 if (followProjectile && projectile) {
                     camera.position.lerp(

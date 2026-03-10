@@ -509,9 +509,10 @@ function findTankAt(mx, my) {
 
 function updateExportPreview() {
   // FORCE CLEAR the textarea first
-  document.getElementById('export-json').value = '';
+  //document.getElementById('export-json').value = '';
 
   const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
+  document.getElementById('export-json').value = '';
 
   const currentLevelCode = {
     enemies: level.enemies || [],

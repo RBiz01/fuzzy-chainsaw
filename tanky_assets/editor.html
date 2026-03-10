@@ -83,7 +83,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – natural drag (drag down → view down)
+// Level Editor – fixed level switching (clear enemies array on load)
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -121,13 +121,12 @@ function initEditor() {
   window.addEventListener('resize', onResize);
   onResize();
 
-  // Lights
   scene.add(new THREE.AmbientLight(0xffffff, 0.9));
   const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
   dirLight.position.set(300, 500, 400);
   scene.add(dirLight);
 
-  // Background reference
+  // Background
   const texLoader = new THREE.TextureLoader();
   texLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg', (texture) => {
     texture.magFilter = THREE.LinearFilter;
@@ -140,7 +139,7 @@ function initEditor() {
     scene.add(bg);
   });
 
-  // Red X – player start
+  // Red X player marker
   const markerGroup = new THREE.Group();
   const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
   const points = [
@@ -218,7 +217,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management
+// Level / Tank management – FIXED level switching
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -240,18 +239,22 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // Clear existing editor tanks from scene
+  // 1. Clear ALL editor tanks from the scene
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
     }
   });
 
+  // 2. Clear the CURRENT level's enemy data (this was missing!)
+  levelsData[idx].enemies = [];
+
+  // 3. Get the level data
   const level = levelsData[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  // Add tanks from this level's data
+  // 4. Re-add tanks from stored data (now clean)
   level.enemies.forEach(data => {
     addTankToScene(data.x, data.y);
   });
@@ -319,6 +322,12 @@ function addTankToScene(x, y) {
     data: {x: Math.round(x), y: Math.round(y)} 
   };
   scene.add(group);
+
+  // IMPORTANT: Add the position to the CURRENT level's data array
+  levelsData[currentLevelIndex].enemies.push({
+    x: group.userData.data.x,
+    y: group.userData.data.y
+  });
 }
 
 function clearCurrentLevel() {
@@ -326,11 +335,12 @@ function clearCurrentLevel() {
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
+  levelsData[currentLevelIndex].enemies = []; // Clear stored data too
   updateExportPreview();
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag direction
+// Input – natural drag
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -356,7 +366,7 @@ function onMouseMove(e) {
   if (!isDraggingCamera) return;
 
   const dx = (e.clientX - prevMouse.x) * 0.8;
-  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural: drag down → view down
+  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural drag: down → view down
 
   if (selectedTank) {
     selectedTank.position.x += dx;

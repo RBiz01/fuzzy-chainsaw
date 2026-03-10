@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks-V1.0</title>
+    <title>Angry Tanks</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -855,7 +855,7 @@
         }
 
         // ────────────────────────────────────────
-        // START GAME – calls forceFullscreen directly in gesture handler
+        // START GAME – with short delay (Option A – 200ms)
         // ────────────────────────────────────────
         async function startGame(e) {
             if (gameStarted) return;
@@ -864,12 +864,19 @@
             gameStarted = true;
             gameRunning = true;
 
-            // Call fullscreen function directly here (inside user gesture)
-            await forceFullscreen();
-
+            // Hide start screen immediately
             if (startScreen) {
                 startScreen.style.display = 'none';
             }
+
+            // Short delay before requesting fullscreen
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Then request fullscreen
+            await forceFullscreen();
+
+            // Optional extra nudge for address bar collapse
+            setTimeout(() => window.scrollTo(0, 1), 100);
         }
 
         if (startScreen) {

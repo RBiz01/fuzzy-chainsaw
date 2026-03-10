@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor-FINAL</title>
+  <title>Angry Tanks Level Editor-V3</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -64,6 +64,7 @@
         Level: <select id="level-select"></select>
         <button id="add-level">+ Add Level</button>
         <button id="del-level">− Delete Level</button>
+        <button id="lock-level">🔒 Lock Level</button>
       </div>
       <div>
         Theme: 
@@ -97,16 +98,12 @@
   </div>
 </div>
 
-<div id="version">Editor v2.3 – Full level overwrite on every change – enemies update live</div>
+<div id="version">Editor v2.3 – Full level overwrite on every change – Lock Level button included</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
-// ────────────────────────────────────────────────
-// Level Editor v2.3 – FINAL – full overwrite, no alerts
-// ────────────────────────────────────────────────
-
 let scene, camera, renderer;
 let workingLevels = [];
 let currentLevelIndex = 0;
@@ -147,7 +144,6 @@ function initEditor() {
   dirLight.position.set(300, 500, 400);
   scene.add(dirLight);
 
-  // Background
   const texLoader = new THREE.TextureLoader();
   texLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg', (texture) => {
     texture.magFilter = THREE.LinearFilter;
@@ -161,7 +157,6 @@ function initEditor() {
     renderer.render(scene, camera);
   });
 
-  // Red X player marker
   const markerGroup = new THREE.Group();
   const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
   const points = [
@@ -173,7 +168,6 @@ function initEditor() {
   markerGroup.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
   scene.add(markerGroup);
 
-  // Gameplay border
   const borderMat = new THREE.LineBasicMaterial({ color: 0x44ff44, linewidth: 2, transparent: true, opacity: 0.4 });
   const borderPoints = [
     new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
@@ -185,7 +179,6 @@ function initEditor() {
   const border = new THREE.Line(new THREE.BufferGeometry().setFromPoints(borderPoints), borderMat);
   scene.add(border);
 
-  // Input
   const canvas = renderer.domElement;
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
@@ -197,11 +190,11 @@ function initEditor() {
   canvas.addEventListener('touchmove', onTouchMove, {passive:false});
   canvas.addEventListener('touchend', onTouchEnd);
 
-  // UI
   document.getElementById('add-level').onclick   = addNewLevel;
   document.getElementById('del-level').onclick   = deleteCurrentLevel;
   document.getElementById('add-enemy').onclick   = addEnemyTank;
   document.getElementById('clear-level').onclick = clearCurrentLevel;
+  document.getElementById('lock-level').onclick  = lockCurrentLevel;
 
   document.getElementById('theme-select').onchange = updateCurrentTheme;
   document.getElementById('basescore').onchange    = updateCurrentBaseScore;
@@ -209,7 +202,6 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load levels – exact duplicate
   document.getElementById('status').textContent = "Loading levels.js...";
 
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
@@ -241,10 +233,6 @@ function onResize() {
   camera.updateProjectionMatrix();
   renderer.render(scene, camera);
 }
-
-// ────────────────────────────────────────────────
-// Level / Tank management
-// ────────────────────────────────────────────────
 
 function buildLevelSelect() {
   const sel = document.getElementById('level-select');
@@ -365,9 +353,31 @@ function clearCurrentLevel() {
   renderer.render(scene, camera);
 }
 
-// ────────────────────────────────────────────────
-// Input – natural drag + FULL LEVEL OVERWRITE ON EVERY FRAME
-// ────────────────────────────────────────────────
+function lockCurrentLevel() {
+  const freshEnemies = [];
+  scene.traverse(obj => {
+    if (obj.userData && obj.userData.isEditorTank) {
+      freshEnemies.push({
+        x: obj.userData.data.x,
+        y: obj.userData.data.y
+      });
+    }
+  });
+
+  workingLevels[currentLevelIndex] = {
+    enemies: freshEnemies,
+    theme: document.getElementById('theme-select').value || "flat",
+    baseScore: parseInt(document.getElementById('basescore').value) || 100
+  };
+
+  document.getElementById('status').textContent = "Level locked & updated";
+  setTimeout(() => {
+    document.getElementById('status').textContent = "Ready – editor loaded";
+  }, 2000);
+
+  updateExportPreview();
+  renderer.render(scene, camera);
+}
 
 function onMouseDown(e) {
   if (e.button === 2) {
@@ -405,7 +415,6 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // FULL LEVEL OVERWRITE – fresh copy of everything
     workingLevels[currentLevelIndex] = {
       enemies: workingLevels[currentLevelIndex].enemies.map(enemy => ({
         x: enemy === selectedTank.userData.data ? newX : enemy.x,
@@ -459,7 +468,6 @@ function onTouchMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // FULL LEVEL OVERWRITE – fresh copy
     workingLevels[currentLevelIndex] = {
       enemies: workingLevels[currentLevelIndex].enemies.map(enemy => ({
         x: enemy === selectedTank.userData.data ? newX : enemy.x,
@@ -513,13 +521,9 @@ function findTankAt(mx, my) {
   return closest;
 }
 
-// ────────────────────────────────────────────────
-// Export – current level only, clear + rebuild
-// ────────────────────────────────────────────────
-
 function updateExportPreview() {
   const textarea = document.getElementById('export-json');
-  textarea.value = ''; // FORCE CLEAR
+  textarea.value = '';
 
   const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
@@ -568,16 +572,11 @@ function downloadLevelsJs() {
   URL.revokeObjectURL(url);
 }
 
-// ────────────────────────────────────────────────
-// Render loop
-// ────────────────────────────────────────────────
-
 function animateEditor() {
   requestAnimationFrame(animateEditor);
   renderer.render(scene, camera);
 }
 
-// Start the editor
 initEditor();
 </script>
 </body>

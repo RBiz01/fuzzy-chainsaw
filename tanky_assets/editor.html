@@ -83,7 +83,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – fixed level switching (clear enemies array on load)
+// Level Editor – tanks now reliably show on level switch
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -217,7 +217,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED level switching
+// Level / Tank management – FIXED
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -239,25 +239,26 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // 1. Clear ALL editor tanks from the scene
+  // 1. Clear ALL editor tanks from scene
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
     }
   });
 
-  // 2. Clear the CURRENT level's enemy data (this was missing!)
-  levelsData[idx].enemies = [];
-
-  // 3. Get the level data
+  // 2. Get the level data (do NOT clear enemies here – we want to preserve edits!)
   const level = levelsData[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  // 4. Re-add tanks from stored data (now clean)
-  level.enemies.forEach(data => {
-    addTankToScene(data.x, data.y);
-  });
+  // 3. Add tanks from this level's stored enemies array
+  if (level.enemies && Array.isArray(level.enemies)) {
+    level.enemies.forEach(data => {
+      addTankToScene(data.x, data.y);
+    });
+  } else {
+    level.enemies = []; // ensure it's an array
+  }
 
   updateExportPreview();
 }
@@ -323,7 +324,7 @@ function addTankToScene(x, y) {
   };
   scene.add(group);
 
-  // IMPORTANT: Add the position to the CURRENT level's data array
+  // Add to current level's data (this keeps it persistent)
   levelsData[currentLevelIndex].enemies.push({
     x: group.userData.data.x,
     y: group.userData.data.y
@@ -335,7 +336,7 @@ function clearCurrentLevel() {
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
-  levelsData[currentLevelIndex].enemies = []; // Clear stored data too
+  levelsData[currentLevelIndex].enemies = []; // Clear stored data
   updateExportPreview();
 }
 
@@ -366,7 +367,7 @@ function onMouseMove(e) {
   if (!isDraggingCamera) return;
 
   const dx = (e.clientX - prevMouse.x) * 0.8;
-  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural drag: down → view down
+  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural: drag down → view down
 
   if (selectedTank) {
     selectedTank.position.x += dx;

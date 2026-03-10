@@ -99,7 +99,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – preview shows ONLY current level + full file on download
+// Level Editor – preview CLEARS & REBUILDS every time (no append)
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -394,7 +394,7 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update existing enemy entry
+    // Update existing enemy entry (no append)
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === newX && e.y === newY
     );

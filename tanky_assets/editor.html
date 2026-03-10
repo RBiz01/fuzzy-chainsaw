@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.6</title>
+  <title>Angry Tanks Level Editor - v1.7</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -91,7 +91,6 @@
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
-      <button id="update-preview">Manual Refresh (optional)</button>
       <button id="copy-code">Copy Current Level</button>
       <button id="download">Download Full levels.js</button>
     </div>
@@ -105,11 +104,11 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.6 – FIXED preview clear + rebuild
+// Level Editor v1.6 – REBUILT: clear + update array + refresh preview
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
-let workingLevels = []; // editable copy
+let workingLevels = [];
 let currentLevelIndex = 0;
 let selectedTank = null;
 let isDraggingCamera = false;
@@ -210,7 +209,7 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load original levels
+  // Load levels
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
     workingLevels = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels`;
@@ -359,7 +358,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + FORCE CLEAR + REBUILD
+// Input – natural drag + LIVE preview
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -402,13 +401,13 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  requestAnimationFrame(updateExportPreview); // smoother live
+  updateExportPreview();
 }
 
 function onMouseUp() {
   isDraggingCamera = false;
   selectedTank = null;
-  updateExportPreview(); // final update
+  updateExportPreview();
 }
 
 function onTouchStart(e) {
@@ -444,7 +443,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  requestAnimationFrame(updateExportPreview);
+  updateExportPreview();
 }
 
 function onTouchEnd() {
@@ -482,7 +481,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – FORCE CLEAR + REBUILD
+// Export – current level only, clear + rebuild
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

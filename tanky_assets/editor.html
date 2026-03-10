@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v2.5</title>
+  <title>Angry Tanks Level Editor - v2.6</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -38,6 +38,18 @@
 
     #version {
       position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none; z-index:5;
+    }
+
+    @media (max-width: 900px) {
+      #toolbar { left:10px; right:50%; width:auto; max-width:48%; }
+      #export-area { left:50%; right:10px; width:auto; }
+    }
+    @media (max-width: 600px) {
+      #toolbar, #export-area { position:static; width:calc(100% - 20px); margin:10px auto; max-height:40vh; }
+      #ui { flex-direction:column; justify-content:flex-start; align-items:center; }
+      #export-area { order:2; margin-top:10px; }
+      #toolbar { order:1; }
+      #status { position:static; margin:10px auto; text-align:center; }
     }
   </style>
 </head>
@@ -85,14 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v2.3 – FULL overwrite + alert with new enemy positions on every move</div>
+<div id="version">Editor v2.3 – FULL overwrite + alert shows real new x,y on every move</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v2.3 – overwrites FULL level + alert on move
+// Level Editor v2.3 – overwrites FULL level + alert with REAL current x,y
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -329,14 +341,18 @@ function addTankToScene(x, y, pushToData = true) {
   group.add(body);
 
   group.position.set(x, y, 0);
+
+  // Create shared data object
+  const tankData = {x: Math.round(x), y: Math.round(y)};
   group.userData = { 
     isEditorTank: true, 
-    data: {x: Math.round(x), y: Math.round(y)} 
+    data: tankData 
   };
+
   scene.add(group);
 
   if (pushToData) {
-    workingLevels[currentLevelIndex].enemies.push(group.userData.data);
+    workingLevels[currentLevelIndex].enemies.push(tankData); // same reference
   }
 
   updateExportPreview();
@@ -354,7 +370,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + FULL LEVEL OVERWRITE + ALERT ON MOVE
+// Input – drag + FULL LEVEL OVERWRITE + ALERT SHOWS REAL NEW X,Y
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -393,12 +409,15 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // BUILD FRESH LEVEL OBJECT FROM CURRENT STATE
-    const freshEnemies = workingLevels[currentLevelIndex].enemies.map(enemy => {
-      if (enemy === selectedTank.userData.data) {
-        return { x: newX, y: newY };
+    // BUILD FRESH LEVEL OBJECT FROM CURRENT REALITY
+    const freshEnemies = [];
+    scene.traverse(obj => {
+      if (obj.userData && obj.userData.isEditorTank) {
+        freshEnemies.push({
+          x: obj.userData.data.x,
+          y: obj.userData.data.y
+        });
       }
-      return { x: enemy.x, y: enemy.y };
     });
 
     workingLevels[currentLevelIndex] = {
@@ -407,7 +426,7 @@ function onMouseMove(e) {
       baseScore: parseInt(document.getElementById('basescore').value) || 100
     };
 
-    // ALERT WITH NEW ENEMY POSITIONS
+    // ALERT WITH REAL CURRENT ENEMY POSITIONS
     const enemiesList = freshEnemies.map(e => `(${e.x}, ${e.y})`).join('\n');
     alert(
       "Level fully overwritten and preview refreshed!\n" +
@@ -461,12 +480,15 @@ function onTouchMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // BUILD FRESH LEVEL OBJECT FROM CURRENT STATE
-    const freshEnemies = workingLevels[currentLevelIndex].enemies.map(enemy => {
-      if (enemy === selectedTank.userData.data) {
-        return { x: newX, y: newY };
+    // BUILD FRESH LEVEL OBJECT FROM CURRENT REALITY
+    const freshEnemies = [];
+    scene.traverse(obj => {
+      if (obj.userData && obj.userData.isEditorTank) {
+        freshEnemies.push({
+          x: obj.userData.data.x,
+          y: obj.userData.data.y
+        });
       }
-      return { x: enemy.x, y: enemy.y };
     });
 
     workingLevels[currentLevelIndex] = {
@@ -475,7 +497,7 @@ function onTouchMove(e) {
       baseScore: parseInt(document.getElementById('basescore').value) || 100
     };
 
-    // ALERT WITH NEW ENEMY POSITIONS
+    // ALERT WITH REAL CURRENT ENEMY POSITIONS
     const enemiesList = freshEnemies.map(e => `(${e.x}, ${e.y})`).join('\n');
     alert(
       "Level fully overwritten and preview refreshed!\n" +

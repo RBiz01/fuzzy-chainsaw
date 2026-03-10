@@ -394,7 +394,7 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update existing enemy entry (no append)
+    // Update existing enemy entry
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === newX && e.y === newY
     );
@@ -402,7 +402,6 @@ function onMouseMove(e) {
       enemy.x = newX;
       enemy.y = newY;
     } else {
-      // If no match (rare), add it
       levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {

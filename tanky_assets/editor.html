@@ -99,7 +99,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – REAL-TIME preview + NO level leakage
+// Level Editor – REAL-TIME preview + NO leakage
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -233,7 +233,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management
+// Level / Tank management – FIXED
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -310,7 +310,6 @@ function addEnemyTank() {
   const centerX = camera.position.x;
   const centerY = camera.position.y;
   addTankToScene(centerX, centerY, true);
-  updateExportPreview();
 }
 
 function addTankToScene(x, y, pushToData = true) {
@@ -355,7 +354,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + LIVE preview update
+// Input – natural drag + LIVE preview
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -395,13 +394,16 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update the matching enemy in levelsData
+    // Update the exact matching enemy in data
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === newX && e.y === newY
     );
     if (enemy) {
       enemy.x = newX;
       enemy.y = newY;
+    } else {
+      // If no match (rare), push new
+      levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {
     camera.position.x -= dx;
@@ -409,7 +411,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview(); // LIVE UPDATE
+  updateExportPreview(); // LIVE
 }
 
 function onMouseUp() {
@@ -451,6 +453,8 @@ function onTouchMove(e) {
     if (enemy) {
       enemy.x = newX;
       enemy.y = newY;
+    } else {
+      levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {
     camera.position.x -= dx;
@@ -458,7 +462,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview(); // LIVE UPDATE
+  updateExportPreview(); // LIVE
 }
 
 function onTouchEnd() {
@@ -495,7 +499,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – live auto-update on EVERY action
+// Export – LIVE auto-update
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

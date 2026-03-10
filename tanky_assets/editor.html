@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v2.2</title>
+  <title>Angry Tanks Level Editor - v2.3</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -97,14 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v2.1 – Overwrites full level object on every change</div>
+<div id="version">Editor v2.1 – full level overwrite on every change – enemies update live</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v2.1 – full level overwrite on change
+// Level Editor v2.1 – OVERWRITES FULL LEVEL OBJECT ON EVERY CHANGE
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -366,7 +366,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + LIVE preview
+// Input – natural drag + LIVE preview + FULL LEVEL OVERWRITE
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -405,11 +405,11 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Overwrite full level object to ensure everything is fresh
+    // Overwrite FULL level object
     workingLevels[currentLevelIndex] = {
-      enemies: workingLevels[currentLevelIndex].enemies.map(e => ({ ...e })),
-      theme: workingLevels[currentLevelIndex].theme,
-      baseScore: workingLevels[currentLevelIndex].baseScore
+      enemies: workingLevels[currentLevelIndex].enemies.map(e => ({ ...e })), // fresh copy
+      theme: document.getElementById('theme-select').value || "flat",
+      baseScore: parseInt(document.getElementById('basescore').value) || 100
     };
   } else {
     camera.position.x -= dx;
@@ -456,11 +456,11 @@ function onTouchMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Overwrite full level object
+    // Overwrite FULL level object
     workingLevels[currentLevelIndex] = {
       enemies: workingLevels[currentLevelIndex].enemies.map(e => ({ ...e })),
-      theme: workingLevels[currentLevelIndex].theme,
-      baseScore: workingLevels[currentLevelIndex].baseScore
+      theme: document.getElementById('theme-select').value || "flat",
+      baseScore: parseInt(document.getElementById('basescore').value) || 100
     };
   } else {
     camera.position.x -= dx;

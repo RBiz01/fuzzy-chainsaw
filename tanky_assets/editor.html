@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.9 DEBUG</title>
+  <title>Angry Tanks Level Editor - v1.9</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -105,20 +105,20 @@
 
     <div id="debug-panel">
       <strong>DEBUG LOG (v1.9)</strong><br>
-      Level: ? | Tanks: ? | Selected: ?<br>
+      <div id="debug-status"></div>
       <div id="debug-log"></div>
     </div>
   </div>
 </div>
 
-<div id="version">Editor v1.9 – Debug mode active – preview rebuilds on every move</div>
+<div id="version">Editor v1.9 – Debug mode – preview rebuilds on every move</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.9 – DEBUG MODE – clear + rebuild on every move
+// Level Editor v1.9 – debug mode active
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -135,6 +135,7 @@ const EDITOR_SCALE = 0.7;
 const PLAYER_START_X = -220;
 const PLAYER_START_Y = -340;
 
+const debugStatus = document.getElementById('debug-status');
 const debugLog = document.getElementById('debug-log');
 
 function logDebug(msg) {
@@ -145,17 +146,15 @@ function logDebug(msg) {
 
 function updateDebugStatus() {
   const level = workingLevels[currentLevelIndex] || { enemies: [] };
-  document.getElementById('debug-panel').innerHTML = `
-    <strong>DEBUG LOG (v1.9)</strong><br>
-    Level: ${currentLevelIndex + 1} | Tanks: ${level.enemies.length} | Selected: ${selectedTank ? 'YES' : 'NO'}<br>
-    <div id="debug-log"></div>
+  debugStatus.innerHTML = `
+    Level: ${currentLevelIndex + 1} | Tanks in array: ${level.enemies.length} | Selected: ${selectedTank ? 'YES' : 'NO'}<br>
+    Last action: ${new Date().toLocaleTimeString()}
   `;
 }
 
-initEditor();
-animateEditor();
-
 function initEditor() {
+  logDebug("initEditor started");
+
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x112233);
 
@@ -227,33 +226,48 @@ function initEditor() {
   canvas.addEventListener('touchmove', onTouchMove, {passive:false});
   canvas.addEventListener('touchend', onTouchEnd);
 
-  // UI
-  document.getElementById('add-level').onclick   = addNewLevel;
-  document.getElementById('del-level').onclick   = deleteCurrentLevel;
-  document.getElementById('add-enemy').onclick   = addEnemyTank;
-  document.getElementById('clear-level').onclick = clearCurrentLevel;
+  // UI – with null checks
+  const addLevelBtn = document.getElementById('add-level');
+  if (addLevelBtn) addLevelBtn.onclick = addNewLevel;
 
-  document.getElementById('theme-select').onchange = updateCurrentTheme;
-  document.getElementById('basescore').onchange    = updateCurrentBaseScore;
+  const delLevelBtn = document.getElementById('del-level');
+  if (delLevelBtn) delLevelBtn.onclick = deleteCurrentLevel;
 
-  document.getElementById('copy-code').onclick     = copyToClipboard;
-  document.getElementById('download').onclick      = downloadLevelsJs;
+  const addEnemyBtn = document.getElementById('add-enemy');
+  if (addEnemyBtn) addEnemyBtn.onclick = addEnemyTank;
 
-  // Load levels
-  if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    workingLevels = JSON.parse(JSON.stringify(window.levels));
-    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
-    logDebug(`Loaded ${workingLevels.length} levels`);
-    logDebug(`Level 1 enemies loaded: ${workingLevels[0].enemies.length}`);
-  } else {
-    workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
-    document.getElementById('status').textContent = "No levels loaded – created empty level";
-    logDebug("No levels loaded – using empty level");
+  const clearLevelBtn = document.getElementById('clear-level');
+  if (clearLevelBtn) clearLevelBtn.onclick = clearCurrentLevel;
+
+  const themeSelect = document.getElementById('theme-select');
+  if (themeSelect) themeSelect.onchange = updateCurrentTheme;
+
+  const baseScoreInput = document.getElementById('basescore');
+  if (baseScoreInput) baseScoreInput.onchange = updateCurrentBaseScore;
+
+  const copyCodeBtn = document.getElementById('copy-code');
+  if (copyCodeBtn) copyCodeBtn.onclick = copyToClipboard;
+
+  const downloadBtn = document.getElementById('download');
+  if (downloadBtn) downloadBtn.onclick = downloadLevelsJs;
+
+  // Load levels – wait for window.levels
+  function tryLoadLevels() {
+    if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
+      workingLevels = JSON.parse(JSON.stringify(window.levels));
+      document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
+      logDebug(`Loaded ${workingLevels.length} levels`);
+      logDebug(`Level 1 enemies: ${workingLevels[0]?.enemies.length || 0}`);
+      buildLevelSelect();
+      loadLevel(0);
+      updateExportPreview();
+    } else {
+      logDebug("window.levels not ready yet – retrying...");
+      setTimeout(tryLoadLevels, 500);
+    }
   }
 
-  buildLevelSelect();
-  loadLevel(0);
-  updateExportPreview();
+  tryLoadLevels();
 }
 
 function onResize() {
@@ -276,6 +290,7 @@ function onResize() {
 
 function buildLevelSelect() {
   const sel = document.getElementById('level-select');
+  if (!sel) return logDebug('ERROR: level-select missing');
   sel.innerHTML = '';
   workingLevels.forEach((lvl, i) => {
     const opt = document.createElement('option');
@@ -407,11 +422,9 @@ function onMouseDown(e) {
     const tank = findTankAt(mouse.x, mouse.y);
     if (tank) {
       const index = workingLevels[currentLevelIndex].enemies.indexOf(tank.userData.data);
-      if (index !== -1) {
-        workingLevels[currentLevelIndex].enemies.splice(index, 1);
-        logDebug(`Deleted tank at (${tank.userData.data.x}, ${tank.userData.data.y})`);
-      }
+      if (index !== -1) workingLevels[currentLevelIndex].enemies.splice(index, 1);
       scene.remove(tank);
+      logDebug(`Deleted tank`);
       updateExportPreview();
     }
     return;
@@ -438,7 +451,6 @@ function onMouseMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-
     logDebug(`Dragging to (${newX}, ${newY})`);
   } else {
     camera.position.x -= dx;
@@ -446,7 +458,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview();
+  requestAnimationFrame(updateExportPreview);
 }
 
 function onMouseUp() {
@@ -486,7 +498,6 @@ function onTouchMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-
     logDebug(`Dragging to (${newX}, ${newY})`);
   } else {
     camera.position.x -= dx;
@@ -494,7 +505,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview();
+  requestAnimationFrame(updateExportPreview);
 }
 
 function onTouchEnd() {
@@ -558,7 +569,38 @@ function updateExportPreview() {
 
   textarea.value = code;
 
+  updateDebugStatus();
   logDebug(`Preview rebuilt – ${level.enemies.length} enemies`);
+}
+
+function copyToClipboard() {
+  const ta = document.getElementById('export-json');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    alert("Copied current level preview to clipboard!");
+  }).catch(() => alert("Copy failed – select manually"));
+}
+
+function downloadLevelsJs() {
+  const fullLevels = workingLevels.map(level => ({
+    enemies: level.enemies || [],
+    theme: level.theme || "flat",
+    baseScore: level.baseScore || 100
+  }));
+
+  const json = JSON.stringify(fullLevels, null, 2);
+  const code = 
+    `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
+    `const levels = ${json};\n\n` +
+    `window.levels = levels;`;
+
+  const blob = new Blob([code], {type: "application/javascript"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "levels.js";
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // ────────────────────────────────────────────────

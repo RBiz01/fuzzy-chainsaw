@@ -98,14 +98,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.5 – Preview clears & rebuilds on every change – current level only</div>
+<div id="version">Editor v1.6 – Preview clears & rebuilds on every change – current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.5 – FORCE CLEAR + REBUILD on EVERY action
+// Level Editor v1.6 – FIXED preview clear + rebuild
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -261,7 +261,6 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // Clear scene tanks
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
@@ -360,7 +359,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + FORCE CLEAR + REBUILD preview
+// Input – natural drag + FORCE CLEAR + REBUILD
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -403,13 +402,13 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  requestAnimationFrame(updateExportPreview); // smoother live update during drag
+  requestAnimationFrame(updateExportPreview); // smoother live
 }
 
 function onMouseUp() {
   isDraggingCamera = false;
   selectedTank = null;
-  updateExportPreview(); // final update on release
+  updateExportPreview(); // final update
 }
 
 function onTouchStart(e) {
@@ -445,13 +444,13 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  requestAnimationFrame(updateExportPreview); // smoother live update
+  requestAnimationFrame(updateExportPreview);
 }
 
 function onTouchEnd() {
   isDraggingCamera = false;
   selectedTank = null;
-  updateExportPreview(); // final update on release
+  updateExportPreview();
 }
 
 function getMousePos(e) {
@@ -483,12 +482,12 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – FORCE CLEAR + REBUILD every time
+// Export – FORCE CLEAR + REBUILD
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
   const textarea = document.getElementById('export-json');
-  textarea.value = ''; // FORCE CLEAR
+  textarea.value = ''; // CLEAR
 
   const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 

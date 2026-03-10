@@ -7,6 +7,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
     <title>Angry Tanks</title>
+
+    <!-- Tone.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -79,15 +83,12 @@
 
         #row1 { 
             border-color: #ffcc00; 
-            font-size: 5.6vmin;  /* ← smaller than before */
+            font-size: 5.6vmin;
         }
         #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
         #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 6vmin; }
 
-        #score { 
-            color: #ffeb3b; 
-            white-space: nowrap;  /* ← prevents wrapping to next line */
-        }
+        #score    { color: #ffeb3b; white-space: nowrap; }
         #level    { color: #00ffe9; }
         #stars    { color: #ff9800; letter-spacing: 0.6vmin; }
         #highscore{ color: #d0aaff; }
@@ -157,7 +158,6 @@
             z-index: 90;
         }
 
-        /* Start Screen */
         .start-screen {
             position: absolute;
             inset: 0;
@@ -226,7 +226,6 @@
 
             <div id="message"></div>
 
-            <!-- Start Screen -->
             <div id="start-screen" class="start-screen">
                 <div class="start-button">START GAME
 (pull & aim to shoot)</div>
@@ -435,8 +434,8 @@
 
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const PREVIEW_START_X = 0;
-        const PREVIEW_END_X = 1200;       // ← increased from 700 to show more to the right
-        const PREVIEW_GO_DURATION = 4000; // ← longer/smoother pan (was 3000)
+        const PREVIEW_END_X = 1200;
+        const PREVIEW_GO_DURATION = 4000;
         const PREVIEW_RETURN_DURATION = 2000;
         let followProjectile = false;
 
@@ -466,6 +465,63 @@
         const ballIcons = [];
         let covers = [];
         let levelCleared = false;
+
+        // ────────────────────────────────────────
+        // Tone.js Sound Effects
+        // ────────────────────────────────────────
+        let cannonSynth, explosionSynth;
+
+        async function initSounds() {
+            // Start audio context after user gesture
+            await Tone.start();
+            console.log("Tone.js audio context started");
+
+            // Cannon fire: quick upward sweep + punch
+            cannonSynth = new Tone.Synth({
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.001, decay: 0.1, sustain: 0.05, release: 0.2 }
+            }).toDestination();
+
+            // Explosion: low boom + noise + filter sweep
+            const noise = new Tone.NoiseSynth({
+                noise: { type: "white" },
+                envelope: { attack: 0.005, decay: 0.4, sustain: 0, release: 0.3 }
+            });
+
+            const filter = new Tone.Filter({
+                type: "lowpass",
+                frequency: 800,
+                Q: 1
+            });
+
+            const compressor = new Tone.Compressor(-24, 4);
+
+            noise.chain(filter, compressor, Tone.Destination);
+
+            explosionSynth = { noise, filter };
+        }
+
+        function playCannonFire() {
+            if (!cannonSynth) return;
+            cannonSynth.triggerAttackRelease("C2", "8n");
+            cannonSynth.frequency.rampTo("G3", 0.08);
+        }
+
+        function playExplosion() {
+            if (!explosionSynth) return;
+            const { noise, filter } = explosionSynth;
+
+            // Noise burst
+            noise.triggerAttackRelease("8n");
+
+            // Pitch drop + filter sweep
+            filter.frequency.setValueAtTime(1200, Tone.now());
+            filter.frequency.exponentialRampTo(200, 0.4);
+
+            // Volume envelope
+            noise.volume.value = -6;
+            noise.volume.linearRampTo(-60, 0.6);
+        }
 
         function updateBallsUI() {
             ballIcons.forEach(el => ballsEl.removeChild(el));
@@ -605,6 +661,7 @@
                         enemies.splice(i,1);
                         e.userData.alive = false;
                         hitsThisFrame++;
+                        playExplosion(); // ← Explosion sound!
                     }
                     createExplosion(e.position, true);
                     velocity.multiplyScalar(0.45);
@@ -654,6 +711,7 @@
                                         scene.remove(e);
                                         enemies.splice(j, 1);
                                         e.userData.alive = false;
+                                        playExplosion(); // Extra explosions get sound too
                                     }
                                 }
                             }
@@ -812,6 +870,8 @@
             createProjectile(tip);
             isFlying = followProjectile = true;
             if (loadedBall) { scene.remove(loadedBall); loadedBall = null; }
+
+            playCannonFire();  // ← Cannon fire sound!
         }
 
         renderer.domElement.addEventListener('mousedown', onDown);
@@ -848,7 +908,7 @@
         });
 
         // ────────────────────────────────────────
-        // FULLSCREEN FUNCTION (your working version)
+        // FULLSCREEN FUNCTION
         // ────────────────────────────────────────
         async function forceFullscreen() {
             try {
@@ -861,7 +921,7 @@
         }
 
         // ────────────────────────────────────────
-        // START GAME – with short delay (200ms – Option A)
+        // START GAME – with 200ms delay + sound init
         // ────────────────────────────────────────
         async function startGame(e) {
             if (gameStarted) return;
@@ -870,18 +930,20 @@
             gameStarted = true;
             gameRunning = true;
 
-            // Hide start screen immediately
             if (startScreen) {
                 startScreen.style.display = 'none';
             }
 
-            // Short delay before requesting fullscreen
+            // Short delay before fullscreen & sounds
             await new Promise(resolve => setTimeout(resolve, 200));
+
+            // Initialize sounds after user gesture
+            await initSounds();
 
             // Then request fullscreen
             await forceFullscreen();
 
-            // Optional extra nudge for address bar collapse
+            // Nudge scroll for address bar
             setTimeout(() => window.scrollTo(0, 1), 100);
         }
 
@@ -974,7 +1036,7 @@
             spawnLevel(0);
             updateUI();
 
-            animate(); // keep rendering background + start screen
+            animate();
         }
 
         init();

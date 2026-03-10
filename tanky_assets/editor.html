@@ -97,14 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v2.1 – workingLevels = exact duplicate – preview updates on move</div>
+<div id="version">Editor v2.1 – Overwrites full level object on every change</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v2.1 – FIXED move updates array
+// Level Editor v2.1 – full level overwrite on change
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -213,11 +213,7 @@ function initEditor() {
   document.getElementById('status').textContent = "Loading levels.js...";
 
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    workingLevels = window.levels.map(level => ({
-      enemies: level.enemies ? level.enemies.map(e => ({ ...e })) : [],
-      theme: level.theme || "flat",
-      baseScore: level.baseScore || 100
-    }));
+    workingLevels = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels – working copy created`;
   } else {
     workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
@@ -228,7 +224,7 @@ function initEditor() {
   loadLevel(0);
   updateExportPreview();
   document.getElementById('status').textContent = "Ready – editor loaded";
-  renderer.render(scene, camera); // Force initial render
+  renderer.render(scene, camera);
 }
 
 function onResize() {
@@ -408,6 +404,13 @@ function onMouseMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
+
+    // Overwrite full level object to ensure everything is fresh
+    workingLevels[currentLevelIndex] = {
+      enemies: workingLevels[currentLevelIndex].enemies.map(e => ({ ...e })),
+      theme: workingLevels[currentLevelIndex].theme,
+      baseScore: workingLevels[currentLevelIndex].baseScore
+    };
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -452,6 +455,13 @@ function onTouchMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
+
+    // Overwrite full level object
+    workingLevels[currentLevelIndex] = {
+      enemies: workingLevels[currentLevelIndex].enemies.map(e => ({ ...e })),
+      theme: workingLevels[currentLevelIndex].theme,
+      baseScore: workingLevels[currentLevelIndex].baseScore
+    };
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;

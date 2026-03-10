@@ -74,19 +74,9 @@
             padding: 1.2vmin 5vmin;
         }
 
-        #row1 { 
-            border-color: #ffcc00; 
-            font-size: 6.2vmin;
-        }
-        #row2 { 
-            border-color: #00ffcc; 
-            font-size: 4.8vmin;
-        }
-        #row3 { 
-            border-color: #aa44ff; 
-            font-size: 4.2vmin;
-            gap: 6vmin;
-        }
+        #row1 { border-color: #ffcc00; font-size: 6.2vmin; }
+        #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
+        #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 6vmin; }
 
         #score    { color: #ffeb3b; }
         #level    { color: #00ffe9; }
@@ -94,7 +84,6 @@
         #highscore{ color: #d0aaff; }
 
         #balls {
-            position: relative;
             display: flex;
             gap: 2.4vmin;
             pointer-events: none;
@@ -156,6 +145,48 @@
             pointer-events: all;
             white-space: pre-line;
             line-height: 1.4;
+            z-index: 90;
+        }
+
+        /* ──────────────────────────────────────── */
+        /* Start Screen / Start Game Button         */
+        /* ──────────────────────────────────────── */
+        .start-screen {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.92);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: all;
+            z-index: 100;
+            color: #fff;
+            text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;
+        }
+
+        .start-button {
+            font-size: 11vmin;
+            padding: 5vmin 12vmin;
+            background: linear-gradient(#ff4444, #cc0000);
+            border: 1.2vmin solid #ffff00;
+            border-radius: 4vmin;
+            box-shadow: 0 1.4vmin 0 #880000, inset 0 0.6vmin 1.2vmin rgba(255,255,255,0.25);
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            margin-bottom: 4vmin;
+        }
+
+        .start-button:active {
+            transform: translateY(0.7vmin);
+            box-shadow: 0 0.7vmin 0 #880000;
+        }
+
+        .start-hint {
+            font-size: 4.2vmin;
+            color: #88ff88;
+            opacity: 0.9;
         }
     </style>
 </head>
@@ -182,26 +213,25 @@
             <div id="preview" class="button">📷</div>
 
             <div id="message"></div>
+
+            <!-- Start Game Overlay -->
+            <div id="start-screen" class="start-screen">
+                <div class="start-button">START GAME</div>
+                <div class="start-hint">Tap to begin • Fullscreen mode</div>
+            </div>
         </div>
     </div>
 
-    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-    <!-- Levels data -->
     <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
     <script>
-        // Safety check for levels
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
-            console.error("Failed to load levels from https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js");
-            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels</h1><p style="color:white;text-align:center;">Check that levels.js exists and is publicly accessible at:<br>https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js</p>';
+            console.error("Failed to load levels");
+            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels</h1>';
             throw new Error("No levels available");
         }
-        console.log(`Loaded ${window.levels.length} levels from GitHub`);
 
-        // ────────────────────────────────────────
-        // DOM elements
-        // ────────────────────────────────────────
         const container   = document.getElementById('container');
         const canvas      = document.getElementById('game');
         const scoreEl     = document.getElementById('score');
@@ -213,10 +243,8 @@
         const quitBtn     = document.getElementById('quit');
         const restartBtn  = document.getElementById('restart');
         const previewBtn  = document.getElementById('preview');
+        const startScreen = document.getElementById('start-screen');
 
-        // ────────────────────────────────────────
-        // Three.js setup
-        // ────────────────────────────────────────
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
         camera.position.set(0, 0, 500);
@@ -225,9 +253,7 @@
         renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 
         function updateRendererSize() {
-            const w = container.clientWidth;
-            const h = container.clientHeight;
-            renderer.setSize(w, h, false);
+            renderer.setSize(container.clientWidth, container.clientHeight, false);
         }
         updateRendererSize();
         window.addEventListener('resize', updateRendererSize);
@@ -237,9 +263,6 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
-        // ────────────────────────────────────────
-        // Backgrounds
-        // ────────────────────────────────────────
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
@@ -285,9 +308,6 @@
             }
         }
 
-        // ────────────────────────────────────────
-        // Platform / Tank textures
-        // ────────────────────────────────────────
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
@@ -307,9 +327,6 @@
         tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
         turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
 
-        // ────────────────────────────────────────
-        // Player tank
-        // ────────────────────────────────────────
         const tankGroup = new THREE.Group();
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8);
@@ -339,9 +356,6 @@
             return new THREE.Vector3(65, 18, 0).applyMatrix4(turretGroup.matrixWorld);
         }
 
-        // ────────────────────────────────────────
-        // Spring + trajectory helpers
-        // ────────────────────────────────────────
         let spring, trajectoryLine;
         let isPreviewActive = false;
         let previewPhase = 0;
@@ -373,7 +387,7 @@
             dir.normalize();
             const perp = new THREE.Vector3(-dir.y, dir.x, 0);
             const offsetStart = start.clone().addScaledVector(dir, -3);
-            const offsetEnd   = end.clone().addScaledVector(dir, -5);
+            const offsetEnd = end.clone().addScaledVector(dir, -5);
             const pts = [];
             const coils = Math.min(14, len * 0.055);
             for (let i = 0; i <= 60; i++) {
@@ -406,9 +420,6 @@
             trajectoryLine.visible = true;
         }
 
-        // ────────────────────────────────────────
-        // Preview camera movement
-        // ────────────────────────────────────────
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const PREVIEW_START_X = 0;
         const PREVIEW_END_X = 700;
@@ -418,14 +429,9 @@
 
         function resetCamera(immediate = false) {
             followProjectile = false;
-            if (immediate) {
-                camera.position.copy(DEFAULT_CAMERA_POS);
-            }
+            if (immediate) camera.position.copy(DEFAULT_CAMERA_POS);
         }
 
-        // ────────────────────────────────────────
-        // Game state
-        // ────────────────────────────────────────
         let score = 0;
         let highScore = localStorage.getItem('angryTanksHighScore') || 0;
         let currentLevel = 1;
@@ -437,7 +443,8 @@
         let isFlying = false;
         let dragStartPos = new THREE.Vector2();
         let pullPos = new THREE.Vector3();
-        let gameRunning = true;
+        let gameRunning = false;     // ← changed: false until start pressed
+        let gameStarted = false;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
         const GRAVITY = 0.7;
@@ -574,7 +581,6 @@
             if (!projectile || !isFlying) return;
             const pBox = new THREE.Box3().setFromObject(projectile);
             let hitsThisFrame = 0;
-
             for (let i = enemies.length - 1; i >= 0; i--) {
                 const e = enemies[i];
                 if (!e.userData.alive) continue;
@@ -591,7 +597,6 @@
                     velocity.multiplyScalar(0.45);
                 }
             }
-
             if (hitsThisFrame > 1) {
                 score += 500 * hitsThisFrame;
                 showMessage(`${hitsThisFrame}x COMBO!`, '#ff00ff', 1000);
@@ -624,7 +629,6 @@
                     p.position.add(p.userData.vel);
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
-
                     if (chain && Math.random() < 0.3) {
                         const blastBox = new THREE.Box3().setFromObject(p);
                         for (let j = enemies.length - 1; j >= 0; j--) {
@@ -717,9 +721,6 @@
             else createLoadedBall();
         }
 
-        // ────────────────────────────────────────
-        // Input handling
-        // ────────────────────────────────────────
         function getPointerPos(e) {
             const r = canvas.getBoundingClientRect();
             const x = e.touches?.[0]?.clientX ?? e.clientX;
@@ -737,7 +738,7 @@
 
         function onDown(e) {
             e.preventDefault();
-            if (!gameRunning || isFlying || isDragging || isPreviewActive) return;
+            if (!gameRunning || !gameStarted || isFlying || isDragging || isPreviewActive) return;
             const pos = getPointerPos(e);
             if (isClickOnTank(pos)) {
                 isDragging = true;
@@ -749,7 +750,7 @@
 
         function onMove(e) {
             e.preventDefault();
-            if (!isDragging || isPreviewActive) return;
+            if (!isDragging || !gameStarted || isPreviewActive) return;
             const pos = getPointerPos(e);
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
@@ -774,7 +775,7 @@
 
         function onUp(e) {
             e.preventDefault();
-            if (!isDragging) return;
+            if (!isDragging || !gameStarted) return;
             isDragging = false;
             spring.visible = trajectoryLine.visible = false;
 
@@ -807,9 +808,6 @@
         renderer.domElement.addEventListener('touchmove', onMove, {passive:false});
         renderer.domElement.addEventListener('touchend', onUp, {passive:false});
 
-        // ────────────────────────────────────────
-        // Buttons
-        // ────────────────────────────────────────
         quitBtn.addEventListener('click', () => {
             window.location.href = 'https://rbiz01.github.io/fuzzy-chainsaw/';
         });
@@ -827,7 +825,7 @@
         });
 
         previewBtn.addEventListener('click', () => {
-            if (!gameRunning || isFlying || isDragging || isPreviewActive) return;
+            if (!gameRunning || !gameStarted || isFlying || isDragging || isPreviewActive) return;
             isPreviewActive = true;
             previewPhase = 0;
             previewStartTime = performance.now();
@@ -837,10 +835,8 @@
         });
 
         // ────────────────────────────────────────
-        // Fullscreen on first interaction
+        // Start Game + Fullscreen
         // ────────────────────────────────────────
-        let fullscreenAttempted = false;
-
         function tryEnterFullscreen() {
             const elem = document.documentElement;
             if (elem.requestFullscreen) {
@@ -852,25 +848,36 @@
             }
         }
 
-        function onUserInteraction() {
-            if (!fullscreenAttempted) {
-                fullscreenAttempted = true;
-                tryEnterFullscreen();
-            }
+        function startGame() {
+            if (gameStarted) return;
+            gameStarted = true;
+            gameRunning = true;
+
+            if (startScreen) startScreen.style.display = 'none';
+
+            tryEnterFullscreen();
+
+            // Optional short welcome message after start
+            setTimeout(() => {
+                showMessage("Pull & aim\nto destroy tanks!", "#ffffff", 3800);
+            }, 600);
         }
 
-        canvas.addEventListener('touchstart', onUserInteraction, {once: true, passive: true});
-        canvas.addEventListener('mousedown', onUserInteraction, {once: true});
+        if (startScreen) {
+            startScreen.addEventListener('click', startGame);
+            startScreen.addEventListener('touchstart', e => {
+                e.preventDefault();
+                startGame();
+            }, { passive: false });
+        }
 
-        // ────────────────────────────────────────
-        // Main loop
-        // ────────────────────────────────────────
         function animate() {
             requestAnimationFrame(animate);
 
-            if (!gameRunning) return renderer.render(scene, camera);
-
             updateBackgroundFade();
+            renderer.render(scene, camera);
+
+            if (!gameRunning || !gameStarted) return;
 
             if (isFlying && projectile) {
                 velocity.y -= GRAVITY;
@@ -938,8 +945,6 @@
             if (loadedBall && !isFlying && !isPreviewActive) {
                 loadedBall.position.copy(getBarrelTip());
             }
-
-            renderer.render(scene, camera);
         }
 
         function init() {
@@ -949,11 +954,11 @@
             setNewBackground();
             spawnLevel(0);
             updateUI();
+
+            // Start rendering loop immediately (shows background + start screen)
             animate();
 
-            setTimeout(() => {
-                showMessage("PULL TANK → AIM → FIRE!\nTap 📷 to preview enemies\n3 shots max per level", "#ffffff", 6000);
-            }, 600);
+            // Start screen is visible by default → gameRunning stays false until startGame()
         }
 
         init();

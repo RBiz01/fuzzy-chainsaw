@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor</title>
+  <title>Angry Tanks Level Editor - v1.4</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -105,7 +105,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.3 – FORCE CLEAR + REBUILD preview EVERY TIME
+// Level Editor v1.3 – FORCE CLEAR + REBUILD preview every time
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -360,7 +360,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + FORCE CLEAR + REBUILD preview
+// Input – natural drag + LIVE preview
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -370,7 +370,7 @@ function onMouseDown(e) {
     const tank = findTankAt(mouse.x, mouse.y);
     if (tank) {
       const index = levelsData[currentLevelIndex].enemies.findIndex(
-        e => e.x === tank.userData.data.x && e.y === tank.userData.data.y
+        e => e === tank.userData.data   // Direct reference match
       );
       if (index !== -1) levelsData[currentLevelIndex].enemies.splice(index, 1);
       scene.remove(tank);
@@ -400,23 +400,14 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update existing entry (no append)
-    const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === newX && e.y === newY
-    );
-    if (enemy) {
-      enemy.x = newX;
-      enemy.y = newY;
-    } else {
-      levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
-    }
+    // No find/push – data is already referenced in levelsData
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview(); // FORCE CLEAR + REBUILD
+  updateExportPreview();
 }
 
 function onMouseUp() {
@@ -452,22 +443,14 @@ function onTouchMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === newX && e.y === newY
-    );
-    if (enemy) {
-      enemy.x = newX;
-      enemy.y = newY;
-    } else {
-      levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
-    }
+    // No find/push – data is already referenced
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview(); // FORCE CLEAR + REBUILD
+  updateExportPreview();
 }
 
 function onTouchEnd() {
@@ -504,15 +487,13 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – FORCE CLEAR + REBUILD every time
+// Export – CLEAR + REBUILD every time
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  // FORCE CLEAR the textarea first
-  //document.getElementById('export-json').value = '';
+  document.getElementById('export-json').value = ''; // CLEAR
 
   const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
-  document.getElementById('export-json').value = '';
 
   const currentLevelCode = {
     enemies: level.enemies || [],
@@ -526,7 +507,6 @@ function updateExportPreview() {
     `const level = ${json};\n\n` +
     `// Full file available on Download button`;
 
-  // Set the new code
   document.getElementById('export-json').value = code;
 }
 

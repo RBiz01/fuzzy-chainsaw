@@ -165,12 +165,22 @@
         </div>
     </div>
 
-    <!-- Load levels from external file -->
+    <!-- Load Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+
+    <!-- Load levels from external file (must exist in fuzzy-chainsaw/tanky_assets/) -->
     <script src="fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // ANGRY TANKS - Levels now loaded from levels.js
+        // Safety check: make sure levels.js loaded successfully
+        if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
+            console.error("levels.js failed to load or is empty");
+            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels.js</h1><p style="color:white;text-align:center;">Check file path: fuzzy-chainsaw/tanky_assets/levels.js</p>';
+            throw new Error("No levels available");
+        }
+
+        console.log(`Loaded ${window.levels.length} levels from levels.js`);
+
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -393,17 +403,6 @@
         const GRAVITY = 0.7;
         let windForce = 0;
 
-        // levels is now loaded from levels.js via <script src="...">
-        // Fallback if not loaded
-        if (typeof window.levels === 'undefined' || !Array.isArray(window.levels)) {
-            console.warn("levels.js not loaded or invalid - using fallback");
-            window.levels = [
-                // You can paste a small fallback array here if desired
-                { enemies: [{x:180,y:-200}], theme: 'flat', baseScore: 100 }
-            ];
-            showMessage("Warning: levels.js failed to load!\nUsing fallback level.", "#ffcc00", 5000);
-        }
-
         let enemies = [];
         const ballIcons = [];
         let covers = [];
@@ -514,12 +513,6 @@
             resetCamera(true);
             levelEl.textContent = `LEVEL ${levelIndex + 1}`;
         }
-
-        // ────────────────────────────────────────────────
-        // The rest of the code (updateUI, showMessage, checkCollisions, createExplosion, 
-        // levelComplete, gameOver, resetAfterShot, getPointerPos, isClickOnTank, 
-        // onDown, onMove, onUp, animate, init) remains exactly the same as in the previous version
-        // ────────────────────────────────────────────────
 
         function updateUI() {
             scoreEl.textContent = `SCORE: ${score.toString().padStart(5,'0')}`;

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.9</title>
+  <title>Angry Tanks Level Editor - v2.0</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -36,12 +36,6 @@
       outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
     }
 
-    #debug-panel {
-      position:absolute; bottom:10px; left:300px; background:rgba(0,0,0,0.8); padding:10px; border-radius:6px;
-      font-family:Consolas,monospace; font-size:12px; max-width:500px; max-height:200px; overflow-y:auto;
-      color:#0f0; border:1px solid #0f0; z-index:10; pointer-events:none;
-    }
-
     #version {
       position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none; z-index:5;
     }
@@ -49,7 +43,6 @@
     @media (max-width: 900px) {
       #toolbar { left:10px; right:50%; width:auto; max-width:48%; }
       #export-area { left:50%; right:10px; width:auto; }
-      #debug-panel { left:10px; right:10px; bottom:220px; max-height:180px; }
     }
     @media (max-width: 600px) {
       #toolbar, #export-area { position:static; width:calc(100% - 20px); margin:10px auto; max-height:40vh; }
@@ -57,7 +50,6 @@
       #export-area { order:2; margin-top:10px; }
       #toolbar { order:1; }
       #status { position:static; margin:10px auto; text-align:center; }
-      #debug-panel { position:static; margin:10px auto; width:calc(100% - 20px); max-height:150px; }
     }
   </style>
 </head>
@@ -95,30 +87,24 @@
       </div>
     </div>
 
-    <div id="status">Initializing...</div>
+    <div id="status">Waiting for levels.js...</div>
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
       <button id="copy-code">Copy Current Level</button>
       <button id="download">Download Full levels.js</button>
     </div>
-
-    <div id="debug-panel">
-      <strong>DEBUG LOG (v1.9)</strong><br>
-      <div id="debug-status"></div>
-      <div id="debug-log"></div>
-    </div>
   </div>
 </div>
 
-<div id="version">Editor v1.9 – Debug mode active – preview rebuilds on every move</div>
+<div id="version">Editor v1.9 – workingLevels = exact duplicate of levels – preview shows current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.9 – loading progress messages + debug
+// Level Editor v1.9 – simple array copy, no delay hang
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -135,25 +121,7 @@ const EDITOR_SCALE = 0.7;
 const PLAYER_START_X = -220;
 const PLAYER_START_Y = -340;
 
-const debugStatus = document.getElementById('debug-status');
-const debugLog = document.getElementById('debug-log');
-
-function logDebug(msg) {
-  const time = new Date().toLocaleTimeString();
-  debugLog.innerHTML += `[${time}] ${msg}<br>`;
-  debugLog.scrollTop = debugLog.scrollHeight;
-}
-
-function updateDebugStatus(msg = '') {
-  const level = workingLevels[currentLevelIndex] || { enemies: [] };
-  debugStatus.innerHTML = `
-    Level: ${currentLevelIndex + 1} | Tanks in array: ${level.enemies.length} | Selected: ${selectedTank ? 'YES' : 'NO'}<br>
-    Status: ${msg || 'Ready'} | Last action: ${new Date().toLocaleTimeString()}
-  `;
-}
-
 function initEditor() {
-  logDebug("Starting editor initialization...");
   document.getElementById('status').textContent = "Initializing scene...";
 
   scene = new THREE.Scene();
@@ -239,27 +207,28 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
+  // Load levels – exact duplicate
   document.getElementById('status').textContent = "Loading levels.js...";
 
-  // Load original levels → make exact duplicate
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    workingLevels = JSON.parse(JSON.stringify(window.levels));
-    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels – creating working copy...`;
-    logDebug(`Loaded ${workingLevels.length} levels from levels.js`);
-    logDebug(`Level 1 has ${workingLevels[0].enemies.length} enemies`);
-    updateDebugStatus('Levels loaded – initializing scene...');
+    // Exact deep copy
+    workingLevels = window.levels.map(level => ({
+      enemies: [...level.enemies],
+      theme: level.theme,
+      baseScore: level.baseScore
+    }));
+    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels – working copy created`;
+    console.log('Original levels:', window.levels);
+    console.log('WorkingLevels (exact copy):', workingLevels);
+    console.log('Level 1 enemies in workingLevels:', workingLevels[0].enemies);
   } else {
     workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
     document.getElementById('status').textContent = "No levels loaded from levels.js – created empty level";
-    logDebug("window.levels is undefined or empty – using fallback empty level");
-    updateDebugStatus('No levels loaded – using empty level');
+    console.warn('window.levels is undefined or empty');
   }
 
   buildLevelSelect();
-  document.getElementById('status').textContent = "Initializing scene & UI...";
   loadLevel(0);
-  document.getElementById('status').textContent = "Ready – editor loaded";
-  updateDebugStatus('Editor ready');
   updateExportPreview();
 }
 
@@ -310,8 +279,6 @@ function loadLevel(idx) {
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  logDebug(`Loading Level ${idx + 1} – ${level.enemies.length} enemies`);
-
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {
       addTankToScene(data.x, data.y, false);
@@ -344,13 +311,11 @@ function deleteCurrentLevel() {
 
 function updateCurrentTheme() {
   workingLevels[currentLevelIndex].theme = document.getElementById('theme-select').value;
-  logDebug(`Theme changed to ${workingLevels[currentLevelIndex].theme}`);
   updateExportPreview();
 }
 
 function updateCurrentBaseScore() {
   workingLevels[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
-  logDebug(`BaseScore changed to ${workingLevels[currentLevelIndex].baseScore}`);
   updateExportPreview();
 }
 
@@ -358,7 +323,6 @@ function addEnemyTank() {
   const centerX = camera.position.x;
   const centerY = camera.position.y;
   addTankToScene(centerX, centerY, true);
-  logDebug(`Added enemy at (${centerX.toFixed(0)}, ${centerY.toFixed(0)})`);
 }
 
 function addTankToScene(x, y, pushToData = true) {
@@ -399,7 +363,6 @@ function clearCurrentLevel() {
     if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
   workingLevels[currentLevelIndex].enemies = [];
-  logDebug('Level cleared');
   updateExportPreview();
 }
 
@@ -416,7 +379,6 @@ function onMouseDown(e) {
       const index = workingLevels[currentLevelIndex].enemies.indexOf(tank.userData.data);
       if (index !== -1) workingLevels[currentLevelIndex].enemies.splice(index, 1);
       scene.remove(tank);
-      logDebug(`Deleted tank`);
       updateExportPreview();
     }
     return;
@@ -427,7 +389,6 @@ function onMouseDown(e) {
 
   const mouse = getMousePos(e);
   selectedTank = findTankAt(mouse.x, mouse.y);
-  if (selectedTank) logDebug(`Selected tank at (${selectedTank.userData.data.x}, ${selectedTank.userData.data.y})`);
 }
 
 function onMouseMove(e) {
@@ -443,7 +404,6 @@ function onMouseMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-    logDebug(`Dragging to (${newX}, ${newY})`);
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -455,9 +415,6 @@ function onMouseMove(e) {
 
 function onMouseUp() {
   isDraggingCamera = false;
-  if (selectedTank) {
-    logDebug(`Drag ended at (${selectedTank.userData.data.x}, ${selectedTank.userData.data.y})`);
-  }
   selectedTank = null;
   updateExportPreview();
 }
@@ -472,7 +429,6 @@ function onTouchStart(e) {
 
   const mouse = getMousePos(touch);
   selectedTank = findTankAt(mouse.x, mouse.y);
-  if (selectedTank) logDebug(`Selected tank at (${selectedTank.userData.data.x}, ${selectedTank.userData.data.y})`);
 }
 
 function onTouchMove(e) {
@@ -490,7 +446,6 @@ function onTouchMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-    logDebug(`Dragging to (${newX}, ${newY})`);
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -502,9 +457,6 @@ function onTouchMove(e) {
 
 function onTouchEnd() {
   isDraggingCamera = false;
-  if (selectedTank) {
-    logDebug(`Drag ended at (${selectedTank.userData.data.x}, ${selectedTank.userData.data.y})`);
-  }
   selectedTank = null;
   updateExportPreview();
 }
@@ -560,9 +512,6 @@ function updateExportPreview() {
     `// Full file (all levels) available on Download button`;
 
   textarea.value = code;
-
-  updateDebugStatus();
-  logDebug(`Preview rebuilt – ${level.enemies.length} enemies`);
 }
 
 function copyToClipboard() {

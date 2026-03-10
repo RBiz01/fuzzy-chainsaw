@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Angry Tanks Level Editor</title>
+  <style>
+    body {
+      margin:0;
+      font-family: Arial, sans-serif;
+      background:#111;
+      color:#eee;
+      overflow:hidden;
+    }
+    #container {
+      position:relative;
+      width:100vw;
+      height:100vh;
+    }
+    canvas {
+      display:block;
+    }
+    #ui {
+      position:absolute;
+      top:0; left:0; right:0; bottom:0;
+      pointer-events:none;
+      user-select:none;
+    }
+    #toolbar {
+      position:absolute;
+      top:10px; left:10px;
+      background:rgba(0,0,0,0.7);
+      padding:12px;
+      border-radius:8px;
+      pointer-events:auto;
+      z-index:10;
+      min-width:260px;
+    }
+    #toolbar button, #toolbar input, #toolbar select {
+      margin:4px 0;
+      padding:6px 10px;
+      font-size:14px;
+    }
+    #status {
+      position:absolute;
+      bottom:10px; left:10px;
+      background:rgba(0,0,0,0.7);
+      padding:8px 12px;
+      border-radius:6px;
+      font-size:13px;
+      pointer-events:none;
+    }
+    #export-area {
+      position:absolute;
+      top:10px; right:10px;
+      width:380px;
+      height:80vh;
+      background:rgba(20,20,30,0.85);
+      border:1px solid #444;
+      border-radius:8px;
+      overflow:hidden;
+      pointer-events:auto;
+      z-index:9;
+      display:flex;
+      flex-direction:column;
+    }
+    #export-area textarea {
+      flex:1;
+      background:#0d0d15;
+      color:#8f8;
+      border:none;
+      padding:12px;
+      font-family:Consolas, monospace;
+      font-size:13px;
+      resize:none;
+    }
+    #export-area button {
+      margin:8px;
+    }
+    .selected {
+      outline: 2px solid #ff0;
+      outline-offset: 2px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="container">
+  <canvas id="editor"></canvas>
+  <div id="ui">
+    <div id="toolbar">
+      <h3>Level Editor</h3>
+      <div>
+        Level: 
+        <select id="level-select"></select>
+        <button id="add-level">+ Add Level</button>
+        <button id="del-level">− Delete</button>
+      </div>
+      <div>
+        Theme: 
+        <select id="theme-select">
+          <option value="flat">flat</option>
+          <option value="hilly">hilly</option>
+          <option value="cluster">cluster</option>
+          <option value="defended">defended</option>
+          <option value="expert">expert</option>
+        </select>
+      </div>
+      <div>
+        Base Score: 
+        <input type="number" id="basescore" min="50" step="50" value="100"/>
+      </div>
+      <div style="margin-top:12px;">
+        <button id="add-enemy">Add Enemy Tank</button>
+        <button id="clear-level">Clear Level</button>
+      </div>
+      <div style="margin-top:8px; font-size:0.9em; color:#aaa;">
+        Drag = move camera • Click = add tank • Drag tank = move • Right-click = delete
+      </div>
+    </div>
+
+    <div id="status">Loading levels...</div>
+
+    <div id="export-area">
+      <textarea id="export-json" readonly></textarea>
+      <button id="update-preview">Update Preview</button>
+      <button id="copy-code">Copy to Clipboard</button>
+      <button id="download">Download levels.js</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
+<script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
+
+<script>
+// ────────────────────────────────────────────────
+// Level Editor – main logic
+// ────────────────────────────────────────────────
+
+let scene, camera, renderer;
+let levelsData = [];
+let currentLevelIndex = 0;
+let selectedTank = null;
+let isDraggingCamera = false;
+let prevMouse = {x:0, y:0};
+
+const orthoWidth = 720;
+const orthoHeight = 1280;
+
+initEditor();
+animateEditor();
+
+function initEditor() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x112233);
+
+  camera = new THREE.OrthographicCamera(
+    -orthoWidth/2, orthoWidth/2,
+    orthoHeight/2, -orthoHeight/2,
+    0.1, 2000
+  );
+  camera.position.set(0, 0, 800);
+
+  renderer = new THREE.WebGLRenderer({canvas: document.getElementById('editor'), antialias:true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  window.addEventListener('resize', onResize);
+  onResize();
+
+  // Lights
+  scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+  dirLight.position.set(200, 300, 200);
+  scene.add(dirLight);
+
+  // Input
+  const canvas = renderer.domElement;
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup',   onMouseUp);
+  canvas.addEventListener('mouseleave',onMouseUp);
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+  canvas.addEventListener('touchstart', onTouchStart, {passive:false});
+  canvas.addEventListener('touchmove',  onTouchMove,  {passive:false});
+  canvas.addEventListener('touchend',   onTouchEnd);
+
+  // UI buttons
+  document.getElementById('add-level').onclick   = addNewLevel;
+  document.getElementById('del-level').onclick   = deleteCurrentLevel;
+  document.getElementById('add-enemy').onclick   = addEnemyTank;
+  document.getElementById('clear-level').onclick = clearCurrentLevel;
+
+  document.getElementById('theme-select').onchange = updateCurrentTheme;
+  document.getElementById('basescore').onchange    = updateCurrentBaseScore;
+
+  document.getElementById('update-preview').onclick = updateExportPreview;
+  document.getElementById('copy-code').onclick     = copyToClipboard;
+  document.getElementById('download').onclick      = downloadLevelsJs;
+
+  // Load from window.levels (already loaded by levels.js)
+  if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
+    levelsData = JSON.parse(JSON.stringify(window.levels)); // deep copy
+    console.log(`Editor loaded ${levelsData.length} levels`);
+  } else {
+    levelsData = [{ enemies: [], theme: "flat", baseScore: 100 }];
+    console.warn("No levels found – created empty level");
+  }
+
+  buildLevelSelect();
+  loadLevel(0);
+  updateExportPreview();
+}
+
+function onResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h);
+
+  const aspect = w / h;
+  const viewSize = orthoHeight / 2;
+  camera.left   = -viewSize * aspect;
+  camera.right  =  viewSize * aspect;
+  camera.top    =  viewSize;
+  camera.bottom = -viewSize;
+  camera.updateProjectionMatrix();
+}
+
+// ────────────────────────────────────────────────
+// Level selection & management
+// ────────────────────────────────────────────────
+
+function buildLevelSelect() {
+  const sel = document.getElementById('level-select');
+  sel.innerHTML = '';
+  levelsData.forEach((lvl, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `Level ${i+1} (${lvl.enemies.length} enemies)`;
+    sel.appendChild(opt);
+  });
+  sel.value = currentLevelIndex;
+  sel.onchange = () => {
+    currentLevelIndex = parseInt(sel.value);
+    loadLevel(currentLevelIndex);
+  };
+}
+
+function loadLevel(idx) {
+  currentLevelIndex = idx;
+  scene.children.forEach(child => {
+    if (child.userData.isEditorTank) scene.remove(child);
+  });
+
+  const level = levelsData[idx];
+  document.getElementById('theme-select').value = level.theme || "flat";
+  document.getElementById('basescore').value = level.baseScore || 100;
+
+  level.enemies.forEach(data => {
+    addTankToScene(data.x, data.y);
+  });
+
+  updateExportPreview();
+}
+
+function addNewLevel() {
+  levelsData.push({
+    enemies: [],
+    theme: "flat",
+    baseScore: 100
+  });
+  buildLevelSelect();
+  currentLevelIndex = levelsData.length - 1;
+  document.getElementById('level-select').value = currentLevelIndex;
+  loadLevel(currentLevelIndex);
+}
+
+function deleteCurrentLevel() {
+  if (levelsData.length <= 1) {
+    alert("Cannot delete the last level");
+    return;
+  }
+  if (!confirm("Delete current level?")) return;
+
+  levelsData.splice(currentLevelIndex, 1);
+  currentLevelIndex = Math.min(currentLevelIndex, levelsData.length - 1);
+  buildLevelSelect();
+  document.getElementById('level-select').value = currentLevelIndex;
+  loadLevel(currentLevelIndex);
+}
+
+function updateCurrentTheme() {
+  levelsData[currentLevelIndex].theme = document.getElementById('theme-select').value;
+  updateExportPreview();
+}
+
+function updateCurrentBaseScore() {
+  levelsData[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
+  updateExportPreview();
+}
+
+// ────────────────────────────────────────────────
+// Tank / Enemy management
+// ────────────────────────────────────────────────
+
+function addEnemyTank() {
+  // Add at center of current view
+  const centerX = camera.position.x;
+  const centerY = camera.position.y;
+  addTankToScene(centerX, centerY);
+  updateExportPreview();
+}
+
+function addTankToScene(x, y) {
+  const group = new THREE.Group();
+
+  const plat = new THREE.Mesh(
+    new THREE.PlaneGeometry(220, 130),
+    new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.6 })
+  );
+  plat.position.set(0, -55, -5);
+  group.add(plat);
+
+  const tankBody = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 90),
+    new THREE.MeshBasicMaterial({ color: 0x888888 })
+  );
+  tankBody.position.set(0, 10, 0);
+  group.add(tankBody);
+
+  group.position.set(x, y, 0);
+  group.userData = { isEditorTank: true, data: {x:Math.round(x), y:Math.round(y)} };
+  scene.add(group);
+}
+
+function clearCurrentLevel() {
+  if (!confirm("Clear all enemies in this level?")) return;
+  scene.children.forEach(child => {
+    if (child.userData.isEditorTank) scene.remove(child);
+  });
+  updateExportPreview();
+}
+
+// ────────────────────────────────────────────────
+// Input handling – camera drag + tank drag
+// ────────────────────────────────────────────────
+
+function onMouseDown(e) {
+  if (e.button === 2) { // right click
+    e.preventDefault();
+    tryRemoveTank(e);
+    return;
+  }
+
+  prevMouse = {x: e.clientX, y: e.clientY};
+  isDraggingCamera = true;
+
+  // Check if clicked on tank
+  const mouse = getMousePos(e);
+  selectedTank = findTankAt(mouse.x, mouse.y);
+
+  if (selectedTank) {
+    selectedTank.material.emissive?.set(0xffff00); // visual feedback (if you add emissive later)
+  }
+}
+
+function onMouseMove(e) {
+  if (!isDraggingCamera) return;
+
+  const dx = (e.clientX - prevMouse.x) * 0.8;
+  const dy = (e.clientY - prevMouse.y) * -0.8; // invert y
+
+  if (selectedTank) {
+    // Drag selected tank
+    selectedTank.position.x += dx;
+    selectedTank.position.y += dy;
+    selectedTank.userData.data.x = Math.round(selectedTank.position.x);
+    selectedTank.userData.data.y = Math.round(selectedTank.position.y);
+  } else {
+    // Drag camera
+    camera.position.x -= dx;
+    camera.position.y += dy;
+  }
+
+  prevMouse = {x: e.clientX, y: e.clientY};
+  updateExportPreview();
+}
+
+function onMouseUp(e) {
+  isDraggingCamera = false;
+  if (selectedTank) {
+    // optional: snap to grid, etc.
+    // selectedTank.position.x = Math.round(selectedTank.position.x / 10) * 10;
+  }
+  selectedTank = null;
+}
+
+function onMouseLeave() {
+  isDraggingCamera = false;
+  selectedTank = null;
+}
+
+// Touch support (mobile)
+function onTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length !== 1) return;
+
+  const touch = e.touches[0];
+  prevMouse = {x: touch.clientX, y: touch.clientY};
+  isDraggingCamera = true;
+
+  const mouse = getMousePos(touch);
+  selectedTank = findTankAt(mouse.x, mouse.y);
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if (!isDraggingCamera || e.touches.length !== 1) return;
+
+  const touch = e.touches[0];
+  const dx = (touch.clientX - prevMouse.x) * 0.8;
+  const dy = (touch.clientY - prevMouse.y) * -0.8;
+
+  if (selectedTank) {
+    selectedTank.position.x += dx;
+    selectedTank.position.y += dy;
+    selectedTank.userData.data.x = Math.round(selectedTank.position.x);
+    selectedTank.userData.data.y = Math.round(selectedTank.position.y);
+  } else {
+    camera.position.x -= dx;
+    camera.position.y += dy;
+  }
+
+  prevMouse = {x: touch.clientX, y: touch.clientY};
+  updateExportPreview();
+}
+
+function onTouchEnd(e) {
+  e.preventDefault();
+  isDraggingCamera = false;
+  selectedTank = null;
+}
+
+// ────────────────────────────────────────────────
+// Helpers
+// ────────────────────────────────────────────────
+
+function getMousePos(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+  const vector = new THREE.Vector3(x, y, 0.5);
+  vector.unproject(camera);
+  return { x: vector.x, y: vector.y };
+}
+
+function findTankAt(mx, my) {
+  let closest = null;
+  let minDist = Infinity;
+
+  scene.traverse(obj => {
+    if (obj.userData.isEditorTank) {
+      const dx = obj.position.x - mx;
+      const dy = obj.position.y - my;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 120 && dist < minDist) { // rough hit radius
+        minDist = dist;
+        closest = obj;
+      }
+    }
+  });
+
+  return closest;
+}
+
+function tryRemoveTank(e) {
+  const mouse = getMousePos(e);
+  const tank = findTankAt(mouse.x, mouse.y);
+  if (tank) {
+    scene.remove(tank);
+    updateExportPreview();
+  }
+}
+
+// ────────────────────────────────────────────────
+// Export / Save
+// ────────────────────────────────────────────────
+
+function updateExportPreview() {
+  // Rebuild clean data structure
+  const cleanLevels = levelsData.map(level => {
+    const cleanEnemies = [];
+    scene.traverse(obj => {
+      if (obj.userData.isEditorTank) {
+        cleanEnemies.push({
+          x: obj.userData.data.x,
+          y: obj.userData.data.y
+        });
+      }
+    });
+    return {
+      enemies: cleanEnemies,
+      theme: level.theme || "flat",
+      baseScore: level.baseScore || 100
+    };
+  });
+
+  const json = JSON.stringify(cleanLevels, null, 2);
+  document.getElementById('export-json').value = 
+    `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
+    `const levels = ${json};\n\nwindow.levels = levels;`;
+}
+
+function copyToClipboard() {
+  const ta = document.getElementById('export-json');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    alert("Copied to clipboard!\nPaste into your levels.js file.");
+  });
+}
+
+function downloadLevelsJs() {
+  const text = document.getElementById('export-json').value;
+  const blob = new Blob([text], {type: "application/javascript"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "levels.js";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ────────────────────────────────────────────────
+// Render loop
+// ────────────────────────────────────────────────
+
+function animateEditor() {
+  requestAnimationFrame(animateEditor);
+  renderer.render(scene, camera);
+}
+    </script>
+</body>
+</html>

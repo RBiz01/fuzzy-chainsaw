@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks</title>
+    <title>Angry Tanks-V1.0</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
@@ -842,32 +842,30 @@
         });
 
         // ────────────────────────────────────────
-        // FULLSCREEN HELPERS (your improved version + safety)
+        // FULLSCREEN FUNCTION (your working version)
         // ────────────────────────────────────────
-        function enterFullscreen() {
-            const elem = document.documentElement;
-            if (elem.requestFullscreen) {
-                elem.requestFullscreen({ navigationUI: "hide" }).catch(err => {
-                    console.warn("Fullscreen failed:", err);
-                });
-            }
-            else if (elem.webkitRequestFullscreen) {
-                elem.webkitRequestFullscreen(Element.ALLOW_KEYBOARD_INPUT);
-            }
-            else if (elem.msRequestFullscreen) {
-                elem.msRequestFullscreen();
-            }
+        async function forceFullscreen() {
+            try {
+                const el = document.documentElement;
+                if (!document.fullscreenElement) {
+                    if (el.requestFullscreen) await el.requestFullscreen({ navigationUI: "hide" });
+                    else if (el.webkitRequestFullscreen) await el.webkitRequestFullscreen();
+                }
+            } catch (e) {}
         }
 
-        function startGame(e) {
+        // ────────────────────────────────────────
+        // START GAME – calls forceFullscreen directly in gesture handler
+        // ────────────────────────────────────────
+        async function startGame(e) {
             if (gameStarted) return;
             e.preventDefault();
 
             gameStarted = true;
             gameRunning = true;
 
-            // Request fullscreen directly in gesture handler
-            enterFullscreen();
+            // Call fullscreen function directly here (inside user gesture)
+            await forceFullscreen();
 
             if (startScreen) {
                 startScreen.style.display = 'none';

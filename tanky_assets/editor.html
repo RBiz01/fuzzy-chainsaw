@@ -9,15 +9,18 @@
     #container { position:relative; width:100vw; height:100vh; }
     canvas { display:block; }
     #ui { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; user-select:none; }
+    
     #toolbar {
       position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.7); padding:12px; border-radius:8px;
-      pointer-events:auto; z-index:10; min-width:260px;
+      pointer-events:auto; z-index:10; min-width:240px; max-height:80vh; overflow-y:auto;
     }
-    #toolbar button, #toolbar input, #toolbar select { margin:4px 0; padding:6px 10px; font-size:14px; }
+    #toolbar button, #toolbar input, #toolbar select { margin:4px 0; padding:6px 10px; font-size:14px; width:100%; box-sizing:border-box; }
+    
     #status {
       position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); padding:8px 12px;
-      border-radius:6px; font-size:13px; pointer-events:none;
+      border-radius:6px; font-size:13px; pointer-events:none; z-index:10;
     }
+    
     #export-area {
       position:absolute; top:10px; right:10px; width:380px; height:80vh; background:rgba(20,20,30,0.85);
       border:1px solid #444; border-radius:8px; overflow:hidden; pointer-events:auto; z-index:9;
@@ -28,8 +31,43 @@
       font-family:Consolas,monospace; font-size:13px; resize:none;
     }
     #export-area button { margin:8px; }
+
     .selected {
       outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
+    }
+
+    /* Mobile responsive layout */
+    @media (max-width: 768px) {
+      #toolbar {
+        left: 10px;
+        right: 50%;
+        width: auto;
+        max-width: 45%;
+        top: 10px;
+        bottom: auto;
+        max-height: 40vh;
+      }
+      #export-area {
+        left: 50%;
+        right: 10px;
+        width: auto;
+        top: 10px;
+        bottom: auto;
+        max-height: 40vh;
+      }
+      #status {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        text-align: center;
+      }
+      #toolbar, #export-area {
+        font-size: 0.9em;
+      }
+      #toolbar button, #toolbar input, #toolbar select {
+        font-size: 12px;
+        padding: 5px 8px;
+      }
     }
   </style>
 </head>
@@ -63,7 +101,7 @@
         <button id="clear-level">Clear Level</button>
       </div>
       <div style="margin-top:8px; font-size:0.9em; color:#aaa;">
-        Drag = move camera • Click = add tank • Drag tank = move • Right-click/long-press = delete
+        Drag = move camera • Tap = add tank • Drag tank = move • Long-press = delete
       </div>
     </div>
 
@@ -83,7 +121,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – FIXED: changes now persist across level switches
+// Level Editor – mobile layout fix + previous fixes
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -217,7 +255,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED persistence
+// Level / Tank management
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -250,10 +288,9 @@ function loadLevel(idx) {
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  // Re-add tanks from this level's data (no clearing of array here!)
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {
-      addTankToScene(data.x, data.y, false); // false = don't push again
+      addTankToScene(data.x, data.y, false); // don't push again
     });
   } else {
     level.enemies = [];
@@ -294,7 +331,7 @@ function updateCurrentBaseScore() {
 function addEnemyTank() {
   const centerX = camera.position.x;
   const centerY = camera.position.y;
-  addTankToScene(centerX, centerY, true); // true = push to data
+  addTankToScene(centerX, centerY, true);
   updateExportPreview();
 }
 
@@ -338,7 +375,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag (drag down → view down)
+// Input – natural drag
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -347,7 +384,6 @@ function onMouseDown(e) {
     const mouse = getMousePos(e);
     const tank = findTankAt(mouse.x, mouse.y);
     if (tank) {
-      // Remove from data too
       const index = levelsData[currentLevelIndex].enemies.findIndex(
         e => e.x === tank.userData.data.x && e.y === tank.userData.data.y
       );
@@ -377,7 +413,7 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
 
-    // Update the matching entry in levelsData
+    // Update data entry
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
     );
@@ -425,7 +461,6 @@ function onTouchMove(e) {
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
 
-    // Update data
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
     );

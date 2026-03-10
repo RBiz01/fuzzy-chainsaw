@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v2.0</title>
+  <title>Angry Tanks Level Editor - v2.1</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -87,7 +87,7 @@
       </div>
     </div>
 
-    <div id="status">Waiting for levels.js...</div>
+    <div id="status">Initializing...</div>
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
@@ -97,14 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.9 – workingLevels = exact duplicate of levels – preview shows current level only</div>
+<div id="version">Editor v2.0 – workingLevels = exact duplicate of levels – preview shows current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.9 – simple array copy, no delay hang
+// Level Editor v2.0 – simple, reliable array copy
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -207,15 +207,14 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load levels – exact duplicate
   document.getElementById('status').textContent = "Loading levels.js...";
 
+  // Exact duplicate copy
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    // Exact deep copy
     workingLevels = window.levels.map(level => ({
-      enemies: [...level.enemies],
-      theme: level.theme,
-      baseScore: level.baseScore
+      enemies: level.enemies ? [...level.enemies] : [],
+      theme: level.theme || "flat",
+      baseScore: level.baseScore || 100
     }));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels – working copy created`;
     console.log('Original levels:', window.levels);

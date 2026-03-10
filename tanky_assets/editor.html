@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.8</title>
+  <title>Angry Tanks Level Editor - v1.9</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -103,466 +103,453 @@
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
-  // ────────────────────────────────────────────────
-  // Level Editor v1.8 – script moved to bottom + null checks
-  // ────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+// Level Editor v1.8 – workingLevels = exact duplicate of loaded levels
+// Preview shows ONLY current level from workingLevels
+// ────────────────────────────────────────────────
 
-  let scene, camera, renderer;
-  let workingLevels = []; // editable exact duplicate
-  let currentLevelIndex = 0;
-  let selectedTank = null;
-  let isDraggingCamera = false;
-  let prevMouse = {x:0, y:0};
+let scene, camera, renderer;
+let workingLevels = [];
+let currentLevelIndex = 0;
+let selectedTank = null;
+let isDraggingCamera = false;
+let prevMouse = {x:0, y:0};
 
-  const GAME_WIDTH = 720;
-  const GAME_HEIGHT = 1280;
-  const EDITOR_SCALE = 0.7;
+const GAME_WIDTH = 720;
+const GAME_HEIGHT = 1280;
+const EDITOR_SCALE = 0.7;
 
-  const PLAYER_START_X = -220;
-  const PLAYER_START_Y = -340;
+const PLAYER_START_X = -220;
+const PLAYER_START_Y = -340;
 
-  function initEditor() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x112233);
+initEditor();
+animateEditor();
 
-    camera = new THREE.OrthographicCamera(
-      -GAME_WIDTH/2, GAME_WIDTH/2,
-      GAME_HEIGHT/2, -GAME_HEIGHT/2,
-      0.1, 3000
+function initEditor() {
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0x112233);
+
+  camera = new THREE.OrthographicCamera(
+    -GAME_WIDTH/2, GAME_WIDTH/2,
+    GAME_HEIGHT/2, -GAME_HEIGHT/2,
+    0.1, 3000
+  );
+  camera.position.set(0, 0, 1000);
+
+  renderer = new THREE.WebGLRenderer({canvas: document.getElementById('editor'), antialias:true});
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+
+  window.addEventListener('resize', onResize);
+  onResize();
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.9));
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
+  dirLight.position.set(300, 500, 400);
+  scene.add(dirLight);
+
+  // Background
+  const texLoader = new THREE.TextureLoader();
+  texLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg', (texture) => {
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    const bg = new THREE.Mesh(
+      new THREE.PlaneGeometry(GAME_WIDTH * 3, GAME_HEIGHT * 3),
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.4 })
     );
-    camera.position.set(0, 0, 1000);
+    bg.position.z = -600;
+    scene.add(bg);
+  });
 
-    renderer = new THREE.WebGLRenderer({canvas: document.getElementById('editor'), antialias:true});
-    renderer.setPixelRatio(window.devicePixelRatio);
-    renderer.setSize(window.innerWidth, window.innerHeight);
+  // Red X player marker
+  const markerGroup = new THREE.Group();
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
+  const points = [
+    new THREE.Vector3(-40, -40, 0), new THREE.Vector3(40, 40, 0),
+    new THREE.Vector3(-40, 40, 0),  new THREE.Vector3(40, -40, 0)
+  ];
+  markerGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([points[0], points[1]]), lineMat));
+  markerGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([points[2], points[3]]), lineMat));
+  markerGroup.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
+  scene.add(markerGroup);
 
-    window.addEventListener('resize', onResize);
-    onResize();
+  // Gameplay border
+  const borderMat = new THREE.LineBasicMaterial({ color: 0x44ff44, linewidth: 2, transparent: true, opacity: 0.4 });
+  const borderPoints = [
+    new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
+    new THREE.Vector3( GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
+    new THREE.Vector3( GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
+    new THREE.Vector3(-GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
+    new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0)
+  ];
+  const border = new THREE.Line(new THREE.BufferGeometry().setFromPoints(borderPoints), borderMat);
+  scene.add(border);
 
-    scene.add(new THREE.AmbientLight(0xffffff, 0.9));
-    const dirLight = new THREE.DirectionalLight(0xffffff, 1.4);
-    dirLight.position.set(300, 500, 400);
-    scene.add(dirLight);
+  // Input
+  const canvas = renderer.domElement;
+  canvas.addEventListener('mousedown', onMouseDown);
+  canvas.addEventListener('mousemove', onMouseMove);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', onMouseUp);
+  canvas.addEventListener('contextmenu', e => e.preventDefault());
 
-    // Background
-    const texLoader = new THREE.TextureLoader();
-    texLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg', (texture) => {
-      texture.magFilter = THREE.LinearFilter;
-      texture.minFilter = THREE.LinearFilter;
-      const bg = new THREE.Mesh(
-        new THREE.PlaneGeometry(GAME_WIDTH * 3, GAME_HEIGHT * 3),
-        new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.4 })
-      );
-      bg.position.z = -600;
-      scene.add(bg);
-    });
+  canvas.addEventListener('touchstart', onTouchStart, {passive:false});
+  canvas.addEventListener('touchmove', onTouchMove, {passive:false});
+  canvas.addEventListener('touchend', onTouchEnd);
 
-    // Red X player marker
-    const markerGroup = new THREE.Group();
-    const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
-    const points = [
-      new THREE.Vector3(-40, -40, 0), new THREE.Vector3(40, 40, 0),
-      new THREE.Vector3(-40, 40, 0),  new THREE.Vector3(40, -40, 0)
-    ];
-    markerGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([points[0], points[1]]), lineMat));
-    markerGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([points[2], points[3]]), lineMat));
-    markerGroup.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
-    scene.add(markerGroup);
+  // UI
+  document.getElementById('add-level').onclick   = addNewLevel;
+  document.getElementById('del-level').onclick   = deleteCurrentLevel;
+  document.getElementById('add-enemy').onclick   = addEnemyTank;
+  document.getElementById('clear-level').onclick = clearCurrentLevel;
 
-    // Gameplay border
-    const borderMat = new THREE.LineBasicMaterial({ color: 0x44ff44, linewidth: 2, transparent: true, opacity: 0.4 });
-    const borderPoints = [
-      new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
-      new THREE.Vector3( GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
-      new THREE.Vector3( GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
-      new THREE.Vector3(-GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
-      new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0)
-    ];
-    const border = new THREE.Line(new THREE.BufferGeometry().setFromPoints(borderPoints), borderMat);
-    scene.add(border);
+  document.getElementById('theme-select').onchange = updateCurrentTheme;
+  document.getElementById('basescore').onchange    = updateCurrentBaseScore;
 
-    // Input
-    const canvas = renderer.domElement;
-    canvas.addEventListener('mousedown', onMouseDown);
-    canvas.addEventListener('mousemove', onMouseMove);
-    canvas.addEventListener('mouseup', onMouseUp);
-    canvas.addEventListener('mouseleave', onMouseUp);
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
+  document.getElementById('copy-code').onclick     = copyToClipboard;
+  document.getElementById('download').onclick      = downloadLevelsJs;
 
-    canvas.addEventListener('touchstart', onTouchStart, {passive:false});
-    canvas.addEventListener('touchmove', onTouchMove, {passive:false});
-    canvas.addEventListener('touchend', onTouchEnd);
-
-    // UI – with null checks
-    const addLevelBtn = document.getElementById('add-level');
-    if (addLevelBtn) addLevelBtn.onclick = addNewLevel;
-
-    const delLevelBtn = document.getElementById('del-level');
-    if (delLevelBtn) delLevelBtn.onclick = deleteCurrentLevel;
-
-    const addEnemyBtn = document.getElementById('add-enemy');
-    if (addEnemyBtn) addEnemyBtn.onclick = addEnemyTank;
-
-    const clearLevelBtn = document.getElementById('clear-level');
-    if (clearLevelBtn) clearLevelBtn.onclick = clearCurrentLevel;
-
-    const themeSelect = document.getElementById('theme-select');
-    if (themeSelect) themeSelect.onchange = updateCurrentTheme;
-
-    const baseScoreInput = document.getElementById('basescore');
-    if (baseScoreInput) baseScoreInput.onchange = updateCurrentBaseScore;
-
-    const updatePreviewBtn = document.getElementById('update-preview');
-    if (updatePreviewBtn) updatePreviewBtn.onclick = updateExportPreview;
-
-    const copyCodeBtn = document.getElementById('copy-code');
-    if (copyCodeBtn) copyCodeBtn.onclick = copyToClipboard;
-
-    const downloadBtn = document.getElementById('download');
-    if (downloadBtn) downloadBtn.onclick = downloadLevelsJs;
-
-    // Load original levels → make exact duplicate
-    if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-      workingLevels = JSON.parse(JSON.stringify(window.levels));
-      document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
-      console.log('Original loaded levels:', window.levels);
-      console.log('Working copy:', workingLevels);
-    } else {
-      workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
-      document.getElementById('status').textContent = "No levels found – created empty level";
-      console.warn('No levels loaded from levels.js – using empty level');
-    }
-
-    buildLevelSelect();
-    loadLevel(0);
-    updateExportPreview();
+  // Load original levels → make exact duplicate for editing
+  if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
+    workingLevels = JSON.parse(JSON.stringify(window.levels));
+    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
+    console.log('Original loaded levels:', window.levels);
+    console.log('Working copy (exact duplicate):', workingLevels);
+    console.log('Level 1 enemies from workingLevels:', workingLevels[0]?.enemies || 'EMPTY');
+  } else {
+    workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
+    document.getElementById('status').textContent = "No levels loaded from levels.js – created empty level";
+    console.warn('window.levels is undefined or empty – using fallback');
   }
 
-  function onResize() {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    renderer.setSize(w, h);
+  buildLevelSelect();
+  loadLevel(0);
+  updateExportPreview();
+}
 
-    const aspect = w / h;
-    const viewSize = GAME_HEIGHT / 2;
-    camera.left   = -viewSize * aspect;
-    camera.right  =  viewSize * aspect;
-    camera.top    =  viewSize;
-    camera.bottom = -viewSize;
-    camera.updateProjectionMatrix();
-  }
+function onResize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  renderer.setSize(w, h);
 
-  // ────────────────────────────────────────────────
-  // Level / Tank management
-  // ────────────────────────────────────────────────
+  const aspect = w / h;
+  const viewSize = GAME_HEIGHT / 2;
+  camera.left   = -viewSize * aspect;
+  camera.right  =  viewSize * aspect;
+  camera.top    =  viewSize;
+  camera.bottom = -viewSize;
+  camera.updateProjectionMatrix();
+}
 
-  function buildLevelSelect() {
-    const sel = document.getElementById('level-select');
-    if (!sel) return console.error('level-select missing');
-    sel.innerHTML = '';
-    workingLevels.forEach((lvl, i) => {
-      const opt = document.createElement('option');
-      opt.value = i;
-      opt.textContent = `Level ${i+1} (${lvl.enemies.length} enemies)`;
-      sel.appendChild(opt);
-    });
-    sel.value = currentLevelIndex;
-    sel.onchange = () => {
-      currentLevelIndex = parseInt(sel.value);
-      loadLevel(currentLevelIndex);
-    };
-  }
+// ────────────────────────────────────────────────
+// Level / Tank management
+// ────────────────────────────────────────────────
 
-  function loadLevel(idx) {
-    currentLevelIndex = idx;
-
-    // Clear scene tanks
-    scene.children.forEach(child => {
-      if (child.userData && child.userData.isEditorTank) {
-        scene.remove(child);
-      }
-    });
-
-    const level = workingLevels[idx];
-    const themeSelect = document.getElementById('theme-select');
-    if (themeSelect) themeSelect.value = level.theme || "flat";
-
-    const baseScoreInput = document.getElementById('basescore');
-    if (baseScoreInput) baseScoreInput.value = level.baseScore || 100;
-
-    if (level.enemies && Array.isArray(level.enemies)) {
-      level.enemies.forEach(data => {
-        addTankToScene(data.x, data.y, false);
-      });
-    } else {
-      level.enemies = [];
-    }
-
-    updateExportPreview();
-  }
-
-  function addNewLevel() {
-    workingLevels.push({ enemies: [], theme: "flat", baseScore: 100 });
-    buildLevelSelect();
-    currentLevelIndex = workingLevels.length - 1;
-    document.getElementById('level-select').value = currentLevelIndex;
+function buildLevelSelect() {
+  const sel = document.getElementById('level-select');
+  sel.innerHTML = '';
+  workingLevels.forEach((lvl, i) => {
+    const opt = document.createElement('option');
+    opt.value = i;
+    opt.textContent = `Level ${i+1} (${lvl.enemies.length} enemies)`;
+    sel.appendChild(opt);
+  });
+  sel.value = currentLevelIndex;
+  sel.onchange = () => {
+    currentLevelIndex = parseInt(sel.value);
     loadLevel(currentLevelIndex);
-  }
+  };
+}
 
-  function deleteCurrentLevel() {
-    if (workingLevels.length <= 1) return alert("Cannot delete the last level");
-    if (!confirm("Delete current level?")) return;
+function loadLevel(idx) {
+  currentLevelIndex = idx;
 
-    workingLevels.splice(currentLevelIndex, 1);
-    currentLevelIndex = Math.min(currentLevelIndex, workingLevels.length - 1);
-    buildLevelSelect();
-    document.getElementById('level-select').value = currentLevelIndex;
-    loadLevel(currentLevelIndex);
-  }
-
-  function updateCurrentTheme() {
-    workingLevels[currentLevelIndex].theme = document.getElementById('theme-select').value;
-    updateExportPreview();
-  }
-
-  function updateCurrentBaseScore() {
-    workingLevels[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
-    updateExportPreview();
-  }
-
-  function addEnemyTank() {
-    const centerX = camera.position.x;
-    const centerY = camera.position.y;
-    addTankToScene(centerX, centerY, true);
-  }
-
-  function addTankToScene(x, y, pushToData = true) {
-    const group = new THREE.Group();
-    group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1);
-
-    const plat = new THREE.Mesh(
-      new THREE.PlaneGeometry(220, 130),
-      new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.7 })
-    );
-    plat.position.set(0, -55, -5);
-    group.add(plat);
-
-    const body = new THREE.Mesh(
-      new THREE.PlaneGeometry(160, 90),
-      new THREE.MeshBasicMaterial({ color: 0x888888 })
-    );
-    body.position.set(0, 10, 0);
-    group.add(body);
-
-    group.position.set(x, y, 0);
-    group.userData = { 
-      isEditorTank: true, 
-      data: {x: Math.round(x), y: Math.round(y)} 
-    };
-    scene.add(group);
-
-    if (pushToData) {
-      workingLevels[currentLevelIndex].enemies.push(group.userData.data);
+  // Clear scene tanks
+  scene.children.forEach(child => {
+    if (child.userData && child.userData.isEditorTank) {
+      scene.remove(child);
     }
+  });
 
-    updateExportPreview();
-  }
+  const level = workingLevels[idx];
+  document.getElementById('theme-select').value = level.theme || "flat";
+  document.getElementById('basescore').value = level.baseScore || 100;
 
-  function clearCurrentLevel() {
-    if (!confirm("Clear all enemies in this level?")) return;
-    scene.children.forEach(child => {
-      if (child.userData && child.userData.isEditorTank) scene.remove(child);
+  console.log(`Loading Level ${idx + 1} with ${level.enemies.length} enemies:`, level.enemies);
+
+  if (level.enemies && Array.isArray(level.enemies)) {
+    level.enemies.forEach(data => {
+      addTankToScene(data.x, data.y, false);
     });
-    workingLevels[currentLevelIndex].enemies = [];
-    updateExportPreview();
+  } else {
+    level.enemies = [];
   }
 
-  // ────────────────────────────────────────────────
-  // Input – natural drag + LIVE preview
-  // ────────────────────────────────────────────────
+  updateExportPreview();
+}
 
-  function onMouseDown(e) {
-    if (e.button === 2) {
-      e.preventDefault();
-      const mouse = getMousePos(e);
-      const tank = findTankAt(mouse.x, mouse.y);
-      if (tank) {
-        const index = workingLevels[currentLevelIndex].enemies.indexOf(tank.userData.data);
-        if (index !== -1) workingLevels[currentLevelIndex].enemies.splice(index, 1);
-        scene.remove(tank);
-        updateExportPreview();
-      }
-      return;
-    }
+function addNewLevel() {
+  workingLevels.push({ enemies: [], theme: "flat", baseScore: 100 });
+  buildLevelSelect();
+  currentLevelIndex = workingLevels.length - 1;
+  document.getElementById('level-select').value = currentLevelIndex;
+  loadLevel(currentLevelIndex);
+}
 
-    prevMouse = {x: e.clientX, y: e.clientY};
-    isDraggingCamera = true;
+function deleteCurrentLevel() {
+  if (workingLevels.length <= 1) return alert("Cannot delete the last level");
+  if (!confirm("Delete current level?")) return;
 
+  workingLevels.splice(currentLevelIndex, 1);
+  currentLevelIndex = Math.min(currentLevelIndex, workingLevels.length - 1);
+  buildLevelSelect();
+  document.getElementById('level-select').value = currentLevelIndex;
+  loadLevel(currentLevelIndex);
+}
+
+function updateCurrentTheme() {
+  workingLevels[currentLevelIndex].theme = document.getElementById('theme-select').value;
+  updateExportPreview();
+}
+
+function updateCurrentBaseScore() {
+  workingLevels[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
+  updateExportPreview();
+}
+
+function addEnemyTank() {
+  const centerX = camera.position.x;
+  const centerY = camera.position.y;
+  addTankToScene(centerX, centerY, true);
+}
+
+function addTankToScene(x, y, pushToData = true) {
+  const group = new THREE.Group();
+  group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1);
+
+  const plat = new THREE.Mesh(
+    new THREE.PlaneGeometry(220, 130),
+    new THREE.MeshBasicMaterial({ color: 0x666666, transparent: true, opacity: 0.7 })
+  );
+  plat.position.set(0, -55, -5);
+  group.add(plat);
+
+  const body = new THREE.Mesh(
+    new THREE.PlaneGeometry(160, 90),
+    new THREE.MeshBasicMaterial({ color: 0x888888 })
+  );
+  body.position.set(0, 10, 0);
+  group.add(body);
+
+  group.position.set(x, y, 0);
+  group.userData = { 
+    isEditorTank: true, 
+    data: {x: Math.round(x), y: Math.round(y)} 
+  };
+  scene.add(group);
+
+  if (pushToData) {
+    workingLevels[currentLevelIndex].enemies.push(group.userData.data);
+  }
+
+  updateExportPreview();
+}
+
+function clearCurrentLevel() {
+  if (!confirm("Clear all enemies in this level?")) return;
+  scene.children.forEach(child => {
+    if (child.userData && child.userData.isEditorTank) scene.remove(child);
+  });
+  workingLevels[currentLevelIndex].enemies = [];
+  updateExportPreview();
+}
+
+// ────────────────────────────────────────────────
+// Input – natural drag + LIVE preview
+// ────────────────────────────────────────────────
+
+function onMouseDown(e) {
+  if (e.button === 2) {
+    e.preventDefault();
     const mouse = getMousePos(e);
-    selectedTank = findTankAt(mouse.x, mouse.y);
-  }
-
-  function onMouseMove(e) {
-    if (!isDraggingCamera) return;
-
-    const dx = (e.clientX - prevMouse.x) * 0.8;
-    const dy = (prevMouse.y - e.clientY) * 0.8;
-
-    if (selectedTank) {
-      selectedTank.position.x += dx;
-      selectedTank.position.y += dy;
-      const newX = Math.round(selectedTank.position.x);
-      const newY = Math.round(selectedTank.position.y);
-      selectedTank.userData.data.x = newX;
-      selectedTank.userData.data.y = newY;
-    } else {
-      camera.position.x -= dx;
-      camera.position.y -= dy;
+    const tank = findTankAt(mouse.x, mouse.y);
+    if (tank) {
+      const index = workingLevels[currentLevelIndex].enemies.indexOf(tank.userData.data);
+      if (index !== -1) workingLevels[currentLevelIndex].enemies.splice(index, 1);
+      scene.remove(tank);
+      updateExportPreview();
     }
-
-    prevMouse = {x: e.clientX, y: e.clientY};
-    updateExportPreview();
+    return;
   }
 
-  function onMouseUp() {
-    isDraggingCamera = false;
-    selectedTank = null;
-    updateExportPreview();
+  prevMouse = {x: e.clientX, y: e.clientY};
+  isDraggingCamera = true;
+
+  const mouse = getMousePos(e);
+  selectedTank = findTankAt(mouse.x, mouse.y);
+}
+
+function onMouseMove(e) {
+  if (!isDraggingCamera) return;
+
+  const dx = (e.clientX - prevMouse.x) * 0.8;
+  const dy = (prevMouse.y - e.clientY) * 0.8;
+
+  if (selectedTank) {
+    selectedTank.position.x += dx;
+    selectedTank.position.y += dy;
+    const newX = Math.round(selectedTank.position.x);
+    const newY = Math.round(selectedTank.position.y);
+    selectedTank.userData.data.x = newX;
+    selectedTank.userData.data.y = newY;
+  } else {
+    camera.position.x -= dx;
+    camera.position.y -= dy;
   }
 
-  function onTouchStart(e) {
-    e.preventDefault();
-    if (e.touches.length !== 1) return;
+  prevMouse = {x: e.clientX, y: e.clientY};
+  updateExportPreview();
+}
 
-    const touch = e.touches[0];
-    prevMouse = {x: touch.clientX, y: touch.clientY};
-    isDraggingCamera = true;
+function onMouseUp() {
+  isDraggingCamera = false;
+  selectedTank = null;
+  updateExportPreview();
+}
 
-    const mouse = getMousePos(touch);
-    selectedTank = findTankAt(mouse.x, mouse.y);
+function onTouchStart(e) {
+  e.preventDefault();
+  if (e.touches.length !== 1) return;
+
+  const touch = e.touches[0];
+  prevMouse = {x: touch.clientX, y: touch.clientY};
+  isDraggingCamera = true;
+
+  const mouse = getMousePos(touch);
+  selectedTank = findTankAt(mouse.x, mouse.y);
+}
+
+function onTouchMove(e) {
+  e.preventDefault();
+  if (!isDraggingCamera || e.touches.length !== 1) return;
+
+  const touch = e.touches[0];
+  const dx = (touch.clientX - prevMouse.x) * 0.8;
+  const dy = (prevMouse.y - touch.clientY) * 0.8;
+
+  if (selectedTank) {
+    selectedTank.position.x += dx;
+    selectedTank.position.y += dy;
+    const newX = Math.round(selectedTank.position.x);
+    const newY = Math.round(selectedTank.position.y);
+    selectedTank.userData.data.x = newX;
+    selectedTank.userData.data.y = newY;
+  } else {
+    camera.position.x -= dx;
+    camera.position.y -= dy;
   }
 
-  function onTouchMove(e) {
-    e.preventDefault();
-    if (!isDraggingCamera || e.touches.length !== 1) return;
+  prevMouse = {x: touch.clientX, y: touch.clientY};
+  updateExportPreview();
+}
 
-    const touch = e.touches[0];
-    const dx = (touch.clientX - prevMouse.x) * 0.8;
-    const dy = (prevMouse.y - touch.clientY) * 0.8;
+function onTouchEnd() {
+  isDraggingCamera = false;
+  selectedTank = null;
+  updateExportPreview();
+}
 
-    if (selectedTank) {
-      selectedTank.position.x += dx;
-      selectedTank.position.y += dy;
-      const newX = Math.round(selectedTank.position.x);
-      const newY = Math.round(selectedTank.position.y);
-      selectedTank.userData.data.x = newX;
-      selectedTank.userData.data.y = newY;
-    } else {
-      camera.position.x -= dx;
-      camera.position.y -= dy;
-    }
+function getMousePos(e) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
 
-    prevMouse = {x: touch.clientX, y: touch.clientY};
-    updateExportPreview();
-  }
+  const vector = new THREE.Vector3(x, y, 0.5);
+  vector.unproject(camera);
+  return { x: vector.x, y: vector.y };
+}
 
-  function onTouchEnd() {
-    isDraggingCamera = false;
-    selectedTank = null;
-    updateExportPreview();
-  }
+function findTankAt(mx, my) {
+  let closest = null;
+  let minDist = Infinity;
 
-  function getMousePos(e) {
-    const rect = renderer.domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    const vector = new THREE.Vector3(x, y, 0.5);
-    vector.unproject(camera);
-    return { x: vector.x, y: vector.y };
-  }
-
-  function findTankAt(mx, my) {
-    let closest = null;
-    let minDist = Infinity;
-
-    scene.traverse(obj => {
-      if (obj.userData && obj.userData.isEditorTank) {
-        const dx = obj.position.x - mx;
-        const dy = obj.position.y - my;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist < 140 * EDITOR_SCALE && dist < minDist) {
-          minDist = dist;
-          closest = obj;
-        }
+  scene.traverse(obj => {
+    if (obj.userData && obj.userData.isEditorTank) {
+      const dx = obj.position.x - mx;
+      const dy = obj.position.y - my;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < 140 * EDITOR_SCALE && dist < minDist) {
+        minDist = dist;
+        closest = obj;
       }
-    });
-    return closest;
-  }
+    }
+  });
+  return closest;
+}
 
-  // ────────────────────────────────────────────────
-  // Export – current level only, clear + rebuild
-  // ────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+// Export – current level only, clear + rebuild
+// ────────────────────────────────────────────────
 
-  function updateExportPreview() {
-    const textarea = document.getElementById('export-json');
-    textarea.value = ''; // FORCE CLEAR
+function updateExportPreview() {
+  const textarea = document.getElementById('export-json');
+  textarea.value = ''; // FORCE CLEAR
 
-    const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
+  const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
-    const currentLevelCode = {
-      enemies: level.enemies || [],
-      theme: level.theme || "flat",
-      baseScore: level.baseScore || 100
-    };
+  const currentLevelCode = {
+    enemies: level.enemies || [],
+    theme: level.theme || "flat",
+    baseScore: level.baseScore || 100
+  };
 
-    const json = JSON.stringify(currentLevelCode, null, 2);
-    const code = 
-      `// Current Level ${currentLevelIndex + 1} only (live preview)\n` +
-      `const level = ${json};\n\n` +
-      `// Full file (all levels) available on Download button`;
+  const json = JSON.stringify(currentLevelCode, null, 2);
+  const code = 
+    `// Current Level ${currentLevelIndex + 1} only (live preview)\n` +
+    `const level = ${json};\n\n` +
+    `// Full file (all levels) available on Download button`;
 
-    textarea.value = code;
-  }
+  textarea.value = code;
+}
 
-  function copyToClipboard() {
-    const ta = document.getElementById('export-json');
-    ta.select();
-    navigator.clipboard.writeText(ta.value).then(() => {
-      alert("Copied current level preview to clipboard!");
-    }).catch(() => alert("Copy failed – select manually"));
-  }
+function copyToClipboard() {
+  const ta = document.getElementById('export-json');
+  ta.select();
+  navigator.clipboard.writeText(ta.value).then(() => {
+    alert("Copied current level preview to clipboard!");
+  }).catch(() => alert("Copy failed – select manually"));
+}
 
-  function downloadLevelsJs() {
-    const fullLevels = workingLevels.map(level => ({
-      enemies: level.enemies || [],
-      theme: level.theme || "flat",
-      baseScore: level.baseScore || 100
-    }));
+function downloadLevelsJs() {
+  const fullLevels = workingLevels.map(level => ({
+    enemies: level.enemies || [],
+    theme: level.theme || "flat",
+    baseScore: level.baseScore || 100
+  }));
 
-    const json = JSON.stringify(fullLevels, null, 2);
-    const code = 
-      `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
-      `const levels = ${json};\n\n` +
-      `window.levels = levels;`;
+  const json = JSON.stringify(fullLevels, null, 2);
+  const code = 
+    `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
+    `const levels = ${json};\n\n` +
+    `window.levels = levels;`;
 
-    const blob = new Blob([code], {type: "application/javascript"});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = "levels.js";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+  const blob = new Blob([code], {type: "application/javascript"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = "levels.js";
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
-  // ────────────────────────────────────────────────
-  // Render loop
-  // ────────────────────────────────────────────────
+// ────────────────────────────────────────────────
+// Render loop
+// ────────────────────────────────────────────────
 
-  function animateEditor() {
-    requestAnimationFrame(animateEditor);
-    renderer.render(scene, camera);
-  }
+function animateEditor() {
+  requestAnimationFrame(animateEditor);
+  renderer.render(scene, camera);
+}
     </script>
 </body>
 </html>

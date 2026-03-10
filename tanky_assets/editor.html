@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.4</title>
+  <title>Angry Tanks Level Editor - Rebuilt v1.0</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -11,33 +11,33 @@
     #ui { position:absolute; inset:0; pointer-events:none; user-select:none; display:flex; flex-direction:column; }
     
     #toolbar {
-      position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.75); padding:12px; border-radius:8px;
-      pointer-events:auto; z-index:10; width:280px; max-height:85vh; overflow-y:auto; box-sizing:border-box;
+      position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.8); padding:15px; border-radius:8px;
+      pointer-events:auto; z-index:10; width:300px; max-height:85vh; overflow-y:auto; box-sizing:border-box;
     }
-    #toolbar button, #toolbar input, #toolbar select { margin:6px 0; padding:8px; font-size:15px; width:100%; box-sizing:border-box; }
+    #toolbar button, #toolbar input, #toolbar select { margin:8px 0; padding:10px; font-size:16px; width:100%; box-sizing:border-box; }
 
     #status {
-      position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); padding:8px 12px;
-      border-radius:6px; font-size:13px; pointer-events:none; z-index:10;
+      position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); padding:10px 14px;
+      border-radius:6px; font-size:14px; pointer-events:none; z-index:10;
     }
 
     #export-area {
-      position:absolute; top:10px; right:10px; width:420px; height:calc(100% - 20px); background:rgba(20,20,30,0.9);
+      position:absolute; top:10px; right:10px; width:450px; height:calc(100% - 20px); background:rgba(20,20,30,0.95);
       border:1px solid #444; border-radius:8px; overflow:hidden; pointer-events:auto; z-index:9;
       display:flex; flex-direction:column;
     }
     #export-area textarea {
-      flex:1; background:#0d0d15; color:#8f8; border:none; padding:12px;
+      flex:1; background:#0d0d15; color:#8f8; border:none; padding:14px;
       font-family:Consolas,monospace; font-size:13px; resize:none;
     }
-    #export-area button { margin:8px; }
+    #export-area button { margin:10px; }
 
     .selected {
-      outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
+      outline: 4px solid #ff0; outline-offset: 4px; box-shadow: 0 0 15px #ff0;
     }
 
     #version {
-      position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none; z-index:5;
+      position:absolute; bottom:10px; right:10px; color:#555; font-size:12px; pointer-events:none; z-index:5;
     }
 
     @media (max-width: 900px) {
@@ -63,7 +63,7 @@
       <div>
         Level: <select id="level-select"></select>
         <button id="add-level">+ Add Level</button>
-        <button id="del-level">− Delete</button>
+        <button id="del-level">− Delete Level</button>
       </div>
       <div>
         Theme: 
@@ -78,12 +78,12 @@
       <div>
         Base Score: <input type="number" id="basescore" min="50" step="50" value="100"/>
       </div>
-      <div style="margin-top:12px;">
+      <div style="margin-top:15px;">
         <button id="add-enemy">Add Enemy Tank</button>
-        <button id="clear-level">Clear Level</button>
+        <button id="clear-level">Clear Current Level</button>
       </div>
-      <div style="margin-top:8px; font-size:0.9em; color:#aaa;">
-        Drag = move camera • Tap = add tank • Drag tank = move • Long-press = delete
+      <div style="margin-top:10px; font-size:0.9em; color:#aaa;">
+        Drag = move camera • Click = add tank • Drag tank = move • Right-click/long-press = delete
       </div>
     </div>
 
@@ -91,25 +91,25 @@
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
-      <button id="update-preview">Manual Refresh (optional)</button>
       <button id="copy-code">Copy Current Level</button>
       <button id="download">Download Full levels.js</button>
     </div>
   </div>
 </div>
 
-<div id="version">Editor v1.3 - Preview clears & rebuilds on every change</div>
+<div id="version">Editor v1.5 – Preview clears & rebuilds on every change – current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.3 – FORCE CLEAR + REBUILD preview every time
+// Level Editor v1.5 – preview ONLY current level, clear + rebuild every action
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
-let levelsData = [];
+let originalLevels = [];   // untouched copy from file
+let workingLevels = [];    // editable copy
 let currentLevelIndex = 0;
 let selectedTank = null;
 let isDraggingCamera = false;
@@ -210,12 +210,13 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load levels
+  // Load original levels (never modified)
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    levelsData = JSON.parse(JSON.stringify(window.levels));
-    document.getElementById('status').textContent = `Loaded ${levelsData.length} levels`;
+    originalLevels = JSON.parse(JSON.stringify(window.levels));
+    workingLevels = JSON.parse(JSON.stringify(originalLevels)); // working copy for editing
+    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels`;
   } else {
-    levelsData = [{ enemies: [], theme: "flat", baseScore: 100 }];
+    workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
     document.getElementById('status').textContent = "No levels found – created empty level";
   }
 
@@ -239,13 +240,13 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management
+// Core level / tank functions
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
   const sel = document.getElementById('level-select');
   sel.innerHTML = '';
-  levelsData.forEach((lvl, i) => {
+  workingLevels.forEach((lvl, i) => {
     const opt = document.createElement('option');
     opt.value = i;
     opt.textContent = `Level ${i+1} (${lvl.enemies.length} enemies)`;
@@ -261,54 +262,51 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // Clear scene tanks
+  // Clear scene
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
     }
   });
 
-  const level = levelsData[idx];
+  const level = workingLevels[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  if (level.enemies && Array.isArray(level.enemies)) {
-    level.enemies.forEach(data => {
-      addTankToScene(data.x, data.y, false);
-    });
-  } else {
-    level.enemies = [];
-  }
+  // Re-add tanks from current working data
+  level.enemies.forEach(data => {
+    addTankToScene(data.x, data.y, false);
+  });
 
   updateExportPreview();
 }
 
 function addNewLevel() {
-  levelsData.push({ enemies: [], theme: "flat", baseScore: 100 });
+  workingLevels.push({ enemies: [], theme: "flat", baseScore: 100 });
   buildLevelSelect();
-  currentLevelIndex = levelsData.length - 1;
+  currentLevelIndex = workingLevels.length - 1;
   document.getElementById('level-select').value = currentLevelIndex;
   loadLevel(currentLevelIndex);
 }
 
 function deleteCurrentLevel() {
-  if (levelsData.length <= 1) return alert("Cannot delete the last level");
+  if (workingLevels.length <= 1) return alert("Cannot delete the last level");
   if (!confirm("Delete current level?")) return;
 
-  levelsData.splice(currentLevelIndex, 1);
-  currentLevelIndex = Math.min(currentLevelIndex, levelsData.length - 1);
+  workingLevels.splice(currentLevelIndex, 1);
+  currentLevelIndex = Math.min(currentLevelIndex, workingLevels.length - 1);
   buildLevelSelect();
   document.getElementById('level-select').value = currentLevelIndex;
   loadLevel(currentLevelIndex);
 }
 
 function updateCurrentTheme() {
-  levelsData[currentLevelIndex].theme = document.getElementById('theme-select').value;
+  workingLevels[currentLevelIndex].theme = document.getElementById('theme-select').value;
   updateExportPreview();
 }
 
 function updateCurrentBaseScore() {
-  levelsData[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
+  workingLevels[currentLevelIndex].baseScore = parseInt(document.getElementById('basescore').value) || 100;
   updateExportPreview();
 }
 
@@ -344,7 +342,7 @@ function addTankToScene(x, y, pushToData = true) {
   scene.add(group);
 
   if (pushToData) {
-    levelsData[currentLevelIndex].enemies.push(group.userData.data);
+    workingLevels[currentLevelIndex].enemies.push(group.userData.data);
   }
 
   updateExportPreview();
@@ -355,7 +353,7 @@ function clearCurrentLevel() {
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
-  levelsData[currentLevelIndex].enemies = [];
+  workingLevels[currentLevelIndex].enemies = [];
   updateExportPreview();
 }
 
@@ -369,10 +367,8 @@ function onMouseDown(e) {
     const mouse = getMousePos(e);
     const tank = findTankAt(mouse.x, mouse.y);
     if (tank) {
-      const index = levelsData[currentLevelIndex].enemies.findIndex(
-        e => e === tank.userData.data   // Direct reference match
-      );
-      if (index !== -1) levelsData[currentLevelIndex].enemies.splice(index, 1);
+      const index = workingLevels[currentLevelIndex].enemies.indexOf(tank.userData.data);
+      if (index !== -1) workingLevels[currentLevelIndex].enemies.splice(index, 1);
       scene.remove(tank);
       updateExportPreview();
     }
@@ -399,8 +395,7 @@ function onMouseMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-
-    // No find/push – data is already referenced in levelsData
+    // No find/push – userData.data is the direct reference in workingLevels.enemies
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -442,8 +437,7 @@ function onTouchMove(e) {
     const newY = Math.round(selectedTank.position.y);
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
-
-    // No find/push – data is already referenced
+    // Direct reference update – no find/push
   } else {
     camera.position.x -= dx;
     camera.position.y -= dy;
@@ -487,13 +481,13 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – CLEAR + REBUILD every time
+// Export – current level only, clear + rebuild
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  document.getElementById('export-json').value = ''; // CLEAR
+  document.getElementById('export-json').value = ''; // FORCE CLEAR
 
-  const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
+  const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
   const currentLevelCode = {
     enemies: level.enemies || [],
@@ -505,7 +499,7 @@ function updateExportPreview() {
   const code = 
     `// Current Level ${currentLevelIndex + 1} only (live preview)\n` +
     `const level = ${json};\n\n` +
-    `// Full file available on Download button`;
+    `// Full file (all levels) available on Download button`;
 
   document.getElementById('export-json').value = code;
 }
@@ -519,7 +513,7 @@ function copyToClipboard() {
 }
 
 function downloadLevelsJs() {
-  const fullLevels = levelsData.map(level => ({
+  const fullLevels = workingLevels.map(level => ({
     enemies: level.enemies || [],
     theme: level.theme || "flat",
     baseScore: level.baseScore || 100

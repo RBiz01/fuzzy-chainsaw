@@ -99,7 +99,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – LIVE preview + strict level isolation
+// Level Editor – FIXED: no appending/duplicates on move
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -233,7 +233,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED persistence
+// Level / Tank management
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -394,15 +394,15 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update matching enemy in data
+    // Update the existing entry (no append)
     const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
+      e => e.x === newX && e.y === newY
     );
     if (enemy) {
       enemy.x = newX;
       enemy.y = newY;
     } else {
-      // If no match found (edge case), push new
+      // Rare case: add if not found
       levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {
@@ -411,7 +411,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview(); // LIVE
+  updateExportPreview();
 }
 
 function onMouseUp() {
@@ -462,7 +462,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview(); // LIVE
+  updateExportPreview();
 }
 
 function onTouchEnd() {
@@ -499,7 +499,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – LIVE auto-update on EVERY action
+// Export – LIVE auto-update
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

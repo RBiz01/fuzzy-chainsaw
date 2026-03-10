@@ -97,14 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.6 – Preview clears & rebuilds on every change – current level only</div>
+<div id="version">Editor v1.7 – Preview clears & rebuilds on every change – current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.6 – REBUILT: clear + update array + refresh preview
+// Level Editor v1.7 – tanks now load and display from file correctly
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -209,7 +209,7 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load levels
+  // Load original levels
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
     workingLevels = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels`;
@@ -260,6 +260,7 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
+  // Clear scene tanks
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
@@ -269,6 +270,8 @@ function loadLevel(idx) {
   const level = workingLevels[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
+
+  console.log(`Loading Level ${idx + 1} with ${level.enemies.length} enemies:`, level.enemies);
 
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {
@@ -486,7 +489,7 @@ function findTankAt(mx, my) {
 
 function updateExportPreview() {
   const textarea = document.getElementById('export-json');
-  textarea.value = ''; // CLEAR
+  textarea.value = ''; // FORCE CLEAR
 
   const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 

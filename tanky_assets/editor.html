@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.5</title>
+  <title>Angry Tanks Level Editor - v1.6</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -105,7 +105,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.5 – rebuilt to fix appending & persistence
+// Level Editor v1.5 – FORCE CLEAR + REBUILD on EVERY action
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -212,7 +212,7 @@ function initEditor() {
 
   // Load original levels
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    workingLevels = JSON.parse(JSON.stringify(window.levels)); // working copy
+    workingLevels = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels`;
   } else {
     workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
@@ -360,7 +360,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + LIVE preview
+// Input – natural drag + FORCE CLEAR + REBUILD preview
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -403,12 +403,13 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview();
+  requestAnimationFrame(updateExportPreview); // smoother live update during drag
 }
 
 function onMouseUp() {
   isDraggingCamera = false;
   selectedTank = null;
+  updateExportPreview(); // final update on release
 }
 
 function onTouchStart(e) {
@@ -444,12 +445,13 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview();
+  requestAnimationFrame(updateExportPreview); // smoother live update
 }
 
 function onTouchEnd() {
   isDraggingCamera = false;
   selectedTank = null;
+  updateExportPreview(); // final update on release
 }
 
 function getMousePos(e) {
@@ -481,11 +483,12 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – current level only, clear + rebuild
+// Export – FORCE CLEAR + REBUILD every time
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  document.getElementById('export-json').value = ''; // CLEAR
+  const textarea = document.getElementById('export-json');
+  textarea.value = ''; // FORCE CLEAR
 
   const level = workingLevels[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
@@ -501,7 +504,7 @@ function updateExportPreview() {
     `const level = ${json};\n\n` +
     `// Full file (all levels) available on Download button`;
 
-  document.getElementById('export-json').value = code;
+  textarea.value = code;
 }
 
 function copyToClipboard() {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor</title>
+  <title>Angry Tanks Level Editor - v1.1</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -34,6 +34,10 @@
 
     .selected {
       outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
+    }
+
+    #version {
+      position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none;
     }
 
     @media (max-width: 900px) {
@@ -94,12 +98,14 @@
   </div>
 </div>
 
+<div id="version">Editor v1.2 - Preview clears & rebuilds on every change</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – preview CLEARS & REBUILDS every time (no append)
+// Level Editor v1.2 – preview CLEARS + REBUILDS every time
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -354,7 +360,7 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – natural drag + LIVE preview
+// Input – natural drag + FORCE CLEAR + REBUILD preview
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
@@ -394,9 +400,9 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update existing enemy entry (no append)
+    // Update existing entry
     const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === newX && e.y === newY
+      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
     );
     if (enemy) {
       enemy.x = newX;
@@ -410,7 +416,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview();
+  updateExportPreview(); // FORCE CLEAR + REBUILD
 }
 
 function onMouseUp() {
@@ -461,7 +467,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview();
+  updateExportPreview(); // FORCE CLEAR + REBUILD
 }
 
 function onTouchEnd() {
@@ -498,10 +504,12 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – current level only in preview, full file on download
+// Export – CLEAR + REBUILD preview every time
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
+  document.getElementById('export-json').value = ""; // FORCE CLEAR FIRST
+
   const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
   const currentLevelCode = {

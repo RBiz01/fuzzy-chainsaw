@@ -628,7 +628,7 @@
 
             setTimeout(() => {
                 currentLevel++;
-                setNewBackground();           // background changes on level complete
+                setNewBackground();
                 spawnLevel(currentLevel - 1);
                 gameRunning = true;
                 updateUI();
@@ -809,6 +809,11 @@
                 }
 
                 checkCollisions();
+            }
+
+            // Safety check: if chains cleared everything after landing
+            if (!isFlying && !levelCleared && enemies.length === 0 && shotsUsed > 0) {
+                levelComplete();
             }
 
             if (followProjectile && projectile) {

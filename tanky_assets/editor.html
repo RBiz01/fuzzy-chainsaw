@@ -99,7 +99,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – REAL-TIME preview + NO leakage
+// Level Editor – LIVE preview + strict level isolation
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -233,7 +233,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED
+// Level / Tank management – FIXED persistence
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -394,15 +394,15 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update the exact matching enemy in data
+    // Update matching enemy in data
     const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === newX && e.y === newY
+      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
     );
     if (enemy) {
       enemy.x = newX;
       enemy.y = newY;
     } else {
-      // If no match (rare), push new
+      // If no match found (edge case), push new
       levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {
@@ -499,7 +499,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – LIVE auto-update
+// Export – LIVE auto-update on EVERY action
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

@@ -157,8 +157,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // ANGRY TANKS - Clean version, debug removed
-
+        // ANGRY TANKS - Updated: no auto covers/platforms, chain fix, clean levels
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -191,7 +190,6 @@
         scene.add(sun);
 
         const textureLoader = new THREE.TextureLoader();
-
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
             const tex = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
@@ -203,7 +201,6 @@
         const bgGeometry = new THREE.PlaneGeometry(6000, 2000);
         const bgMaterial1 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 1.0 });
         const bgMaterial2 = new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.0 });
-
         const skyBackground1 = new THREE.Mesh(bgGeometry, bgMaterial1);
         const skyBackground2 = new THREE.Mesh(bgGeometry, bgMaterial2);
         skyBackground1.position.set(0, 0, -100);
@@ -441,14 +438,6 @@
             scene.add(projectile);
         }
 
-        function createCover(x, y, width = 300, height = 80) {
-            const cover = new THREE.Mesh(new THREE.PlaneGeometry(width, height), platformMaterial);
-            cover.position.set(x, y, -5);
-            cover.renderOrder = -1;
-            scene.add(cover);
-            covers.push(cover);
-        }
-
         function createEnemyTank(x, y, armored = false) {
             const g = new THREE.Group();
             g.add(new THREE.Mesh(new THREE.PlaneGeometry(220,130), platformMaterial));
@@ -483,7 +472,7 @@
         }
 
         function spawnLevel(levelIndex) {
-            // Clean up old platforms
+            // Clean up old platforms (should only be tank bases now)
             scene.traverse((obj) => {
                 if (obj.isMesh && obj.material && obj.material.map === platformTexture) {
                     if (obj.geometry) obj.geometry.dispose();
@@ -505,20 +494,12 @@
                 enemies.push(createEnemyTank(p.x, p.y, armored));
             });
 
-            switch(lvlData.theme) {
-                case 'hilly':
-                    createCover(280, -320, 200, 0);
-                    break;
-                case 'defended':
-                    createCover(320, -360, 400, 120);
-                    createCover(450, -380, 250, 100);
-                    break;
-                case 'expert':
-                    createCover(350, -400, 350, 150);
-                    windForce = (Math.random() - 0.5) * 0.3;
-                    break;
-                default:
-                    windForce = 0;
+            // No automatic covers/platforms anymore — only enemy positions matter
+            // Wind only for expert levels (remove this block if you want no wind at all)
+            if (lvlData.theme === 'expert') {
+                windForce = (Math.random() - 0.5) * 0.3;
+            } else {
+                windForce = 0;
             }
 
             if (projectile) scene.remove(projectile);
@@ -536,12 +517,10 @@
         function updateUI() {
             scoreEl.textContent = `SCORE: ${score.toString().padStart(5,'0')}`;
             highscoreEl.textContent = `BEST: ${highScore.toString().padStart(5,'0')}`;
-
             let stars = '☆☆☆';
             if (shotsUsed <= 1) stars = '★★★';
             else if (shotsUsed === 2) stars = '★★☆';
             starsEl.textContent = stars;
-
             updateBallsUI();
         }
 
@@ -597,10 +576,9 @@
                 };
                 scene.add(p);
 
-                const interval = setInterval(() => {
+                function updateParticle() {
                     p.userData.life--;
                     if (p.userData.life <= 0) {
-                        clearInterval(interval);
                         scene.remove(p);
                         return;
                     }
@@ -619,12 +597,17 @@
                                     if (e.userData.health <= 0) {
                                         scene.remove(e);
                                         enemies.splice(j, 1);
+                                        e.userData.alive = false;
                                     }
                                 }
                             }
                         }
                     }
-                }, 16);
+
+                    requestAnimationFrame(updateParticle);
+                }
+
+                requestAnimationFrame(updateParticle);
             }
         }
 
@@ -683,6 +666,7 @@
             isFlying = followProjectile = false;
             turretGroup.rotation.z = 0;
             resetCamera(true);
+
             tryAgainCount++;
             shotsUsed++;
             updateUI();
@@ -817,6 +801,7 @@
                     velocity.y *= -0.42;
                     velocity.x *= 0.78;
                     velocity.multiplyScalar(0.94);
+
                     if (Math.abs(velocity.y) < 7 && Math.abs(velocity.x) < 6) {
                         resetAfterShot();
                     }

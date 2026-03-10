@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor-V3</title>
+  <title>Angry Tanks Level Editor-FINAL</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -98,7 +98,7 @@
   </div>
 </div>
 
-<div id="version">Editor v2.3 – Full level overwrite on every change – Lock Level button included</div>
+<div id="version">Editor v2.4 – Full level overwrite on every change – Lock Level button included</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
@@ -253,6 +253,8 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
+  document.getElementById('status').textContent = `Switching to Level ${idx + 1}...`;
+
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
@@ -271,8 +273,14 @@ function loadLevel(idx) {
     level.enemies = [];
   }
 
-  updateExportPreview();
-  renderer.render(scene, camera);
+  const textarea = document.getElementById('export-json');
+  textarea.value = '';
+
+  requestAnimationFrame(() => {
+    updateExportPreview();
+    renderer.render(scene, camera);
+    document.getElementById('status').textContent = "Ready – editor loaded";
+  });
 }
 
 function addNewLevel() {

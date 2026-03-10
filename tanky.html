@@ -77,11 +77,17 @@
             padding: 1.2vmin 5vmin;
         }
 
-        #row1 { border-color: #ffcc00; font-size: 6.2vmin; }
+        #row1 { 
+            border-color: #ffcc00; 
+            font-size: 5.6vmin;  /* ← smaller than before */
+        }
         #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
         #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 6vmin; }
 
-        #score    { color: #ffeb3b; }
+        #score { 
+            color: #ffeb3b; 
+            white-space: nowrap;  /* ← prevents wrapping to next line */
+        }
         #level    { color: #00ffe9; }
         #stars    { color: #ff9800; letter-spacing: 0.6vmin; }
         #highscore{ color: #d0aaff; }
@@ -429,8 +435,8 @@
 
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const PREVIEW_START_X = 0;
-        const PREVIEW_END_X = 700;
-        const PREVIEW_GO_DURATION = 3000;
+        const PREVIEW_END_X = 1200;       // ← increased from 700 to show more to the right
+        const PREVIEW_GO_DURATION = 4000; // ← longer/smoother pan (was 3000)
         const PREVIEW_RETURN_DURATION = 2000;
         let followProjectile = false;
 
@@ -855,7 +861,7 @@
         }
 
         // ────────────────────────────────────────
-        // START GAME – with short delay (Option A – 200ms)
+        // START GAME – with short delay (200ms – Option A)
         // ────────────────────────────────────────
         async function startGame(e) {
             if (gameStarted) return;

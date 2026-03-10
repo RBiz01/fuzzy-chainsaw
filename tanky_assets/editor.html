@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor - v1.1</title>
+  <title>Angry Tanks Level Editor</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -37,7 +37,7 @@
     }
 
     #version {
-      position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none;
+      position:absolute; bottom:10px; right:10px; color:#555; font-size:11px; pointer-events:none; z-index:5;
     }
 
     @media (max-width: 900px) {
@@ -98,14 +98,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.2 - Preview clears & rebuilds on every change</div>
+<div id="version">Editor v1.3 - Preview clears & rebuilds on every change</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.2 – preview CLEARS + REBUILDS every time
+// Level Editor v1.3 – FORCE CLEAR + REBUILD preview EVERY TIME
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -400,9 +400,9 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update existing entry
+    // Update existing entry (no append)
     const enemy = levelsData[currentLevelIndex].enemies.find(
-      e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
+      e => e.x === newX && e.y === newY
     );
     if (enemy) {
       enemy.x = newX;
@@ -504,11 +504,12 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – CLEAR + REBUILD preview every time
+// Export – FORCE CLEAR + REBUILD every time
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  document.getElementById('export-json').value = ""; // FORCE CLEAR FIRST
+  // FORCE CLEAR the textarea first
+  document.getElementById('export-json').value = '';
 
   const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
 
@@ -520,10 +521,11 @@ function updateExportPreview() {
 
   const json = JSON.stringify(currentLevelCode, null, 2);
   const code = 
-    `// Current Level ${currentLevelIndex + 1} only (for preview)\n` +
+    `// Current Level ${currentLevelIndex + 1} only (live preview)\n` +
     `const level = ${json};\n\n` +
     `// Full file available on Download button`;
 
+  // Set the new code
   document.getElementById('export-json').value = code;
 }
 

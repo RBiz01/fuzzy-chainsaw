@@ -88,8 +88,8 @@
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
       <button id="update-preview">Manual Refresh (optional)</button>
-      <button id="copy-code">Copy to Clipboard</button>
-      <button id="download">Download levels.js</button>
+      <button id="copy-code">Copy Current Level</button>
+      <button id="download">Download Full levels.js</button>
     </div>
   </div>
 </div>
@@ -99,7 +99,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – FIXED: no appending/duplicates on move
+// Level Editor – preview shows ONLY current level + full file on download
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -394,7 +394,7 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = newX;
     selectedTank.userData.data.y = newY;
 
-    // Update the existing entry (no append)
+    // Update existing enemy entry (no append)
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === newX && e.y === newY
     );
@@ -402,7 +402,7 @@ function onMouseMove(e) {
       enemy.x = newX;
       enemy.y = newY;
     } else {
-      // Rare case: add if not found
+      // If no match (rare), add it
       levelsData[currentLevelIndex].enemies.push({x: newX, y: newY});
     }
   } else {
@@ -499,20 +499,23 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export – LIVE auto-update
+// Export – current level only in preview, full file on download
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
-  const cleanLevels = levelsData.map(level => ({
+  const level = levelsData[currentLevelIndex] || { enemies: [], theme: "flat", baseScore: 100 };
+
+  const currentLevelCode = {
     enemies: level.enemies || [],
     theme: level.theme || "flat",
     baseScore: level.baseScore || 100
-  }));
+  };
 
-  const json = JSON.stringify(cleanLevels, null, 2);
+  const json = JSON.stringify(currentLevelCode, null, 2);
   const code = 
-    `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
-    `const levels = ${json};\n\nwindow.levels = levels;`;
+    `// Current Level ${currentLevelIndex + 1} only (for preview)\n` +
+    `const level = ${json};\n\n` +
+    `// Full file available on Download button`;
 
   document.getElementById('export-json').value = code;
 }
@@ -521,13 +524,24 @@ function copyToClipboard() {
   const ta = document.getElementById('export-json');
   ta.select();
   navigator.clipboard.writeText(ta.value).then(() => {
-    alert("Copied to clipboard!\nPaste into levels.js");
+    alert("Copied current level preview to clipboard!");
   }).catch(() => alert("Copy failed – select manually"));
 }
 
 function downloadLevelsJs() {
-  const text = document.getElementById('export-json').value;
-  const blob = new Blob([text], {type: "application/javascript"});
+  const fullLevels = levelsData.map(level => ({
+    enemies: level.enemies || [],
+    theme: level.theme || "flat",
+    baseScore: level.baseScore || 100
+  }));
+
+  const json = JSON.stringify(fullLevels, null, 2);
+  const code = 
+    `// levels.js - generated ${new Date().toISOString().split('T')[0]}\n` +
+    `const levels = ${json};\n\n` +
+    `window.levels = levels;`;
+
+  const blob = new Blob([code], {type: "application/javascript"});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

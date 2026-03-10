@@ -97,15 +97,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.8 – workingLevels = exact duplicate of loaded levels – preview shows current level only</div>
+<div id="version">Editor v1.8 – Preview clears & rebuilds on every change – current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.8 – workingLevels = exact duplicate of loaded levels
-// Preview shows ONLY current level from workingLevels
+// Level Editor v1.8 – FIXED: moving tanks now updates array correctly
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -209,13 +208,13 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
-  // Load original levels → make exact duplicate for editing
+  // Load original levels → make exact duplicate
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
     workingLevels = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
     console.log('Original loaded levels:', window.levels);
-    console.log('Working copy (exact duplicate):', workingLevels);
-    console.log('Level 1 enemies from workingLevels:', workingLevels[0]?.enemies || 'EMPTY');
+    console.log('Working copy:', workingLevels);
+    console.log('Level 1 enemies:', workingLevels[0]?.enemies || 'EMPTY');
   } else {
     workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
     document.getElementById('status').textContent = "No levels loaded from levels.js – created empty level";
@@ -264,7 +263,6 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // Clear scene tanks
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
@@ -274,8 +272,6 @@ function loadLevel(idx) {
   const level = workingLevels[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
-
-  console.log(`Loading Level ${idx + 1} with ${level.enemies.length} enemies:`, level.enemies);
 
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {

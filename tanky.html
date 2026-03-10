@@ -6,6 +6,7 @@
     <title>Angry Tanks</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
         body {
             margin: 0;
             padding: 0;
@@ -14,6 +15,7 @@
             touch-action: none;
             font-family: 'Press Start 2P', cursive;
         }
+
         #container {
             position: relative;
             width: 100vw;
@@ -24,6 +26,7 @@
             align-items: center;
             overflow: hidden;
         }
+
         canvas {
             display: block;
             width: 100%;
@@ -34,118 +37,125 @@
             image-rendering: pixelated;
             background: #000;
         }
+
         #ui {
             position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            inset: 0;
             pointer-events: none;
             color: #fff;
-            text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;
-        }
-        #score {
-            position: absolute;
-            top: 3vmin;
-            right: 4vmin;
-            font-size: 6vmin;
-            background: rgba(0,0,0,0.6);
-            padding: 2vmin 4vmin;
-            border-radius: 3vmin;
-            border: 0.8vmin solid #ffcc00;
-        }
-        #level {
-            position: absolute;
-            top: 11vmin;
-            right: 4vmin;
-            font-size: 4.2vmin;
-            background: rgba(0,0,0,0.6);
-            padding: 1.5vmin 4vmin;
-            border-radius: 3vmin;
-            border: 0.8vmin solid #00ffcc;
-        }
-        #stars {
-            position: absolute;
-            top: 19vmin;
-            right: 4vmin;
-            font-size: 4.2vmin;
-            background: rgba(0,0,0,0.6);
-            padding: 1.5vmin 4vmin;
-            border-radius: 3vmin;
-            border: 0.8vmin solid #ff6600;
-        }
-        #balls {
-            position: absolute;
-            top: 3vmin;
-            left: 4vmin;
+            text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
             display: flex;
-            gap: 2.5vmin;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 2vmin;
+            gap: 1.8vmin;
+            font-family: 'Press Start 2P', cursive;
+            user-select: none;
+        }
+
+        .ui-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5vmin;
+            background: rgba(0,0,0,0.65);
+            padding: 1.4vmin 6vmin;
+            border-radius: 3vmin;
+            border: 0.7vmin solid #444;
+            min-width: 260px;
+            max-width: 80vw;
+            box-sizing: border-box;
             pointer-events: none;
         }
-        .cannon-ball-icon {
-            width: 8vmin;
-            height: 8vmin;
-            background: #333;
-            border-radius: 50%;
-            box-shadow: inset 0 4px 8px rgba(0,0,0,0.8), 0 2px 6px rgba(255,255,255,0.2);
-            border: 0.5vmin solid #555;
+
+        .ui-row.single {
+            gap: 0;
+            padding: 1.2vmin 5vmin;
         }
+
+        #row1 { 
+            border-color: #ffcc00; 
+            font-size: 6.2vmin;
+        }
+        #row2 { 
+            border-color: #00ffcc; 
+            font-size: 4.8vmin;
+        }
+        #row3 { 
+            border-color: #aa44ff; 
+            font-size: 4.2vmin;
+            gap: 6vmin;
+        }
+
+        #score    { color: #ffeb3b; }
+        #level    { color: #00ffe9; }
+        #stars    { color: #ff9800; letter-spacing: 0.6vmin; }
+        #highscore{ color: #d0aaff; }
+
+        #balls {
+            position: relative;
+            display: flex;
+            gap: 2.4vmin;
+            pointer-events: none;
+        }
+
+        .cannon-ball-icon {
+            width: 7.5vmin;
+            height: 7.5vmin;
+            background: #222;
+            border-radius: 50%;
+            border: 0.6vmin solid #555;
+            box-shadow: inset 0 3px 8px #000, 0 1px 4px #fff4;
+        }
+
         .button {
             position: absolute;
-            bottom: 6vmin;
-            width: 18vmin;
-            height: 18vmin;
-            border: 1.4vmin solid #fff;
+            bottom: 5vmin;
+            width: 17vmin;
+            height: 17vmin;
+            border: 1.3vmin solid #fff;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10vmin;
-            cursor: pointer;
+            font-size: 9vmin;
             pointer-events: all;
-            box-shadow: 0 2.2vmin 0 #aa0000;
-            transition: transform 0.1s, background 0.2s;
+            box-shadow: 0 2.4vmin 0 #000000aa;
+            transition: all 0.12s;
         }
+
         .button:active {
-            transform: translateY(1.1vmin);
-            box-shadow: 0 1.1vmin 0 #aa0000;
+            transform: translateY(1.2vmin);
+            box-shadow: 0 1.2vmin 0 #000000aa;
         }
-        #quit { left: 5vmin; background: #ff4444; box-shadow: 0 2.2vmin 0 #aa0000; }
-        #restart { right: 5vmin; background: #44ff44; box-shadow: 0 2.2vmin 0 #22aa22; }
-        #preview { 
-            left: 50%; 
-            transform: translateX(-50%); 
-            background: #4444ff; 
-            box-shadow: 0 2.2vmin 0 #2222aa; 
+
+        #quit    { left: 5vmin; background: #e53935; }
+        #restart { right: 5vmin; background: #43a047; }
+        #preview {
+            left: 50%;
+            transform: translateX(-50%);
+            background: #3f51b5;
         }
         #preview.active {
-            background: #6666ff;
-            box-shadow: 0 2.2vmin 0 #4444cc;
+            background: #5c6bc0;
         }
+
         #message {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 9vmin;
-            padding: 6vmin 10vmin;
-            background: rgba(0,0,0,0.85);
-            border: 1.6vmin solid #ffff00;
-            border-radius: 4vmin;
+            font-size: 8.5vmin;
+            padding: 5vmin 8vmin;
+            background: rgba(0,0,0,0.88);
+            border: 1.4vmin solid #ffeb3b;
+            border-radius: 3.5vmin;
             text-align: center;
             display: none;
             pointer-events: all;
             white-space: pre-line;
-        }
-        #highscore {
-            position: absolute;
-            top: 27vmin;
-            right: 4vmin;
-            font-size: 3.5vmin;
-            background: rgba(0,0,0,0.6);
-            padding: 1vmin 3vmin;
-            border-radius: 2vmin;
-            border: 0.6vmin solid #aa44ff;
+            line-height: 1.4;
         }
     </style>
 </head>
@@ -153,46 +163,60 @@
     <div id="container">
         <canvas id="game"></canvas>
         <div id="ui">
-            <div id="score">SCORE: 00000</div>
-            <div id="level">LEVEL 1</div>
-            <div id="stars">★☆☆</div>
-            <div id="highscore">BEST: 00000</div>
-            <div id="balls"></div>
+            <div id="row1" class="ui-row single">
+                <div id="score">SCORE: 00000</div>
+            </div>
+
+            <div id="row2" class="ui-row">
+                <div id="balls"></div>
+                <div id="level">LEVEL 1</div>
+            </div>
+
+            <div id="row3" class="ui-row">
+                <div id="highscore">BEST: 00000</div>
+                <div id="stars">★☆☆</div>
+            </div>
+
             <div id="quit" class="button">⏹</div>
             <div id="restart" class="button">⟳</div>
             <div id="preview" class="button">📷</div>
+
             <div id="message"></div>
         </div>
     </div>
 
-    <!-- Load Three.js -->
+    <!-- Three.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
-
-    <!-- Load levels from the hosted GitHub location -->
+    <!-- Levels data -->
     <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
     <script>
-        // Safety check: make sure levels.js loaded successfully
+        // Safety check for levels
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
             console.error("Failed to load levels from https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js");
             document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels</h1><p style="color:white;text-align:center;">Check that levels.js exists and is publicly accessible at:<br>https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js</p>';
             throw new Error("No levels available");
         }
-
         console.log(`Loaded ${window.levels.length} levels from GitHub`);
 
-        const container = document.getElementById('container');
-        const canvas = document.getElementById('game');
-        const scoreEl = document.getElementById('score');
-        const levelEl = document.getElementById('level');
-        const starsEl = document.getElementById('stars');
+        // ────────────────────────────────────────
+        // DOM elements
+        // ────────────────────────────────────────
+        const container   = document.getElementById('container');
+        const canvas      = document.getElementById('game');
+        const scoreEl     = document.getElementById('score');
+        const levelEl     = document.getElementById('level');
+        const starsEl     = document.getElementById('stars');
         const highscoreEl = document.getElementById('highscore');
-        const ballsEl = document.getElementById('balls');
-        const messageEl = document.getElementById('message');
-        const quitBtn = document.getElementById('quit');
-        const restartBtn = document.getElementById('restart');
-        const previewBtn = document.getElementById('preview');
+        const ballsEl     = document.getElementById('balls');
+        const messageEl   = document.getElementById('message');
+        const quitBtn     = document.getElementById('quit');
+        const restartBtn  = document.getElementById('restart');
+        const previewBtn  = document.getElementById('preview');
 
+        // ────────────────────────────────────────
+        // Three.js setup
+        // ────────────────────────────────────────
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
         camera.position.set(0, 0, 500);
@@ -213,6 +237,9 @@
         sun.position.set(100, 200, 100);
         scene.add(sun);
 
+        // ────────────────────────────────────────
+        // Backgrounds
+        // ────────────────────────────────────────
         const textureLoader = new THREE.TextureLoader();
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
@@ -258,6 +285,9 @@
             }
         }
 
+        // ────────────────────────────────────────
+        // Platform / Tank textures
+        // ────────────────────────────────────────
         const platformTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/platform.png');
         platformTexture.magFilter = THREE.NearestFilter;
         platformTexture.minFilter = THREE.NearestFilter;
@@ -272,12 +302,14 @@
             color: 0xffffff
         });
 
-        const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
+        const tankTexture   = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
         tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
         turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
 
-        // PLAYER TANK
+        // ────────────────────────────────────────
+        // Player tank
+        // ────────────────────────────────────────
         const tankGroup = new THREE.Group();
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8);
@@ -307,9 +339,12 @@
             return new THREE.Vector3(65, 18, 0).applyMatrix4(turretGroup.matrixWorld);
         }
 
+        // ────────────────────────────────────────
+        // Spring + trajectory helpers
+        // ────────────────────────────────────────
         let spring, trajectoryLine;
         let isPreviewActive = false;
-        let previewPhase = 0; // 0 = going right, 1 = returning left
+        let previewPhase = 0;
         let previewStartTime = 0;
 
         function createSpring() {
@@ -338,7 +373,7 @@
             dir.normalize();
             const perp = new THREE.Vector3(-dir.y, dir.x, 0);
             const offsetStart = start.clone().addScaledVector(dir, -3);
-            const offsetEnd = end.clone().addScaledVector(dir, -5);
+            const offsetEnd   = end.clone().addScaledVector(dir, -5);
             const pts = [];
             const coils = Math.min(14, len * 0.055);
             for (let i = 0; i <= 60; i++) {
@@ -371,12 +406,14 @@
             trajectoryLine.visible = true;
         }
 
+        // ────────────────────────────────────────
+        // Preview camera movement
+        // ────────────────────────────────────────
         const DEFAULT_CAMERA_POS = new THREE.Vector3(0, 0, 500);
         const PREVIEW_START_X = 0;
         const PREVIEW_END_X = 700;
         const PREVIEW_GO_DURATION = 3000;
         const PREVIEW_RETURN_DURATION = 2000;
-
         let followProjectile = false;
 
         function resetCamera(immediate = false) {
@@ -386,6 +423,9 @@
             }
         }
 
+        // ────────────────────────────────────────
+        // Game state
+        // ────────────────────────────────────────
         let score = 0;
         let highScore = localStorage.getItem('angryTanksHighScore') || 0;
         let currentLevel = 1;
@@ -402,7 +442,6 @@
         const MAX_TRIES = 3;
         const GRAVITY = 0.7;
         let windForce = 0;
-
         let enemies = [];
         const ballIcons = [];
         let covers = [];
@@ -603,10 +642,8 @@
                             }
                         }
                     }
-
                     requestAnimationFrame(updateParticle);
                 }
-
                 requestAnimationFrame(updateParticle);
             }
         }
@@ -667,7 +704,6 @@
             isFlying = followProjectile = false;
             turretGroup.rotation.z = 0;
             resetCamera(true);
-
             tryAgainCount++;
             shotsUsed++;
             updateUI();
@@ -681,6 +717,9 @@
             else createLoadedBall();
         }
 
+        // ────────────────────────────────────────
+        // Input handling
+        // ────────────────────────────────────────
         function getPointerPos(e) {
             const r = canvas.getBoundingClientRect();
             const x = e.touches?.[0]?.clientX ?? e.clientX;
@@ -768,6 +807,9 @@
         renderer.domElement.addEventListener('touchmove', onMove, {passive:false});
         renderer.domElement.addEventListener('touchend', onUp, {passive:false});
 
+        // ────────────────────────────────────────
+        // Buttons
+        // ────────────────────────────────────────
         quitBtn.addEventListener('click', () => {
             window.location.href = 'https://rbiz01.github.io/fuzzy-chainsaw/';
         });
@@ -786,18 +828,46 @@
 
         previewBtn.addEventListener('click', () => {
             if (!gameRunning || isFlying || isDragging || isPreviewActive) return;
-
             isPreviewActive = true;
             previewPhase = 0;
             previewStartTime = performance.now();
             previewBtn.classList.add('active');
-
             if (spring) spring.visible = false;
             if (trajectoryLine) trajectoryLine.visible = false;
         });
 
+        // ────────────────────────────────────────
+        // Fullscreen on first interaction
+        // ────────────────────────────────────────
+        let fullscreenAttempted = false;
+
+        function tryEnterFullscreen() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) {
+                elem.requestFullscreen().catch(()=>{});
+            } else if (elem.webkitRequestFullscreen) {
+                elem.webkitRequestFullscreen();
+            } else if (elem.msRequestFullscreen) {
+                elem.msRequestFullscreen();
+            }
+        }
+
+        function onUserInteraction() {
+            if (!fullscreenAttempted) {
+                fullscreenAttempted = true;
+                tryEnterFullscreen();
+            }
+        }
+
+        canvas.addEventListener('touchstart', onUserInteraction, {once: true, passive: true});
+        canvas.addEventListener('mousedown', onUserInteraction, {once: true});
+
+        // ────────────────────────────────────────
+        // Main loop
+        // ────────────────────────────────────────
         function animate() {
             requestAnimationFrame(animate);
+
             if (!gameRunning) return renderer.render(scene, camera);
 
             updateBackgroundFade();
@@ -834,7 +904,6 @@
             if (isPreviewActive) {
                 const elapsed = performance.now() - previewStartTime;
                 let progress;
-
                 if (previewPhase === 0) {
                     progress = Math.min(elapsed / PREVIEW_GO_DURATION, 1);
                     camera.position.x = THREE.MathUtils.lerp(PREVIEW_START_X, PREVIEW_END_X, progress);
@@ -851,7 +920,6 @@
                         camera.position.copy(DEFAULT_CAMERA_POS);
                     }
                 }
-
                 camera.position.y = DEFAULT_CAMERA_POS.y;
                 camera.position.z = DEFAULT_CAMERA_POS.z;
                 camera.lookAt(camera.position.x, -100, 0);

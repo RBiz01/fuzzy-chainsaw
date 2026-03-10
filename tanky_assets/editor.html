@@ -111,14 +111,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.9 – Debug mode – preview rebuilds on every move</div>
+<div id="version">Editor v1.9 – workingLevels = exact duplicate of levels – preview shows current level only</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.9 – debug mode active
+// Level Editor v1.9 – workingLevels = exact duplicate of levels
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -226,48 +226,35 @@ function initEditor() {
   canvas.addEventListener('touchmove', onTouchMove, {passive:false});
   canvas.addEventListener('touchend', onTouchEnd);
 
-  // UI – with null checks
-  const addLevelBtn = document.getElementById('add-level');
-  if (addLevelBtn) addLevelBtn.onclick = addNewLevel;
+  // UI
+  document.getElementById('add-level').onclick   = addNewLevel;
+  document.getElementById('del-level').onclick   = deleteCurrentLevel;
+  document.getElementById('add-enemy').onclick   = addEnemyTank;
+  document.getElementById('clear-level').onclick = clearCurrentLevel;
 
-  const delLevelBtn = document.getElementById('del-level');
-  if (delLevelBtn) delLevelBtn.onclick = deleteCurrentLevel;
+  document.getElementById('theme-select').onchange = updateCurrentTheme;
+  document.getElementById('basescore').onchange    = updateCurrentBaseScore;
 
-  const addEnemyBtn = document.getElementById('add-enemy');
-  if (addEnemyBtn) addEnemyBtn.onclick = addEnemyTank;
+  document.getElementById('copy-code').onclick     = copyToClipboard;
+  document.getElementById('download').onclick      = downloadLevelsJs;
 
-  const clearLevelBtn = document.getElementById('clear-level');
-  if (clearLevelBtn) clearLevelBtn.onclick = clearCurrentLevel;
-
-  const themeSelect = document.getElementById('theme-select');
-  if (themeSelect) themeSelect.onchange = updateCurrentTheme;
-
-  const baseScoreInput = document.getElementById('basescore');
-  if (baseScoreInput) baseScoreInput.onchange = updateCurrentBaseScore;
-
-  const copyCodeBtn = document.getElementById('copy-code');
-  if (copyCodeBtn) copyCodeBtn.onclick = copyToClipboard;
-
-  const downloadBtn = document.getElementById('download');
-  if (downloadBtn) downloadBtn.onclick = downloadLevelsJs;
-
-  // Load levels – wait for window.levels
-  function tryLoadLevels() {
-    if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-      workingLevels = JSON.parse(JSON.stringify(window.levels));
-      document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
-      logDebug(`Loaded ${workingLevels.length} levels`);
-      logDebug(`Level 1 enemies: ${workingLevels[0]?.enemies.length || 0}`);
-      buildLevelSelect();
-      loadLevel(0);
-      updateExportPreview();
-    } else {
-      logDebug("window.levels not ready yet – retrying...");
-      setTimeout(tryLoadLevels, 500);
-    }
+  // Load original levels → make exact duplicate
+  if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
+    workingLevels = JSON.parse(JSON.stringify(window.levels));
+    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
+    logDebug(`Loaded ${workingLevels.length} levels`);
+    logDebug(`Level 1 enemies: ${workingLevels[0]?.enemies.length || 0}`);
+    updateDebugStatus();
+  } else {
+    workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
+    document.getElementById('status').textContent = "No levels loaded from levels.js – created empty level";
+    logDebug("No levels loaded – using fallback");
+    updateDebugStatus();
   }
 
-  tryLoadLevels();
+  buildLevelSelect();
+  loadLevel(0);
+  updateExportPreview();
 }
 
 function onResize() {
@@ -290,7 +277,6 @@ function onResize() {
 
 function buildLevelSelect() {
   const sel = document.getElementById('level-select');
-  if (!sel) return logDebug('ERROR: level-select missing');
   sel.innerHTML = '';
   workingLevels.forEach((lvl, i) => {
     const opt = document.createElement('option');
@@ -458,7 +444,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  requestAnimationFrame(updateExportPreview);
+  updateExportPreview();
 }
 
 function onMouseUp() {
@@ -505,7 +491,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  requestAnimationFrame(updateExportPreview);
+  updateExportPreview();
 }
 
 function onTouchEnd() {

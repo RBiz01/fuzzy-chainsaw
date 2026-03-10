@@ -36,9 +36,7 @@
       outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
     }
 
-    /* ──────────────────────────────────────────────── */
-    /* Mobile: side-by-side or stacked menus */
-    /* ──────────────────────────────────────────────── */
+    /* Mobile: side-by-side or stacked */
     @media (max-width: 900px) {
       #toolbar { left:10px; right:50%; width:auto; max-width:48%; }
       #export-area { left:50%; right:10px; width:auto; }
@@ -93,7 +91,7 @@
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
-      <button id="update-preview">Update Preview</button>
+      <button id="update-preview">Manual Refresh</button>
       <button id="copy-code">Copy to Clipboard</button>
       <button id="download">Download levels.js</button>
     </div>
@@ -105,7 +103,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – FIXED persistence + mobile layout
+// Level Editor – real-time preview update + fixed persistence
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -221,7 +219,7 @@ function initEditor() {
 
   buildLevelSelect();
   loadLevel(0);
-  updateExportPreview();
+  updateExportPreview(); // Initial update
 }
 
 function onResize() {
@@ -239,7 +237,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management – FIXED persistence
+// Level / Tank management
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -261,22 +259,20 @@ function buildLevelSelect() {
 function loadLevel(idx) {
   currentLevelIndex = idx;
 
-  // 1. Clear scene tanks
+  // Clear scene tanks
   scene.children.forEach(child => {
     if (child.userData && child.userData.isEditorTank) {
       scene.remove(child);
     }
   });
 
-  // 2. Get level data
   const level = levelsData[idx];
   document.getElementById('theme-select').value = level.theme || "flat";
   document.getElementById('basescore').value = level.baseScore || 100;
 
-  // 3. Re-add tanks from this level's stored enemies array
   if (level.enemies && Array.isArray(level.enemies)) {
     level.enemies.forEach(data => {
-      addTankToScene(data.x, data.y, false); // false = don't push again
+      addTankToScene(data.x, data.y, false); // don't push again
     });
   } else {
     level.enemies = [];
@@ -399,7 +395,7 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
 
-    // Update data entry
+    // Update matching enemy in data
     const enemy = levelsData[currentLevelIndex].enemies.find(
       e => e.x === selectedTank.userData.data.x && e.y === selectedTank.userData.data.y
     );
@@ -413,7 +409,7 @@ function onMouseMove(e) {
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
-  updateExportPreview();
+  updateExportPreview(); // Auto-refresh preview
 }
 
 function onMouseUp() {
@@ -460,7 +456,7 @@ function onTouchMove(e) {
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
-  updateExportPreview();
+  updateExportPreview(); // Auto-refresh
 }
 
 function onTouchEnd() {
@@ -497,7 +493,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export / Save – auto-refresh on every change
+// Export / Save – auto-refresh
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

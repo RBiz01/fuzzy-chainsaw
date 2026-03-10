@@ -157,7 +157,6 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
-        // ANGRY TANKS - Updated: no auto covers/platforms, chain fix, clean levels
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -472,7 +471,6 @@
         }
 
         function spawnLevel(levelIndex) {
-            // Clean up old platforms (should only be tank bases now)
             scene.traverse((obj) => {
                 if (obj.isMesh && obj.material && obj.material.map === platformTexture) {
                     if (obj.geometry) obj.geometry.dispose();
@@ -494,8 +492,6 @@
                 enemies.push(createEnemyTank(p.x, p.y, armored));
             });
 
-            // No automatic covers/platforms anymore — only enemy positions matter
-            // Wind only for expert levels (remove this block if you want no wind at all)
             if (lvlData.theme === 'expert') {
                 windForce = (Math.random() - 0.5) * 0.3;
             } else {
@@ -632,6 +628,7 @@
 
             setTimeout(() => {
                 currentLevel++;
+                setNewBackground();           // background changes on level complete
                 spawnLevel(currentLevel - 1);
                 gameRunning = true;
                 updateUI();

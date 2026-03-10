@@ -95,7 +95,7 @@
       </div>
     </div>
 
-    <div id="status">Loading levels...</div>
+    <div id="status">Initializing...</div>
 
     <div id="export-area">
       <textarea id="export-json" readonly></textarea>
@@ -111,14 +111,14 @@
   </div>
 </div>
 
-<div id="version">Editor v1.9 – workingLevels = exact duplicate of levels – preview shows current level only</div>
+<div id="version">Editor v1.9 – Debug mode active – preview rebuilds on every move</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
 <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor v1.9 – workingLevels = exact duplicate of levels
+// Level Editor v1.9 – loading progress messages + debug
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -144,16 +144,17 @@ function logDebug(msg) {
   debugLog.scrollTop = debugLog.scrollHeight;
 }
 
-function updateDebugStatus() {
+function updateDebugStatus(msg = '') {
   const level = workingLevels[currentLevelIndex] || { enemies: [] };
   debugStatus.innerHTML = `
     Level: ${currentLevelIndex + 1} | Tanks in array: ${level.enemies.length} | Selected: ${selectedTank ? 'YES' : 'NO'}<br>
-    Last action: ${new Date().toLocaleTimeString()}
+    Status: ${msg || 'Ready'} | Last action: ${new Date().toLocaleTimeString()}
   `;
 }
 
 function initEditor() {
-  logDebug("initEditor started");
+  logDebug("Starting editor initialization...");
+  document.getElementById('status').textContent = "Initializing scene...";
 
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x112233);
@@ -238,22 +239,27 @@ function initEditor() {
   document.getElementById('copy-code').onclick     = copyToClipboard;
   document.getElementById('download').onclick      = downloadLevelsJs;
 
+  document.getElementById('status').textContent = "Loading levels.js...";
+
   // Load original levels → make exact duplicate
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
     workingLevels = JSON.parse(JSON.stringify(window.levels));
-    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels (working copy created)`;
-    logDebug(`Loaded ${workingLevels.length} levels`);
-    logDebug(`Level 1 enemies: ${workingLevels[0]?.enemies.length || 0}`);
-    updateDebugStatus();
+    document.getElementById('status').textContent = `Loaded ${workingLevels.length} levels – creating working copy...`;
+    logDebug(`Loaded ${workingLevels.length} levels from levels.js`);
+    logDebug(`Level 1 has ${workingLevels[0].enemies.length} enemies`);
+    updateDebugStatus('Levels loaded – initializing scene...');
   } else {
     workingLevels = [{ enemies: [], theme: "flat", baseScore: 100 }];
     document.getElementById('status').textContent = "No levels loaded from levels.js – created empty level";
-    logDebug("No levels loaded – using fallback");
-    updateDebugStatus();
+    logDebug("window.levels is undefined or empty – using fallback empty level");
+    updateDebugStatus('No levels loaded – using empty level');
   }
 
   buildLevelSelect();
+  document.getElementById('status').textContent = "Initializing scene & UI...";
   loadLevel(0);
+  document.getElementById('status').textContent = "Ready – editor loaded";
+  updateDebugStatus('Editor ready');
   updateExportPreview();
 }
 

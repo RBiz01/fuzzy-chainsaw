@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Angry Tanks Level Editor-FINAL</title>
+  <title>Angry Tanks Level Editor-Cupkake</title>
   <style>
     body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
     #container { position:relative; width:100vw; height:100vh; }
@@ -255,10 +255,17 @@ function loadLevel(idx) {
 
   document.getElementById('status').textContent = `Switching to Level ${idx + 1}...`;
 
-  scene.children.forEach(child => {
+  // Complete removal of all previous editor tanks
+  const toRemove = [];
+  scene.traverse(child => {
     if (child.userData && child.userData.isEditorTank) {
-      scene.remove(child);
+      toRemove.push(child);
     }
+  });
+  toRemove.forEach(child => {
+    scene.remove(child);
+    if (child.geometry) child.geometry.dispose();
+    if (child.material) child.material.dispose();
   });
 
   const level = workingLevels[idx];

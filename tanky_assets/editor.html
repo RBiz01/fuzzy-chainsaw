@@ -5,82 +5,31 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Angry Tanks Level Editor</title>
   <style>
-    body {
-      margin:0;
-      font-family: Arial, sans-serif;
-      background:#111;
-      color:#eee;
-      overflow:hidden;
-    }
-    #container {
-      position:relative;
-      width:100vw;
-      height:100vh;
-    }
-    canvas {
-      display:block;
-    }
-    #ui {
-      position:absolute;
-      top:0; left:0; right:0; bottom:0;
-      pointer-events:none;
-      user-select:none;
-    }
+    body { margin:0; font-family:Arial,sans-serif; background:#111; color:#eee; overflow:hidden; }
+    #container { position:relative; width:100vw; height:100vh; }
+    canvas { display:block; }
+    #ui { position:absolute; top:0; left:0; right:0; bottom:0; pointer-events:none; user-select:none; }
     #toolbar {
-      position:absolute;
-      top:10px; left:10px;
-      background:rgba(0,0,0,0.7);
-      padding:12px;
-      border-radius:8px;
-      pointer-events:auto;
-      z-index:10;
-      min-width:260px;
+      position:absolute; top:10px; left:10px; background:rgba(0,0,0,0.7); padding:12px; border-radius:8px;
+      pointer-events:auto; z-index:10; min-width:260px;
     }
-    #toolbar button, #toolbar input, #toolbar select {
-      margin:4px 0;
-      padding:6px 10px;
-      font-size:14px;
-    }
+    #toolbar button, #toolbar input, #toolbar select { margin:4px 0; padding:6px 10px; font-size:14px; }
     #status {
-      position:absolute;
-      bottom:10px; left:10px;
-      background:rgba(0,0,0,0.7);
-      padding:8px 12px;
-      border-radius:6px;
-      font-size:13px;
-      pointer-events:none;
+      position:absolute; bottom:10px; left:10px; background:rgba(0,0,0,0.7); padding:8px 12px;
+      border-radius:6px; font-size:13px; pointer-events:none;
     }
     #export-area {
-      position:absolute;
-      top:10px; right:10px;
-      width:380px;
-      height:80vh;
-      background:rgba(20,20,30,0.85);
-      border:1px solid #444;
-      border-radius:8px;
-      overflow:hidden;
-      pointer-events:auto;
-      z-index:9;
-      display:flex;
-      flex-direction:column;
+      position:absolute; top:10px; right:10px; width:380px; height:80vh; background:rgba(20,20,30,0.85);
+      border:1px solid #444; border-radius:8px; overflow:hidden; pointer-events:auto; z-index:9;
+      display:flex; flex-direction:column;
     }
     #export-area textarea {
-      flex:1;
-      background:#0d0d15;
-      color:#8f8;
-      border:none;
-      padding:12px;
-      font-family:Consolas, monospace;
-      font-size:13px;
-      resize:none;
+      flex:1; background:#0d0d15; color:#8f8; border:none; padding:12px;
+      font-family:Consolas,monospace; font-size:13px; resize:none;
     }
-    #export-area button {
-      margin:8px;
-    }
+    #export-area button { margin:8px; }
     .selected {
-      outline: 3px solid #ff0;
-      outline-offset: 4px;
-      box-shadow: 0 0 12px #ff0;
+      outline: 3px solid #ff0; outline-offset: 4px; box-shadow: 0 0 12px #ff0;
     }
   </style>
 </head>
@@ -92,8 +41,7 @@
     <div id="toolbar">
       <h3>Level Editor</h3>
       <div>
-        Level: 
-        <select id="level-select"></select>
+        Level: <select id="level-select"></select>
         <button id="add-level">+ Add Level</button>
         <button id="del-level">− Delete</button>
       </div>
@@ -108,8 +56,7 @@
         </select>
       </div>
       <div>
-        Base Score: 
-        <input type="number" id="basescore" min="50" step="50" value="100"/>
+        Base Score: <input type="number" id="basescore" min="50" step="50" value="100"/>
       </div>
       <div style="margin-top:12px;">
         <button id="add-enemy">Add Enemy Tank</button>
@@ -136,7 +83,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – with player marker & background
+// Level Editor – fixed proportions + bg + player marker
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -146,8 +93,9 @@ let selectedTank = null;
 let isDraggingCamera = false;
 let prevMouse = {x:0, y:0};
 
-const orthoWidth = 1440;  // wider view for editor comfort
-const orthoHeight = 2560;
+const GAME_WIDTH = 720;
+const GAME_HEIGHT = 1280;
+const EDITOR_SCALE = 0.7; // tanks appear slightly smaller in editor for comfort
 
 const PLAYER_START_X = -220;
 const PLAYER_START_Y = -340;
@@ -160,8 +108,8 @@ function initEditor() {
   scene.background = new THREE.Color(0x112233);
 
   camera = new THREE.OrthographicCamera(
-    -orthoWidth/2, orthoWidth/2,
-    orthoHeight/2, -orthoHeight/2,
+    -GAME_WIDTH/2, GAME_WIDTH/2,
+    GAME_HEIGHT/2, -GAME_HEIGHT/2,
     0.1, 3000
   );
   camera.position.set(0, 0, 1000);
@@ -179,60 +127,59 @@ function initEditor() {
   dirLight.position.set(300, 500, 400);
   scene.add(dirLight);
 
-  // Load background (bg1.jpg) as reference
+  // Background reference (bg1.jpg, semi-transparent)
   const texLoader = new THREE.TextureLoader();
   texLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg1.jpg', (texture) => {
     texture.magFilter = THREE.LinearFilter;
     texture.minFilter = THREE.LinearFilter;
     const bg = new THREE.Mesh(
-      new THREE.PlaneGeometry(2000, 1200),
-      new THREE.MeshBasicMaterial({
-        map: texture,
-        transparent: true,
-        opacity: 0.35
-      })
+      new THREE.PlaneGeometry(GAME_WIDTH * 3, GAME_HEIGHT * 3), // larger than view
+      new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.4 })
     );
-    bg.position.z = -500;
+    bg.position.z = -600;
     scene.add(bg);
   });
 
-  // Red X marker for player start position (fixed)
-  const playerMarker = new THREE.Mesh(
-    new THREE.PlaneGeometry(80, 80),
-    new THREE.MeshBasicMaterial({
-      color: 0xff0000,
-      transparent: true,
-      opacity: 0.7
-    })
-  );
-  playerMarker.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
-  // Simple X shape using lines
-  const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 4 });
+  // Red X – player starting position
+  const markerGroup = new THREE.Group();
+  const lineMat = new THREE.LineBasicMaterial({ color: 0xff0000, linewidth: 5 });
   const points = [
-    new THREE.Vector3(-30, -30, 0), new THREE.Vector3(30, 30, 0),
-    new THREE.Vector3(-30, 30, 0),  new THREE.Vector3(30, -30, 0)
+    new THREE.Vector3(-40, -40, 0), new THREE.Vector3(40, 40, 0),
+    new THREE.Vector3(-40, 40, 0),  new THREE.Vector3(40, -40, 0)
   ];
   const geo1 = new THREE.BufferGeometry().setFromPoints([points[0], points[1]]);
   const geo2 = new THREE.BufferGeometry().setFromPoints([points[2], points[3]]);
-  const line1 = new THREE.Line(geo1, lineMat);
-  const line2 = new THREE.Line(geo2, lineMat);
-  playerMarker.add(line1);
-  playerMarker.add(line2);
-  scene.add(playerMarker);
+  markerGroup.add(new THREE.Line(geo1, lineMat));
+  markerGroup.add(new THREE.Line(geo2, lineMat));
+  markerGroup.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
+  scene.add(markerGroup);
 
-  // Input events
+  // Faint gameplay area border
+  const borderMat = new THREE.LineBasicMaterial({ color: 0x44ff44, linewidth: 2, transparent: true, opacity: 0.4 });
+  const borderPoints = [
+    new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
+    new THREE.Vector3( GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
+    new THREE.Vector3( GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
+    new THREE.Vector3(-GAME_WIDTH/2, -GAME_HEIGHT/2, 0),
+    new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0)
+  ];
+  const borderGeo = new THREE.BufferGeometry().setFromPoints(borderPoints);
+  const border = new THREE.Line(borderGeo, borderMat);
+  scene.add(border);
+
+  // Input
   const canvas = renderer.domElement;
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
-  canvas.addEventListener('mouseup',   onMouseUp);
-  canvas.addEventListener('mouseleave',onMouseUp);
+  canvas.addEventListener('mouseup', onMouseUp);
+  canvas.addEventListener('mouseleave', onMouseUp);
   canvas.addEventListener('contextmenu', e => e.preventDefault());
 
   canvas.addEventListener('touchstart', onTouchStart, {passive:false});
-  canvas.addEventListener('touchmove',  onTouchMove,  {passive:false});
-  canvas.addEventListener('touchend',   onTouchEnd);
+  canvas.addEventListener('touchmove', onTouchMove, {passive:false});
+  canvas.addEventListener('touchend', onTouchEnd);
 
-  // UI
+  // UI buttons
   document.getElementById('add-level').onclick   = addNewLevel;
   document.getElementById('del-level').onclick   = deleteCurrentLevel;
   document.getElementById('add-enemy').onclick   = addEnemyTank;
@@ -247,7 +194,7 @@ function initEditor() {
 
   // Load levels
   if (window.levels && Array.isArray(window.levels) && window.levels.length > 0) {
-    levelsData = JSON.parse(JSON.stringify(window.levels)); // deep copy
+    levelsData = JSON.parse(JSON.stringify(window.levels));
     document.getElementById('status').textContent = `Loaded ${levelsData.length} levels`;
   } else {
     levelsData = [{ enemies: [], theme: "flat", baseScore: 100 }];
@@ -265,7 +212,7 @@ function onResize() {
   renderer.setSize(w, h);
 
   const aspect = w / h;
-  const viewSize = orthoHeight / 2;
+  const viewSize = GAME_HEIGHT / 2;
   camera.left   = -viewSize * aspect;
   camera.right  =  viewSize * aspect;
   camera.top    =  viewSize;
@@ -274,7 +221,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank management (same as before)
+// Level / Tank functions (updated with scale)
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -295,11 +242,8 @@ function buildLevelSelect() {
 
 function loadLevel(idx) {
   currentLevelIndex = idx;
-  // Remove old editor tanks
   scene.children.forEach(child => {
-    if (child.userData && child.userData.isEditorTank) {
-      scene.remove(child);
-    }
+    if (child.userData && child.userData.isEditorTank) scene.remove(child);
   });
 
   const level = levelsData[idx];
@@ -314,11 +258,7 @@ function loadLevel(idx) {
 }
 
 function addNewLevel() {
-  levelsData.push({
-    enemies: [],
-    theme: "flat",
-    baseScore: 100
-  });
+  levelsData.push({ enemies: [], theme: "flat", baseScore: 100 });
   buildLevelSelect();
   currentLevelIndex = levelsData.length - 1;
   document.getElementById('level-select').value = currentLevelIndex;
@@ -355,6 +295,7 @@ function addEnemyTank() {
 
 function addTankToScene(x, y) {
   const group = new THREE.Group();
+  group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1); // scale down for editor view
 
   const plat = new THREE.Mesh(
     new THREE.PlaneGeometry(220, 130),
@@ -387,11 +328,11 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input – camera drag + tank drag
+// Input handling (unchanged)
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
-  if (e.button === 2) { // right click → remove
+  if (e.button === 2) {
     e.preventDefault();
     const mouse = getMousePos(e);
     const tank = findTankAt(mouse.x, mouse.y);
@@ -434,7 +375,7 @@ function onMouseUp() {
   selectedTank = null;
 }
 
-// Touch events (same logic)
+// Touch support
 function onTouchStart(e) {
   e.preventDefault();
   if (e.touches.length !== 1) return;
@@ -493,7 +434,7 @@ function findTankAt(mx, my) {
       const dx = obj.position.x - mx;
       const dy = obj.position.y - my;
       const dist = Math.sqrt(dx*dx + dy*dy);
-      if (dist < 140 && dist < minDist) {
+      if (dist < 140 * EDITOR_SCALE && dist < minDist) {
         minDist = dist;
         closest = obj;
       }
@@ -503,7 +444,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export / Save
+// Export / Save (unchanged)
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {
@@ -536,8 +477,8 @@ function copyToClipboard() {
   const ta = document.getElementById('export-json');
   ta.select();
   navigator.clipboard.writeText(ta.value).then(() => {
-    alert("Copied to clipboard!\nPaste into tanky_assets/levels.js");
-  }).catch(() => alert("Copy failed – please select and copy manually"));
+    alert("Copied! Paste into tanky_assets/levels.js");
+  }).catch(() => alert("Copy failed – select manually"));
 }
 
 function downloadLevelsJs() {

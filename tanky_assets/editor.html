@@ -83,7 +83,7 @@
 
 <script>
 // ────────────────────────────────────────────────
-// Level Editor – fixed proportions + bg + player marker
+// Level Editor – natural drag direction (down = view down)
 // ────────────────────────────────────────────────
 
 let scene, camera, renderer;
@@ -95,7 +95,7 @@ let prevMouse = {x:0, y:0};
 
 const GAME_WIDTH = 720;
 const GAME_HEIGHT = 1280;
-const EDITOR_SCALE = 0.7; // tanks appear slightly smaller in editor for comfort
+const EDITOR_SCALE = 0.7; // tanks appear slightly smaller in editor
 
 const PLAYER_START_X = -220;
 const PLAYER_START_Y = -340;
@@ -133,7 +133,7 @@ function initEditor() {
     texture.magFilter = THREE.LinearFilter;
     texture.minFilter = THREE.LinearFilter;
     const bg = new THREE.Mesh(
-      new THREE.PlaneGeometry(GAME_WIDTH * 3, GAME_HEIGHT * 3), // larger than view
+      new THREE.PlaneGeometry(GAME_WIDTH * 3, GAME_HEIGHT * 3),
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.4 })
     );
     bg.position.z = -600;
@@ -154,7 +154,7 @@ function initEditor() {
   markerGroup.position.set(PLAYER_START_X, PLAYER_START_Y, 10);
   scene.add(markerGroup);
 
-  // Faint gameplay area border
+  // Gameplay area border (green dashed line)
   const borderMat = new THREE.LineBasicMaterial({ color: 0x44ff44, linewidth: 2, transparent: true, opacity: 0.4 });
   const borderPoints = [
     new THREE.Vector3(-GAME_WIDTH/2,  GAME_HEIGHT/2, 0),
@@ -167,7 +167,7 @@ function initEditor() {
   const border = new THREE.Line(borderGeo, borderMat);
   scene.add(border);
 
-  // Input
+  // Input events
   const canvas = renderer.domElement;
   canvas.addEventListener('mousedown', onMouseDown);
   canvas.addEventListener('mousemove', onMouseMove);
@@ -221,7 +221,7 @@ function onResize() {
 }
 
 // ────────────────────────────────────────────────
-// Level / Tank functions (updated with scale)
+// Level / Tank functions
 // ────────────────────────────────────────────────
 
 function buildLevelSelect() {
@@ -295,7 +295,7 @@ function addEnemyTank() {
 
 function addTankToScene(x, y) {
   const group = new THREE.Group();
-  group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1); // scale down for editor view
+  group.scale.set(EDITOR_SCALE, EDITOR_SCALE, 1);
 
   const plat = new THREE.Mesh(
     new THREE.PlaneGeometry(220, 130),
@@ -328,11 +328,11 @@ function clearCurrentLevel() {
 }
 
 // ────────────────────────────────────────────────
-// Input handling (unchanged)
+// Input – NATURAL drag (down = view down)
 // ────────────────────────────────────────────────
 
 function onMouseDown(e) {
-  if (e.button === 2) {
+  if (e.button === 2) { // right click → delete
     e.preventDefault();
     const mouse = getMousePos(e);
     const tank = findTankAt(mouse.x, mouse.y);
@@ -354,7 +354,7 @@ function onMouseMove(e) {
   if (!isDraggingCamera) return;
 
   const dx = (e.clientX - prevMouse.x) * 0.8;
-  const dy = (e.clientY - prevMouse.y) * -0.8;
+  const dy = (prevMouse.y - e.clientY) * 0.8;   // Natural: drag down → view down
 
   if (selectedTank) {
     selectedTank.position.x += dx;
@@ -362,8 +362,8 @@ function onMouseMove(e) {
     selectedTank.userData.data.x = Math.round(selectedTank.position.x);
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
   } else {
-    camera.position.x -= dx;
-    camera.position.y += dy;
+    camera.position.x -= dx;   // left drag → view right
+    camera.position.y -= dy;   // down drag → view down
   }
 
   prevMouse = {x: e.clientX, y: e.clientY};
@@ -375,7 +375,7 @@ function onMouseUp() {
   selectedTank = null;
 }
 
-// Touch support
+// Touch – same natural direction
 function onTouchStart(e) {
   e.preventDefault();
   if (e.touches.length !== 1) return;
@@ -394,7 +394,7 @@ function onTouchMove(e) {
 
   const touch = e.touches[0];
   const dx = (touch.clientX - prevMouse.x) * 0.8;
-  const dy = (touch.clientY - prevMouse.y) * -0.8;
+  const dy = (prevMouse.y - touch.clientY) * 0.8;   // Natural drag
 
   if (selectedTank) {
     selectedTank.position.x += dx;
@@ -403,7 +403,7 @@ function onTouchMove(e) {
     selectedTank.userData.data.y = Math.round(selectedTank.position.y);
   } else {
     camera.position.x -= dx;
-    camera.position.y += dy;
+    camera.position.y -= dy;
   }
 
   prevMouse = {x: touch.clientX, y: touch.clientY};
@@ -444,7 +444,7 @@ function findTankAt(mx, my) {
 }
 
 // ────────────────────────────────────────────────
-// Export / Save (unchanged)
+// Export / Save
 // ────────────────────────────────────────────────
 
 function updateExportPreview() {

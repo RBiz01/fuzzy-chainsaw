@@ -105,14 +105,24 @@
             cursor: pointer;
             pointer-events: all;
             box-shadow: 0 2.2vmin 0 #aa0000;
-            transition: transform 0.1s;
+            transition: transform 0.1s, background 0.2s;
         }
         .button:active {
             transform: translateY(1.1vmin);
             box-shadow: 0 1.1vmin 0 #aa0000;
         }
         #quit { left: 5vmin; }
-        #restart { right: 5vmin; }
+        #restart { right: 5vmin; background: #44ff44; box-shadow: 0 2.2vmin 0 #22aa22; }
+        #preview { 
+            left: 50%; 
+            transform: translateX(-50%); 
+            background: #4444ff; 
+            box-shadow: 0 2.2vmin 0 #2222aa; 
+        }
+        #preview.active {
+            background: #6666ff;
+            box-shadow: 0 2.2vmin 0 #4444cc;
+        }
         #message {
             position: absolute;
             top: 50%;
@@ -151,12 +161,14 @@
             <div id="balls"></div>
             <div id="quit" class="button">⏹</div>
             <div id="restart" class="button">⟳</div>
+            <div id="preview" class="button">📷</div>
             <div id="message"></div>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script>
+        // ANGRY TANKS - With enemy preview camera pan
         const container = document.getElementById('container');
         const canvas = document.getElementById('game');
         const scoreEl = document.getElementById('score');
@@ -167,6 +179,7 @@
         const messageEl = document.getElementById('message');
         const quitBtn = document.getElementById('quit');
         const restartBtn = document.getElementById('restart');
+        const previewBtn = document.getElementById('preview');
 
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
@@ -283,6 +296,8 @@
         }
 
         let spring, trajectoryLine;
+        let isPreviewActive = false;
+        let previewTimer = null;
 
         function createSpring() {
             const pts = Array(61).fill().map(() => new THREE.Vector3());
@@ -694,7 +709,7 @@
 
         function onDown(e) {
             e.preventDefault();
-            if (!gameRunning || isFlying || isDragging) return;
+            if (!gameRunning || isFlying || isDragging || isPreviewActive) return;
             const pos = getPointerPos(e);
             if (isClickOnTank(pos)) {
                 isDragging = true;
@@ -706,7 +721,7 @@
 
         function onMove(e) {
             e.preventDefault();
-            if (!isDragging) return;
+            if (!isDragging || isPreviewActive) return;
             const pos = getPointerPos(e);
             let dx = pos.x - dragStartPos.x;
             let dy = pos.y - dragStartPos.y;
@@ -780,6 +795,25 @@
             resetCamera(true);
         });
 
+        previewBtn.addEventListener('click', () => {
+            if (!gameRunning || isFlying || isDragging || isPreviewActive) return;
+
+            isPreviewActive = true;
+            previewBtn.classList.add('active');
+            followProjectile = false;
+
+            // Hide aiming aids during preview
+            if (spring) spring.visible = false;
+            if (trajectoryLine) trajectoryLine.visible = false;
+
+            // Auto-end preview after 4 seconds
+            previewTimer = setTimeout(() => {
+                isPreviewActive = false;
+                previewBtn.classList.remove('active');
+                resetCamera();
+            }, 4000);
+        });
+
         function animate() {
             requestAnimationFrame(animate);
             if (!gameRunning) return renderer.render(scene, camera);
@@ -811,22 +845,43 @@
                 checkCollisions();
             }
 
-            // Safety check: if chains cleared everything after landing
+            // Safety check for chain reaction clear
             if (!isFlying && !levelCleared && enemies.length === 0 && shotsUsed > 0) {
                 levelComplete();
             }
 
-            if (followProjectile && projectile) {
-                camera.position.lerp(
-                    new THREE.Vector3(projectile.position.x, 0, 500),
-                    0.12
-                );
+            // Preview camera pan
+            if (isPreviewActive) {
+                // Calculate approximate center of enemies
+                let targetX = 0;
+                if (enemies.length > 0) {
+                    let minX = Infinity, maxX = -Infinity;
+                    enemies.forEach(e => {
+                        minX = Math.min(minX, e.position.x);
+                        maxX = Math.max(maxX, e.position.x);
+                    });
+                    targetX = (minX + maxX) / 2;
+                } else {
+                    targetX = 150; // fallback
+                }
+
+                // Pan to show enemies (move rightward)
+                const previewTarget = new THREE.Vector3(targetX + 80, -50, 500); // slight y offset to center vertically
+                camera.position.lerp(previewTarget, 0.08);
+                camera.lookAt(targetX, -100, 0);
             } else {
-                camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
-                camera.lookAt(0, -100, 0);
+                if (followProjectile && projectile) {
+                    camera.position.lerp(
+                        new THREE.Vector3(projectile.position.x, 0, 500),
+                        0.12
+                    );
+                } else {
+                    camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
+                    camera.lookAt(0, -100, 0);
+                }
             }
 
-            if (loadedBall && !isFlying) {
+            if (loadedBall && !isFlying && !isPreviewActive) {
                 loadedBall.position.copy(getBarrelTip());
             }
 
@@ -843,7 +898,7 @@
             animate();
 
             setTimeout(() => {
-                showMessage("PULL TANK → AIM → FIRE!\nGreen line shows trajectory\n3 shots max per level", "#ffffff", 5000);
+                showMessage("PULL TANK → AIM → FIRE!\nTap camera 📷 to preview enemies\n3 shots max per level", "#ffffff", 6000);
             }, 600);
         }
 

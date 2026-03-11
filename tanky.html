@@ -277,9 +277,7 @@
 
         const textureLoader = new THREE.TextureLoader();
 
-        // ────────────────────────────────
-        //  Ground (foreground layer)
-        // ────────────────────────────────
+        // Ground (foreground layer)
         const groundTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/ground.png');
         groundTexture.magFilter = THREE.NearestFilter;
         groundTexture.minFilter = THREE.NearestFilter;
@@ -293,7 +291,7 @@
 
         const groundGeometry = new THREE.PlaneGeometry(2000, 600);
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.set(0, -320, -50); // <─── ADJUST HEIGHT HERE (y value)
+        ground.position.set(0, -320, -50); // ← ADJUST HEIGHT HERE (y value)
         ground.renderOrder = -5;
         scene.add(ground);
 
@@ -474,13 +472,20 @@
             const pts = [];
             let pos = startPos.clone();
             let vel = velocity.clone();
-            const GRAVITY_TRAJ = 0.50;          // updated - matched closer to real gravity
-            for (let i = 0; i <= 80; i++) {
+
+            const GRAVITY_TRAJ = 0.52;      // match real gravity
+            const TIME_STEP = 1.0;          // simulate per frame
+            const MAX_STEPS = 140;          // enough steps for visible arc
+
+            for (let i = 0; i < MAX_STEPS; i++) {
                 pts.push(pos.clone());
-                pos.add(vel);
-                vel.y -= GRAVITY_TRAJ;
-                if (pos.y < -600) break;
+
+                vel.y -= GRAVITY_TRAJ * TIME_STEP;
+                pos.add(vel.clone().multiplyScalar(TIME_STEP));
+
+                if (pos.y < -800 || Math.abs(pos.x) > 4000) break;
             }
+
             trajectoryLine.geometry.setFromPoints(pts);
             trajectoryLine.geometry.attributes.position.needsUpdate = true;
             trajectoryLine.visible = true;
@@ -517,7 +522,7 @@
         let gameStarted = false;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
-        const GRAVITY = 0.52;               // ← reduced from 0.7 → cannonball flies higher & farther
+        const GRAVITY = 0.52;
         let windForce = 0;
         let enemies = [];
         const ballIcons = [];
@@ -891,7 +896,7 @@
             const stretch = tip.distanceTo(pullPos);
             if (stretch > 45) {
                 const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-                const power = stretch * 0.23;               // ← slightly increased for better feel with lower gravity
+                const power = stretch * 0.23;
                 updateTrajectory(tip, dir.normalize().multiplyScalar(power));
             }
         }
@@ -911,7 +916,7 @@
             }
 
             const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-            const power = stretch * 0.23;                   // ← matched with preview
+            const power = stretch * 0.23;
             velocity.copy(dir.normalize()).multiplyScalar(power);
             velocity.x += windForce;
 
@@ -1017,7 +1022,7 @@
             if (!gameRunning || !gameStarted) return;
 
             if (isFlying && projectile) {
-                velocity.y -= GRAVITY;                      // ← now using the reduced gravity value
+                velocity.y -= GRAVITY;
                 velocity.x += windForce * 0.1;
                 projectile.position.add(velocity);
                 projectile.rotation.x += velocity.y * 0.012;

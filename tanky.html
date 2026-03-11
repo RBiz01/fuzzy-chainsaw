@@ -740,7 +740,7 @@
                     p.position.add(p.userData.vel);
                     p.userData.vel.y -= 1.5;
                     p.scale.multiplyScalar(0.92);
-                    if (chain && Math.random() < 0.3) {
+                    if (chain && Math.random() < 0.1) {
                         const blastBox = new THREE.Box3().setFromObject(p);
                         for (let j = enemies.length - 1; j >= 0; j--) {
                             const e = enemies[j];

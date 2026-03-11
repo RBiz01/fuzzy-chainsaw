@@ -424,7 +424,7 @@
             for (let i = 0; i <= 50; i++) {
                 pts.push(pos.clone());
                 pos.add(vel);
-                vel.y -= GRAVITY_TRAJ * 0.023;
+                vel.y -= GRAVITY_TRAJ * 0.043;
                 if (pos.y < -400) break;
             }
             trajectoryLine.geometry.setFromPoints(pts);

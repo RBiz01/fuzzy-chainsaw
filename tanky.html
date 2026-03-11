@@ -424,7 +424,7 @@
             for (let i = 0; i <= 50; i++) {
                 pts.push(pos.clone());
                 pos.add(vel);
-                vel.y -= GRAVITY_TRAJ * 0.043;
+                vel.y -= GRAVITY_TRAJ * 0.018;
                 if (pos.y < -400) break;
             }
             trajectoryLine.geometry.setFromPoints(pts);
@@ -438,6 +438,11 @@
         const PREVIEW_GO_DURATION = 4000;
         const PREVIEW_RETURN_DURATION = 2000;
         let followProjectile = false;
+
+        // Hover effect settings
+        const HOVER_AMPLITUDE = 10;
+        const HOVER_SPEED = 0.0008; // ~4 sec cycle
+        let hoverStartTime = performance.now();
 
         function resetCamera(immediate = false) {
             followProjectile = false;
@@ -472,17 +477,14 @@
         let cannonSynth, explosionSynth;
 
         async function initSounds() {
-            // Start audio context after user gesture
             await Tone.start();
             console.log("Tone.js audio context started");
 
-            // Cannon fire: quick upward sweep + punch
             cannonSynth = new Tone.Synth({
                 oscillator: { type: "sawtooth" },
                 envelope: { attack: 0.001, decay: 0.1, sustain: 0.05, release: 0.2 }
             }).toDestination();
 
-            // Explosion: low boom + noise + filter sweep
             const noise = new Tone.NoiseSynth({
                 noise: { type: "white" },
                 envelope: { attack: 0.005, decay: 0.4, sustain: 0, release: 0.3 }
@@ -511,14 +513,10 @@
             if (!explosionSynth) return;
             const { noise, filter } = explosionSynth;
 
-            // Noise burst
             noise.triggerAttackRelease("8n");
-
-            // Pitch drop + filter sweep
             filter.frequency.setValueAtTime(1200, Tone.now());
             filter.frequency.exponentialRampTo(200, 0.4);
 
-            // Volume envelope
             noise.volume.value = -6;
             noise.volume.linearRampTo(-60, 0.6);
         }
@@ -583,7 +581,9 @@
                 alive: true,
                 armored: armored,
                 hitbox: new THREE.Box3(new THREE.Vector3(-60,-35,-10), new THREE.Vector3(60,35,10)),
-                health: armored ? 2 : 1
+                health: armored ? 2 : 1,
+                originalY: y,
+                hoverPhase: Math.random() * Math.PI * 2
             };
             scene.add(g);
             return g;
@@ -627,6 +627,9 @@
             createLoadedBall();
             resetCamera(true);
             levelEl.textContent = `LEVEL ${levelIndex + 1}`;
+
+            // Set player hover phase
+            tankGroup.userData.hoverPhase = Math.random() * Math.PI * 2;
         }
 
         function updateUI() {
@@ -661,7 +664,7 @@
                         enemies.splice(i,1);
                         e.userData.alive = false;
                         hitsThisFrame++;
-                        playExplosion(); // ← Explosion sound!
+                        playExplosion();
                     }
                     createExplosion(e.position, true);
                     velocity.multiplyScalar(0.45);
@@ -711,7 +714,7 @@
                                         scene.remove(e);
                                         enemies.splice(j, 1);
                                         e.userData.alive = false;
-                                        playExplosion(); // Extra explosions get sound too
+                                        playExplosion();
                                     }
                                 }
                             }
@@ -871,7 +874,7 @@
             isFlying = followProjectile = true;
             if (loadedBall) { scene.remove(loadedBall); loadedBall = null; }
 
-            playCannonFire();  // ← Cannon fire sound!
+            playCannonFire();
         }
 
         renderer.domElement.addEventListener('mousedown', onDown);
@@ -907,9 +910,6 @@
             if (trajectoryLine) trajectoryLine.visible = false;
         });
 
-        // ────────────────────────────────────────
-        // FULLSCREEN FUNCTION
-        // ────────────────────────────────────────
         async function forceFullscreen() {
             try {
                 const el = document.documentElement;
@@ -920,9 +920,6 @@
             } catch (e) {}
         }
 
-        // ────────────────────────────────────────
-        // START GAME – with 200ms delay + sound init
-        // ────────────────────────────────────────
         async function startGame(e) {
             if (gameStarted) return;
             e.preventDefault();
@@ -934,16 +931,12 @@
                 startScreen.style.display = 'none';
             }
 
-            // Short delay before fullscreen & sounds
             await new Promise(resolve => setTimeout(resolve, 200));
 
-            // Initialize sounds after user gesture
             await initSounds();
 
-            // Then request fullscreen
             await forceFullscreen();
 
-            // Nudge scroll for address bar
             setTimeout(() => window.scrollTo(0, 1), 100);
         }
 
@@ -956,6 +949,23 @@
             requestAnimationFrame(animate);
 
             updateBackgroundFade();
+
+            // Subtle hover effect for tanks
+            const time = performance.now() - hoverStartTime;
+            if (gameRunning && gameStarted) {
+                // Player tank hover
+                const playerOffset = Math.sin(time * HOVER_SPEED + tankGroup.userData.hoverPhase) * HOVER_AMPLITUDE;
+                tankGroup.position.y = -340 + playerOffset;
+
+                // Enemy tanks hover
+                enemies.forEach(enemy => {
+                    if (enemy.userData.alive) {
+                        const offset = Math.sin(time * HOVER_SPEED + enemy.userData.hoverPhase) * HOVER_AMPLITUDE;
+                        enemy.position.y = enemy.userData.originalY + offset;
+                    }
+                });
+            }
+
             renderer.render(scene, camera);
 
             if (!gameRunning || !gameStarted) return;
@@ -1035,6 +1045,9 @@
             setNewBackground();
             spawnLevel(0);
             updateUI();
+
+            // Initialize player hover phase
+            tankGroup.userData.hoverPhase = Math.random() * Math.PI * 2;
 
             animate();
         }

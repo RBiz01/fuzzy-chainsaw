@@ -1078,6 +1078,7 @@
                         new THREE.Vector3(projectile.position.x, 0, 500),
                         0.12
                     );
+                    camera.position.x = Math.min(camera.position.x, 4000); //camera clamo
                 } else {
                     camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
                     camera.lookAt(0, -100, 0);

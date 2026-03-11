@@ -149,7 +149,7 @@ function initEditor() {
     texture.magFilter = THREE.LinearFilter;
     texture.minFilter = THREE.LinearFilter;
     const bg = new THREE.Mesh(
-      new THREE.PlaneGeometry(6000, 2000),
+      new THREE.PlaneGeometry(4500, 1500),
       new THREE.MeshBasicMaterial({ map: texture, transparent: true, opacity: 0.4 })
     );
     bg.position.z = -600;

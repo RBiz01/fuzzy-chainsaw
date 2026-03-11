@@ -292,9 +292,9 @@
         });
 
         // Wide enough to cover full view + some margin
-        const groundGeometry = new THREE.PlaneGeometry(2000, 600); // width × height in world units
+        const groundGeometry = new THREE.PlaneGeometry(4500, 600); // width × height in world units
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.set(0, -320, -50); // <─── ADJUST HEIGHT HERE (y value)
+        ground.position.set(0, -320, -150); // <─── ADJUST HEIGHT HERE (y value)
         //   Try values like: -280, -300, -320, -340, -360
         //   Higher number = ground moves up    (less negative)
         //   Lower number  = ground moves down  (more negative)

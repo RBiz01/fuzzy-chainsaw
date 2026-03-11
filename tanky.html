@@ -276,6 +276,31 @@
         scene.add(sun);
 
         const textureLoader = new THREE.TextureLoader();
+
+        // ────────────────────────────────
+        //  Ground (foreground layer)
+        // ────────────────────────────────
+        const groundTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/ground.png');
+        groundTexture.magFilter = THREE.NearestFilter;
+        groundTexture.minFilter = THREE.NearestFilter;
+        groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+
+        const groundMaterial = new THREE.MeshBasicMaterial({
+            map: groundTexture,
+            transparent: true,
+            alphaTest: 0.01
+        });
+
+        // Wide enough to cover full view + some margin
+        const groundGeometry = new THREE.PlaneGeometry(2000, 600); // width × height in world units
+        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+        ground.position.set(0, -320, -50); // <─── ADJUST HEIGHT HERE (y value)
+        //   Try values like: -280, -300, -320, -340, -360
+        //   Higher number = ground moves up    (less negative)
+        //   Lower number  = ground moves down  (more negative)
+        ground.renderOrder = -5; // behind tanks/platforms but in front of sky
+        scene.add(ground);
+
         const backgrounds = [];
         for (let i = 1; i <= 13; i++) {
             const tex = textureLoader.load(`https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/bg${i}.jpg`);
@@ -428,16 +453,13 @@
             const MAX_STRETCH = 150;
             const stretchNorm = Math.min(len / MAX_STRETCH, 1); // 0 to 1
 
-            // White(1,1,1) → light yellow → strong red(1,0.27,0.13)
             let r, g, b;
             if (stretchNorm < 0.4) {
-                // white → slight yellow
                 const t = stretchNorm / 0.4;
                 r = 255;
                 g = 255;
                 b = Math.round(255 * (1 - t * 0.4));
             } else {
-                // yellow → red
                 const t = (stretchNorm - 0.4) / 0.6;
                 r = 255;
                 g = Math.round(255 * (1 - t * 0.92));
@@ -447,7 +469,6 @@
             const color = (r << 16) | (g << 8) | b;
             spring.material.color.setHex(color);
 
-            // Brighter & more opaque at full power
             spring.material.opacity = THREE.MathUtils.mapLinear(stretchNorm, 0, 1, 0.75, 1.0);
 
             spring.visible = true;
@@ -477,9 +498,8 @@
         const PREVIEW_RETURN_DURATION = 2000;
         let followProjectile = false;
 
-        // Hover effect settings
         const HOVER_AMPLITUDE = 10;
-        const HOVER_SPEED = 0.0008; // ~4 sec cycle
+        const HOVER_SPEED = 0.0008;
         let hoverStartTime = performance.now();
 
         function resetCamera(immediate = false) {
@@ -509,9 +529,6 @@
         let covers = [];
         let levelCleared = false;
 
-        // ────────────────────────────────────────
-        // Tone.js Sound Effects
-        // ────────────────────────────────────────
         let cannonSynth, explosionSynth;
 
         async function initSounds() {
@@ -666,7 +683,6 @@
             resetCamera(true);
             levelEl.textContent = `LEVEL ${levelIndex + 1}`;
 
-            // Set player hover phase
             tankGroup.userData.hoverPhase = Math.random() * Math.PI * 2;
         }
 
@@ -988,14 +1004,11 @@
 
             updateBackgroundFade();
 
-            // Subtle hover effect for tanks
             const time = performance.now() - hoverStartTime;
             if (gameRunning && gameStarted) {
-                // Player tank hover
                 const playerOffset = Math.sin(time * HOVER_SPEED + tankGroup.userData.hoverPhase) * HOVER_AMPLITUDE;
                 tankGroup.position.y = -340 + playerOffset;
 
-                // Enemy tanks hover
                 enemies.forEach(enemy => {
                     if (enemy.userData.alive) {
                         const offset = Math.sin(time * HOVER_SPEED + enemy.userData.hoverPhase) * HOVER_AMPLITUDE;
@@ -1084,7 +1097,6 @@
             spawnLevel(0);
             updateUI();
 
-            // Initialize player hover phase
             tankGroup.userData.hoverPhase = Math.random() * Math.PI * 2;
 
             animate();

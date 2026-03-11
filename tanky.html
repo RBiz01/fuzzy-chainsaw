@@ -289,9 +289,9 @@
             alphaTest: 0.01
         });
 
-        const groundGeometry = new THREE.PlaneGeometry(2000, 600);
+        const groundGeometry = new THREE.PlaneGeometry(4500, 500);
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.set(0, -320, -50); // ← ADJUST HEIGHT HERE (y value)
+        ground.position.set(0, -550, -50); // ← ADJUST HEIGHT HERE (y value)
         ground.renderOrder = -5;
         scene.add(ground);
 

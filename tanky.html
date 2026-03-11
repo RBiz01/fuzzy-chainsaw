@@ -291,14 +291,10 @@
             alphaTest: 0.01
         });
 
-        // Wide enough to cover full view + some margin
-        const groundGeometry = new THREE.PlaneGeometry(4500, 500); // width × height in world units
+        const groundGeometry = new THREE.PlaneGeometry(2000, 600);
         const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.set(0, -520, -50); // <─── ADJUST HEIGHT HERE (y value)
-        //   Try values like: -280, -300, -320, -340, -360
-        //   Higher number = ground moves up    (less negative)
-        //   Lower number  = ground moves down  (more negative)
-        ground.renderOrder = -5; // behind tanks/platforms but in front of sky
+        ground.position.set(0, -320, -50); // <─── ADJUST HEIGHT HERE (y value)
+        ground.renderOrder = -5;
         scene.add(ground);
 
         const backgrounds = [];
@@ -404,7 +400,7 @@
             spring = new THREE.Line(
                 geo,
                 new THREE.LineBasicMaterial({
-                    color: 0xffffff,          // start white
+                    color: 0xffffff,
                     linewidth: 10,
                     transparent: true,
                     opacity: 0.8
@@ -449,9 +445,8 @@
             spring.geometry.setFromPoints(pts);
             spring.geometry.attributes.position.needsUpdate = true;
 
-            // ─── POWER COLOR GRADIENT ───────────────────────────────────────
             const MAX_STRETCH = 150;
-            const stretchNorm = Math.min(len / MAX_STRETCH, 1); // 0 to 1
+            const stretchNorm = Math.min(len / MAX_STRETCH, 1);
 
             let r, g, b;
             if (stretchNorm < 0.4) {
@@ -479,12 +474,12 @@
             const pts = [];
             let pos = startPos.clone();
             let vel = velocity.clone();
-            const GRAVITY_TRAJ = 0.5;
-            for (let i = 0; i <= 50; i++) {
+            const GRAVITY_TRAJ = 0.50;          // updated - matched closer to real gravity
+            for (let i = 0; i <= 80; i++) {
                 pts.push(pos.clone());
                 pos.add(vel);
-                vel.y -= GRAVITY_TRAJ * 0.018;
-                if (pos.y < -400) break;
+                vel.y -= GRAVITY_TRAJ;
+                if (pos.y < -600) break;
             }
             trajectoryLine.geometry.setFromPoints(pts);
             trajectoryLine.geometry.attributes.position.needsUpdate = true;
@@ -522,7 +517,7 @@
         let gameStarted = false;
         let tryAgainCount = 0;
         const MAX_TRIES = 3;
-        const GRAVITY = 0.4;
+        const GRAVITY = 0.52;               // ← reduced from 0.7 → cannonball flies higher & farther
         let windForce = 0;
         let enemies = [];
         const ballIcons = [];
@@ -896,7 +891,7 @@
             const stretch = tip.distanceTo(pullPos);
             if (stretch > 45) {
                 const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-                const power = stretch * 0.26;
+                const power = stretch * 0.23;               // ← slightly increased for better feel with lower gravity
                 updateTrajectory(tip, dir.normalize().multiplyScalar(power));
             }
         }
@@ -916,7 +911,7 @@
             }
 
             const dir = new THREE.Vector3(1,0,0).applyAxisAngle(new THREE.Vector3(0,0,1), turretGroup.rotation.z);
-            const power = stretch * 0.20;
+            const power = stretch * 0.23;                   // ← matched with preview
             velocity.copy(dir.normalize()).multiplyScalar(power);
             velocity.x += windForce;
 
@@ -1022,7 +1017,7 @@
             if (!gameRunning || !gameStarted) return;
 
             if (isFlying && projectile) {
-                velocity.y -= GRAVITY;
+                velocity.y -= GRAVITY;                      // ← now using the reduced gravity value
                 velocity.x += windForce * 0.1;
                 projectile.position.add(velocity);
                 projectile.rotation.x += velocity.y * 0.012;

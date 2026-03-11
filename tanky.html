@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks</title>
+    <title>Angry Tanks-V1</title>
 
     <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
@@ -376,7 +376,15 @@
         function createSpring() {
             const pts = Array(61).fill().map(() => new THREE.Vector3());
             const geo = new THREE.BufferGeometry().setFromPoints(pts);
-            spring = new THREE.Line(geo, new THREE.LineBasicMaterial({ color: 0xff4444, linewidth: 10 }));
+            spring = new THREE.Line(
+                geo,
+                new THREE.LineBasicMaterial({
+                    color: 0xffffff,          // start white
+                    linewidth: 10,
+                    transparent: true,
+                    opacity: 0.8
+                })
+            );
             spring.renderOrder = -1;
             scene.add(spring);
             spring.visible = false;
@@ -395,7 +403,10 @@
             if (!spring) return;
             const dir = new THREE.Vector3().subVectors(end, start);
             const len = dir.length();
-            if (len < 25) { spring.visible = false; return; }
+            if (len < 25) { 
+                spring.visible = false; 
+                return; 
+            }
             dir.normalize();
             const perp = new THREE.Vector3(-dir.y, dir.x, 0);
             const offsetStart = start.clone().addScaledVector(dir, -3);
@@ -412,6 +423,33 @@
             }
             spring.geometry.setFromPoints(pts);
             spring.geometry.attributes.position.needsUpdate = true;
+
+            // ─── POWER COLOR GRADIENT ───────────────────────────────────────
+            const MAX_STRETCH = 150;
+            const stretchNorm = Math.min(len / MAX_STRETCH, 1); // 0 to 1
+
+            // White(1,1,1) → light yellow → strong red(1,0.27,0.13)
+            let r, g, b;
+            if (stretchNorm < 0.4) {
+                // white → slight yellow
+                const t = stretchNorm / 0.4;
+                r = 255;
+                g = 255;
+                b = Math.round(255 * (1 - t * 0.4));
+            } else {
+                // yellow → red
+                const t = (stretchNorm - 0.4) / 0.6;
+                r = 255;
+                g = Math.round(255 * (1 - t * 0.92));
+                b = Math.round(100 * (1 - t * 0.75));
+            }
+
+            const color = (r << 16) | (g << 8) | b;
+            spring.material.color.setHex(color);
+
+            // Brighter & more opaque at full power
+            spring.material.opacity = THREE.MathUtils.mapLinear(stretchNorm, 0, 1, 0.75, 1.0);
+
             spring.visible = true;
         }
 

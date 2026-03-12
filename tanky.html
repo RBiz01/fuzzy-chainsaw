@@ -6,46 +6,85 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks-v1</title>
+    <title>Angry Tanks V1.0</title>
 
+    <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
 
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
 
         body {
-            margin: 0; padding: 0; background: #000; overflow: hidden; touch-action: none;
+            margin: 0;
+            padding: 0;
+            background: #000;
+            overflow: hidden;
+            touch-action: none;
             font-family: 'Press Start 2P', cursive;
         }
 
         #container {
-            position: relative; width: 100vw; height: 100vh; background: #000;
-            display: flex; justify-content: center; align-items: center; overflow: hidden;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
         }
 
         canvas {
-            display: block; width: 100%; height: 100%;
-            max-width: 720px; max-height: 1080px;
-            object-fit: contain; image-rendering: pixelated; background: #000;
+            display: block;
+            width: 100%;
+            height: 100%;
+            max-width: 720px;
+            max-height: 1080px;
+            object-fit: contain;
+            image-rendering: pixelated;
+            background: #000;
         }
 
         #ui {
-            position: absolute; inset: 0; pointer-events: none; color: #fff;
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            color: #fff;
             text-shadow: 2px 2px 0 #000, -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000;
-            display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-            padding-top: 2vmin; gap: 1.8vmin; user-select: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            padding-top: 2vmin;
+            gap: 1.8vmin;
+            font-family: 'Press Start 2P', cursive;
+            user-select: none;
         }
 
         .ui-row {
-            display: flex; justify-content: center; align-items: center; gap: 5vmin;
-            background: rgba(0,0,0,0.65); padding: 1.4vmin 6vmin; border-radius: 3vmin;
-            border: 0.7vmin solid #444; min-width: 260px; max-width: 80vw; box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 5vmin;
+            background: rgba(0,0,0,0.65);
+            padding: 1.4vmin 6vmin;
+            border-radius: 3vmin;
+            border: 0.7vmin solid #444;
+            min-width: 260px;
+            max-width: 80vw;
+            box-sizing: border-box;
             pointer-events: none;
         }
 
-        .ui-row.single { gap: 0; padding: 1.2vmin 5vmin; }
+        .ui-row.single {
+            gap: 0;
+            padding: 1.2vmin 5vmin;
+        }
 
-        #row1 { border-color: #ffcc00; font-size: 5.6vmin; }
+        #row1 { 
+            border-color: #ffcc00; 
+            font-size: 5.6vmin;
+        }
         #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
         #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 6vmin; }
 
@@ -161,12 +200,39 @@
             max-width: 80%;
             text-align: center;
         }
+
+        #damage-bar-container {
+            position: absolute;
+            top: 1.5vmin;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70vw;
+            max-width: 520px;
+            height: 5vmin;
+            background: #222;
+            border: 0.6vmin solid #444;
+            border-radius: 3vmin;
+            overflow: hidden;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        #damage-bar {
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, #ff1744, #d50000);
+            transition: width 0.4s ease-out;
+        }
     </style>
 </head>
 <body>
     <div id="container">
         <canvas id="game"></canvas>
         <div id="ui">
+            <div id="damage-bar-container">
+                <div id="damage-bar"></div>
+            </div>
+
             <div id="row1" class="ui-row single">
                 <div id="score">SCORE: 00000</div>
             </div>
@@ -199,7 +265,6 @@
     <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
     <script>
-        // Fallback levels if external file fails
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
             console.warn("No levels loaded - using fallback");
             window.levels = [{
@@ -226,6 +291,7 @@
         const restartBtn  = document.getElementById('restart');
         const previewBtn  = document.getElementById('preview');
         const startScreen = document.getElementById('start-screen');
+        const damageBar   = document.getElementById('damage-bar');
 
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
@@ -575,6 +641,18 @@
                 ballsEl.appendChild(d);
                 ballIcons.push(d);
             }
+        }
+
+        function updateDamageBar() {
+            const percent = playerHealth / maxPlayerHealth;
+            damageBar.style.width = `${percent * 100}%`;
+
+            let color;
+            if (percent > 0.6) color = '#00e676';
+            else if (percent > 0.3) color = '#ffeb3b';
+            else color = '#ff1744';
+
+            damageBar.style.background = `linear-gradient(90deg, ${color}, ${new THREE.Color(color).multiplyScalar(0.7).getStyle()})`;
         }
 
         function createLoadedBall() {

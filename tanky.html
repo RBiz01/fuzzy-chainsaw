@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks-V1</title>
+    <title>Angry Tanks - Tune Physics</title>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
 
@@ -15,19 +15,12 @@
 
         body {
             margin: 0; padding: 0; background: #000; overflow: hidden; touch-action: none;
-            font-family: 'Press Start 2P', cursive;
+            font-family: 'Press Start 2P', cursive; color: white;
         }
 
-        #container {
-            position: relative; width: 100vw; height: 100vh; background: #000;
-            display: flex; justify-content: center; align-items: center; overflow: hidden;
-        }
+        #container { position: relative; width: 100vw; height: 100vh; background: #000; display: flex; justify-content: center; align-items: center; overflow: hidden; }
 
-        canvas { 
-            display: block; width: 100%; height: 100%; 
-            max-width: 720px; max-height: 1080px;
-            object-fit: contain; image-rendering: pixelated; background: #000; 
-        }
+        canvas { display: block; width: 100%; height: 100%; max-width: 720px; max-height: 1080px; object-fit: contain; image-rendering: pixelated; background: #000; }
 
         #ui {
             position: absolute; inset: 0; pointer-events: none; color: #fff;
@@ -36,12 +29,7 @@
             padding-top: 2vmin; gap: 1.6vmin; user-select: none;
         }
 
-        .ui-row {
-            display: flex; justify-content: center; align-items: center; gap: 5vmin;
-            background: rgba(0,0,0,0.65); padding: 1.4vmin 6vmin; border-radius: 3vmin;
-            border: 0.7vmin solid #444; min-width: 260px; max-width: 80vw; box-sizing: border-box;
-            pointer-events: none;
-        }
+        .ui-row { display: flex; justify-content: center; align-items: center; gap: 5vmin; background: rgba(0,0,0,0.65); padding: 1.4vmin 6vmin; border-radius: 3vmin; border: 0.7vmin solid #444; min-width: 260px; max-width: 80vw; box-sizing: border-box; pointer-events: none; }
 
         .ui-row.single { gap: 0; padding: 1.2vmin 5vmin; }
 
@@ -49,24 +37,16 @@
         #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
         #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 4vmin; flex-wrap: wrap; }
 
-        #score    { color: #ffeb3b; white-space: nowrap; }
-        #level    { color: #00ffe9; }
-        #stars    { color: #ff9800; letter-spacing: 0.6vmin; }
-        #highscore{ color: #d0aaff; }
+        #score { color: #ffeb3b; white-space: nowrap; }
+        #level  { color: #00ffe9; }
+        #stars  { color: #ff9800; letter-spacing: 0.6vmin; }
+        #highscore { color: #d0aaff; }
 
         #balls { display: flex; gap: 2.4vmin; pointer-events: none; }
 
-        .cannon-ball-icon {
-            width: 7.5vmin; height: 7.5vmin; background: #222; border-radius: 50%;
-            border: 0.6vmin solid #555; box-shadow: inset 0 3px 8px #000, 0 1px 4px #fff4;
-        }
+        .cannon-ball-icon { width: 7.5vmin; height: 7.5vmin; background: #222; border-radius: 50%; border: 0.6vmin solid #555; box-shadow: inset 0 3px 8px #000, 0 1px 4px #fff4; }
 
-        .button {
-            position: absolute; bottom: 5vmin; width: 17vmin; height: 17vmin;
-            border: 1.3vmin solid #fff; border-radius: 50%; display: flex; align-items: center;
-            justify-content: center; font-size: 9vmin; pointer-events: all;
-            box-shadow: 0 2.4vmin 0 #000000aa; transition: all 0.12s;
-        }
+        .button { position: absolute; bottom: 5vmin; width: 17vmin; height: 17vmin; border: 1.3vmin solid #fff; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9vmin; pointer-events: all; box-shadow: 0 2.4vmin 0 #000000aa; transition: all 0.12s; }
 
         .button:active { transform: translateY(1.2vmin); box-shadow: 0 1.2vmin 0 #000000aa; }
 
@@ -75,41 +55,86 @@
         #preview { left: 50%; transform: translateX(-50%); background: #3f51b5; }
         #preview.active { background: #5c6bc0; }
 
-        #message {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            font-size: 8.5vmin; padding: 5vmin 8vmin; background: rgba(0,0,0,0.88);
-            border: 1.4vmin solid #ffeb3b; border-radius: 3.5vmin; text-align: center;
-            display: none; pointer-events: all; white-space: pre-line; line-height: 1.4; z-index: 90;
-        }
+        #message { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 8.5vmin; padding: 5vmin 8vmin; background: rgba(0,0,0,0.88); border: 1.4vmin solid #ffeb3b; border-radius: 3.5vmin; text-align: center; display: none; pointer-events: all; white-space: pre-line; line-height: 1.4; z-index: 90; }
 
-        .start-screen {
-            position: absolute; inset: 0; background: rgba(0,0,0,0.92);
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            pointer-events: all; z-index: 100; color: #fff;
-            text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000;
-        }
+        .start-screen { position: absolute; inset: 0; background: rgba(0,0,0,0.92); display: flex; flex-direction: column; align-items: center; justify-content: center; pointer-events: all; z-index: 100; color: #fff; text-shadow: 3px 3px 0 #000, -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000; }
 
-        .start-button {
-            font-size: 9vmin; line-height: 1.35; text-align: center; padding: 7vmin 16vmin;
-            background: linear-gradient(#ff4444, #cc0000); border: 1.5vmin solid #ffff00;
-            border-radius: 5vmin; box-shadow: 0 1.8vmin 0 #880000, inset 0 0.9vmin 1.6vmin rgba(255,255,255,0.3);
-            cursor: pointer; transition: all 0.15s; user-select: none; margin-bottom: 5vmin; white-space: pre-line;
-        }
+        .start-button { font-size: 9vmin; line-height: 1.35; text-align: center; padding: 7vmin 16vmin; background: linear-gradient(#ff4444, #cc0000); border: 1.5vmin solid #ffff00; border-radius: 5vmin; box-shadow: 0 1.8vmin 0 #880000, inset 0 0.9vmin 1.6vmin rgba(255,255,255,0.3); cursor: pointer; transition: all 0.15s; user-select: none; margin-bottom: 5vmin; white-space: pre-line; }
 
         .start-button:active { transform: translateY(0.9vmin); box-shadow: 0 0.9vmin 0 #880000; }
 
         .start-hint { font-size: 4vmin; color: #88ff88; opacity: 0.85; max-width: 80%; text-align: center; }
 
-        #damage-bar-container {
-            width: 80vw; max-width: 480px; height: 6vmin; background: #1a1a1a;
-            border: 0.8vmin solid #555; border-radius: 4vmin; overflow: hidden;
-            box-shadow: 0 0 12px rgba(0,0,0,0.7), inset 0 2px 6px rgba(255,255,255,0.08);
-            pointer-events: none; margin-top: 1vmin;
+        #damage-bar-container { width: 80vw; max-width: 480px; height: 6vmin; background: #1a1a1a; border: 0.8vmin solid #555; border-radius: 4vmin; overflow: hidden; box-shadow: 0 0 12px rgba(0,0,0,0.7), inset 0 2px 6px rgba(255,255,255,0.08); pointer-events: none; margin-top: 1vmin; }
+
+        #damage-bar { height: 100%; width: 100%; transition: width 0.45s ease-out, background 0.45s ease; background: linear-gradient(90deg, #00e676, #66bb6a); box-shadow: inset 0 1px 4px rgba(255,255,255,0.3); }
+
+        /* ─────────────────────────────────────────────── */
+        /*               Physics Tuning Sliders               */
+        /* ─────────────────────────────────────────────── */
+
+        #tune-panel {
+            position: absolute;
+            bottom: 22vmin;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90vw;
+            max-width: 600px;
+            pointer-events: all;
+            z-index: 80;
+            display: none;
+            flex-direction: column;
+            gap: 2vmin;
+            background: rgba(0,0,0,0.75);
+            padding: 3vmin;
+            border-radius: 4vmin;
+            border: 0.6vmin solid #555;
         }
-        #damage-bar {
-            height: 100%; width: 100%; transition: width 0.45s ease-out, background 0.45s ease;
-            background: linear-gradient(90deg, #00e676, #66bb6a);
-            box-shadow: inset 0 1px 4px rgba(255,255,255,0.3);
+
+        .slider-row {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8vmin;
+        }
+
+        .slider-label {
+            font-size: 3.4vmin;
+            text-align: center;
+            color: #88ff88;
+        }
+
+        .slider-value {
+            font-size: 3.8vmin;
+            text-align: center;
+            color: #ffeb3b;
+            min-width: 10ch;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            height: 5vmin;
+            background: #333;
+            border-radius: 3vmin;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 9vmin;
+            height: 9vmin;
+            background: #00e676;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00e67688;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 9vmin;
+            height: 9vmin;
+            background: #00e676;
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 8px #00e67688;
         }
     </style>
 </head>
@@ -140,6 +165,27 @@
                 <div class="start-button">START GAME<br>(pull & aim to shoot)</div>
                 <div class="start-hint">Tap to begin • Fullscreen mode</div>
             </div>
+
+            <!-- Tuning panel (hidden until game starts) -->
+            <div id="tune-panel">
+                <div class="slider-row">
+                    <div class="slider-label">Max Angle (deg)</div>
+                    <input type="range" id="maxAngle" min="30" max="85" value="65" step="1">
+                    <div class="slider-value" id="maxAngleValue">65°</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="slider-label">Power Multiplier</div>
+                    <input type="range" id="powerMult" min="0.6" max="2.2" value="1.0" step="0.05">
+                    <div class="slider-value" id="powerMultValue">1.00×</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="slider-label">Gravity Multiplier</div>
+                    <input type="range" id="gravityMult" min="0.6" max="1.6" value="1.0" step="0.05">
+                    <div class="slider-value" id="gravityMultValue">1.00×</div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -166,6 +212,24 @@
         const previewBtn  = document.getElementById('preview');
         const startScreen = document.getElementById('start-screen');
         const damageBar   = document.getElementById('damage-bar');
+        const tunePanel   = document.getElementById('tune-panel');
+
+        // Tuning controls
+        const maxAngleSlider    = document.getElementById('maxAngle');
+        const powerMultSlider   = document.getElementById('powerMult');
+        const gravityMultSlider = document.getElementById('gravityMult');
+        const maxAngleValue     = document.getElementById('maxAngleValue');
+        const powerMultValue    = document.getElementById('powerMultValue');
+        const gravityMultValue  = document.getElementById('gravityMultValue');
+
+        let maxAngleDeg    = 65;
+        let powerMultiplier = 1.0;
+        let gravityMultiplier = 1.0;
+
+        // Update display when sliders move
+        maxAngleSlider.oninput = () => { maxAngleDeg = +maxAngleSlider.value; maxAngleValue.textContent = maxAngleDeg + '°'; };
+        powerMultSlider.oninput = () => { powerMultiplier = +powerMultSlider.value; powerMultValue.textContent = powerMultiplier.toFixed(2) + '×'; };
+        gravityMultSlider.oninput = () => { gravityMultiplier = +gravityMultSlider.value; gravityMultValue.textContent = gravityMultiplier.toFixed(2) + '×'; };
 
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
@@ -233,9 +297,7 @@
         platformTexture.magFilter = THREE.NearestFilter; platformTexture.minFilter = THREE.NearestFilter;
         platformTexture.transparent = true; platformTexture.premultiplyAlpha = true;
 
-        const platformMaterial = new THREE.MeshBasicMaterial({
-            map: platformTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.1, color: 0xffffff
-        });
+        const platformMaterial = new THREE.MeshBasicMaterial({ map: platformTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.1, color: 0xffffff });
 
         const tankTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/tank1.png');
         const turretTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/turret1.png');
@@ -246,17 +308,11 @@
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8); playerPlatform.renderOrder = -2; tankGroup.add(playerPlatform);
 
-        const tankSprite = new THREE.Mesh(
-            new THREE.PlaneGeometry(160, 90),
-            new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
-        );
+        const tankSprite = new THREE.Mesh(new THREE.PlaneGeometry(160, 90), new THREE.MeshBasicMaterial({ map: tankTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 }));
         tankSprite.position.set(0, 10, 0); tankGroup.add(tankSprite);
 
         const turretGroup = new THREE.Group();
-        const turretSprite = new THREE.Mesh(
-            new THREE.PlaneGeometry(100, 80),
-            new THREE.MeshBasicMaterial({ map: turretTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 })
-        );
+        const turretSprite = new THREE.Mesh(new THREE.PlaneGeometry(100, 80), new THREE.MeshBasicMaterial({ map: turretTexture, transparent: true, side: THREE.DoubleSide, alphaTest: 0.05 }));
         turretSprite.position.set(18, 42, 5); turretGroup.add(turretSprite); tankGroup.add(turretGroup);
 
         tankGroup.position.set(-220, -340, 10); scene.add(tankGroup);
@@ -574,6 +630,8 @@
             if (!gameRunning || levelCleared || isFlying) return;
             const now = performance.now();
 
+            const maxAngleRad = THREE.MathUtils.degToRad(maxAngleDeg);
+
             enemies.forEach(enemy => {
                 if (!enemy.userData.alive) return;
                 if (now < enemy.userData.nextShotTime) return;
@@ -593,13 +651,15 @@
                 if (Math.random() < ENEMY_AIM_ACCURACY) {
                     const distFactor = THREE.MathUtils.clamp(horizontalDist / 800, 0.4, 1.8);
                     let power = 38 + distFactor * 58;
+                    power *= powerMultiplier;
                     const dir = toPlayer.normalize();
                     vel = dir.multiplyScalar(power);
                     vel.x += windForce * 0.7;
                 } else {
                     const angleOffset = (Math.random() - 0.5) * 0.9;
                     const baseAngle = Math.atan2(toPlayer.y, toPlayer.x) + angleOffset;
-                    const power = 40 + Math.random() * 45;
+                    let power = 40 + Math.random() * 45;
+                    power *= powerMultiplier;
                     vel = new THREE.Vector3(
                         Math.cos(baseAngle) * power,
                         Math.sin(baseAngle) * power,
@@ -607,13 +667,20 @@
                     );
                 }
 
-                // Strong clamps to prevent straight-up or unrealistic shots
-                vel.y = THREE.MathUtils.clamp(vel.y, -5, 110);
-                if (vel.y < 8 && horizontalDist > 400) {
-                    vel.y += 15 + Math.random() * 25;
+                // Clamp angle
+                const currentAngle = Math.atan2(vel.y, vel.x);
+                if (currentAngle > maxAngleRad) {
+                    const scale = Math.cos(maxAngleRad) / Math.cos(currentAngle);
+                    vel.x *= scale;
+                    vel.y = vel.x * Math.tan(maxAngleRad);
                 }
-                if (Math.abs(vel.x) < 8 && horizontalDist > 300) {
-                    vel.x += (enemy.position.x < tankGroup.position.x ? 20 : -20) * (Math.random() + 0.5);
+                if (currentAngle < -Math.PI/6) {  // no strong downward
+                    vel.y = -5;
+                }
+
+                // Force some arc on long shots
+                if (vel.y < 10 && horizontalDist > 500) {
+                    vel.y += 20 + Math.random() * 30;
                 }
 
                 createEnemyProjectile(barrelTip, vel);
@@ -636,7 +703,7 @@
             for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
                 const p = enemyProjectiles[i];
                 p.position.add(p.userData.velocity);
-                p.userData.velocity.y -= GRAVITY * 1.00;
+                p.userData.velocity.y -= GRAVITY * gravityMultiplier;
 
                 if (p.position.y < -360 || Math.abs(p.position.x) > 3200 || p.position.y < -1100) {
                     scene.remove(p); enemyProjectiles.splice(i,1); continue;
@@ -831,6 +898,7 @@
             if (gameStarted) return; e.preventDefault();
             gameStarted = true; gameRunning = true;
             if (startScreen) startScreen.style.display = 'none';
+            tunePanel.style.display = 'flex';  // show tuning panel
             await new Promise(r => setTimeout(r, 200));
             await initSounds(); await forceFullscreen();
             setTimeout(() => window.scrollTo(0, 1), 100);

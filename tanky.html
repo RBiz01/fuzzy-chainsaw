@@ -605,7 +605,7 @@
         const ALIEN_SPAWN_MIN = 22000;
         const ALIEN_SPAWN_MAX = 42000;
         const ALIEN_SPEED = 1.8;
-        const ALIEN_Y_MIN =100;      // higher = closer to top of screen
+        const ALIEN_Y_MIN = -200;      
         const ALIEN_Y_MAX = 101;
         const LASER_HEAL_PER_FRAME = 0.28;
         const LASER_ACTIVATION_RANGE = 160;
@@ -1354,8 +1354,8 @@
                         alien = null;
                         if (laserLine) laserLine.material.opacity = 0;
                     } else {
-                        const distY = Math.abs(alien.position.y - tankGroup.position.y);
-                        const shouldHeal = distY < LASER_ACTIVATION_RANGE;
+                        const distX = Math.abs(alien.position.x - tankGroup.position.x);
+                        const shouldHeal = distX < LASER_ACTIVATION_RANGE;
 
                         if (shouldHeal && playerHealth < maxPlayerHealth) {
                             const points = [

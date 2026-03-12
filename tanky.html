@@ -230,6 +230,18 @@
                 </div>
 
                 <div class="slider-row">
+                    <div class="slider-label">Min Power</div>
+                    <input type="range" id="minPower" min="0.3" max="2.0" value="0.6" step="0.05">
+                    <div class="slider-value" id="minPowerValue">0.60×</div>
+                </div>
+
+                <div class="slider-row">
+                    <div class="slider-label">Max Power</div>
+                    <input type="range" id="maxPower" min="0.5" max="3.0" value="1.8" step="0.05">
+                    <div class="slider-value" id="maxPowerValue">1.80×</div>
+                </div>
+
+                <div class="slider-row">
                     <div class="slider-label">Power Multiplier</div>
                     <input type="range" id="powerMult" min="0.5" max="2.5" value="1.0" step="0.05">
                     <div class="slider-value" id="powerMultValue">1.00×</div>
@@ -284,21 +296,29 @@
 
         let minAngleDeg     = 25;
         let maxAngleDeg     = 70;
+        let minPower        = 0.6;
+        let maxPower        = 1.8;
         let powerMultiplier = 1.0;
         let gravityMultiplier = 1.0;
 
         const minAngleSlider    = document.getElementById('minAngle');
         const maxAngleSlider    = document.getElementById('maxAngle');
+        const minPowerSlider    = document.getElementById('minPower');
+        const maxPowerSlider    = document.getElementById('maxPower');
         const powerMultSlider   = document.getElementById('powerMult');
         const gravityMultSlider = document.getElementById('gravityMult');
 
         const minAngleValue     = document.getElementById('minAngleValue');
         const maxAngleValue     = document.getElementById('maxAngleValue');
+        const minPowerValue     = document.getElementById('minPowerValue');
+        const maxPowerValue     = document.getElementById('maxPowerValue');
         const powerMultValue    = document.getElementById('powerMultValue');
         const gravityMultValue  = document.getElementById('gravityMultValue');
 
         minAngleSlider.oninput = () => { minAngleDeg = +minAngleSlider.value; minAngleValue.textContent = minAngleDeg + '°'; };
         maxAngleSlider.oninput = () => { maxAngleDeg = +maxAngleSlider.value; maxAngleValue.textContent = maxAngleDeg + '°'; };
+        minPowerSlider.oninput = () => { minPower = +minPowerSlider.value; minPowerValue.textContent = minPower.toFixed(2) + '×'; };
+        maxPowerSlider.oninput = () => { maxPower = +maxPowerSlider.value; maxPowerValue.textContent = maxPower.toFixed(2) + '×'; };
         powerMultSlider.oninput = () => { powerMultiplier = +powerMultSlider.value; powerMultValue.textContent = powerMultiplier.toFixed(2) + '×'; };
         gravityMultSlider.oninput = () => { gravityMultiplier = +gravityMultSlider.value; gravityMultValue.textContent = gravityMultiplier.toFixed(2) + '×'; };
 
@@ -802,16 +822,19 @@
                 let vel;
                 if (Math.random() < ENEMY_AIM_ACCURACY) {
                     const distFactor = THREE.MathUtils.clamp(horizontalDist / 800, 0.4, 1.8);
-                    let power = 38 + distFactor * 58;
-                    power *= powerMultiplier;
+                    let basePower = 38 + distFactor * 58;
+                    // Apply random power between minPower and maxPower
+                    const randomPower = minPower + Math.random() * (maxPower - minPower);
+                    let power = basePower * randomPower * powerMultiplier;
                     const dir = toPlayer.normalize();
                     vel = dir.multiplyScalar(power);
                     vel.x += windForce * 0.7;
                 } else {
                     const randomAngle = minAngleRad + Math.random() * (maxAngleRad - minAngleRad);
                     const direction = new THREE.Vector3(Math.cos(randomAngle), Math.sin(randomAngle), 0);
+                    const randomPower = minPower + Math.random() * (maxPower - minPower);
                     let power = 40 + Math.random() * 45;
-                    power *= powerMultiplier;
+                    power *= randomPower * powerMultiplier;
                     vel = direction.multiplyScalar(power);
                     vel.x += (Math.random() - 0.5) * 15;
                 }

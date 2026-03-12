@@ -198,7 +198,6 @@
             text-align: center;
         }
 
-        /* Damage bar – moved below BEST row */
         #damage-bar-container {
             width: 78vw;
             max-width: 460px;
@@ -239,7 +238,6 @@
                 <div id="stars">★☆☆</div>
             </div>
 
-            <!-- Damage bar moved here – below BEST row -->
             <div id="damage-bar-container">
                 <div id="damage-bar"></div>
             </div>
@@ -389,6 +387,10 @@
         tankTexture.magFilter = tankTexture.minFilter = THREE.NearestFilter;
         turretTexture.magFilter = turretTexture.minFilter = THREE.NearestFilter;
 
+        const alienTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/alien.png');
+        alienTexture.magFilter = THREE.NearestFilter;
+        alienTexture.minFilter = THREE.NearestFilter;
+
         const tankGroup = new THREE.Group();
         const playerPlatform = new THREE.Mesh(new THREE.PlaneGeometry(220, 130), platformMaterial);
         playerPlatform.position.set(0, -55, -8);
@@ -418,7 +420,7 @@
             return new THREE.Vector3(65, 18, 0).applyMatrix4(turretGroup.matrixWorld);
         }
 
-        let spring, trajectoryLine;
+        let spring, trajectoryLine, laserLine;
         let isPreviewActive = false;
         let previewPhase = 0;
         let previewStartTime = 0;
@@ -447,6 +449,22 @@
             trajectoryLine.renderOrder = 1;
             scene.add(trajectoryLine);
             trajectoryLine.visible = false;
+        }
+
+        function createLaserLine() {
+            const points = [new THREE.Vector3(), new THREE.Vector3()];
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            laserLine = new THREE.Line(
+                geometry,
+                new THREE.LineBasicMaterial({
+                    color: 0x00ffff,
+                    linewidth: 5,
+                    transparent: true,
+                    opacity: 0
+                })
+            );
+            laserLine.renderOrder = 5;
+            scene.add(laserLine);
         }
 
         function updateSpring(start, end) {
@@ -573,7 +591,6 @@
         const ENEMY_SHOOT_CHANCE = 0.64;
         const ENEMY_AIM_ACCURACY = 0.60;
 
-        // Locked-in values from your tuning
         const ENEMY_MIN_ANGLE_DEG = 104;
         const ENEMY_MAX_ANGLE_DEG = 163;
         const ENEMY_MIN_POWER = 0.45;
@@ -581,21 +598,31 @@
         const ENEMY_POWER_MULTIPLIER = 0.50;
         const ENEMY_GRAVITY_MULTIPLIER = 1.20;
 
+        // Alien (helpful) variables
+        let alien = null;
+        let alienActive = false;
+        let alienSpawnTimer = 0;
+        const ALIEN_SPAWN_MIN = 22000;
+        const ALIEN_SPAWN_MAX = 42000;
+        const ALIEN_SPEED = 1.8;
+        const ALIEN_Y_MIN = 280;
+        const ALIEN_Y_MAX = 420;
+        const LASER_HEAL_PER_FRAME = 0.28;
+        const LASER_ACTIVATION_RANGE = 160;
+
         let cannonSynth, enemyCannonSynth, explosionSynth;
 
         async function initSounds() {
             await Tone.start();
             console.log("Tone.js audio context started");
 
-            // Player cannon sound (bright, punchy)
             cannonSynth = new Tone.Synth({
                 oscillator: { type: "sawtooth" },
                 envelope: { attack: 0.001, decay: 0.1, sustain: 0.05, release: 0.2 }
             }).toDestination();
 
-            // Enemy cannon sound (lower, raspier, more aggressive)
             enemyCannonSynth = new Tone.Synth({
-                oscillator: { type: "sawtooth", detune: -300 }, // lower and slightly detuned
+                oscillator: { type: "sawtooth", detune: -300 },
                 envelope: { attack: 0.002, decay: 0.08, sustain: 0.02, release: 0.15 }
             }).toDestination();
 
@@ -736,6 +763,37 @@
             enemyProjectiles.push(proj);
         }
 
+        function trySpawnAlien() {
+            if (alienActive || !gameRunning || levelCleared) return;
+
+            alienSpawnTimer += 16.6;
+            if (alienSpawnTimer < ALIEN_SPAWN_MIN) return;
+
+            if (Math.random() < 0.018 || alienSpawnTimer > ALIEN_SPAWN_MAX) {
+                alienSpawnTimer = 0;
+
+                if (alien) scene.remove(alien);
+
+                alien = new THREE.Mesh(
+                    new THREE.PlaneGeometry(140, 84),
+                    new THREE.MeshBasicMaterial({
+                        map: alienTexture,
+                        transparent: true,
+                        side: THREE.DoubleSide,
+                        alphaTest: 0.02
+                    })
+                );
+
+                const y = - (Math.random() * (ALIEN_Y_MAX - ALIEN_Y_MIN) + ALIEN_Y_MIN);
+                alien.position.set(1600, y, 30);
+                alien.userData = { active: true };
+                scene.add(alien);
+                alienActive = true;
+
+                showMessage("FRIENDLY ALIEN APPROACHING!", "#88ffdd", 1800);
+            }
+        }
+
         function spawnLevel(levelIndex) {
             scene.traverse((obj) => {
                 if (obj.isMesh && obj.material && obj.material.map === platformTexture) {
@@ -748,9 +806,14 @@
             enemies.forEach(e => scene.remove(e));
             covers.forEach(c => scene.remove(c));
             enemyProjectiles.forEach(p => scene.remove(p));
+            if (alien) scene.remove(alien);
             enemies = [];
             covers = [];
             enemyProjectiles = [];
+            alien = null;
+            alienActive = false;
+            alienSpawnTimer = 0;
+            if (laserLine) laserLine.material.opacity = 0;
 
             const effectiveIndex = levelIndex % window.levels.length;
             const lvlData = window.levels[effectiveIndex];
@@ -941,7 +1004,6 @@
 
                 createEnemyProjectile(barrelTip, vel);
 
-                // Play enemy shooting sound
                 playEnemyCannonFire();
 
                 const tur = enemy.children[2];
@@ -1277,6 +1339,46 @@
                 p.rotation.z += p.userData.velocity.x * 0.006;
             });
 
+            // Alien helper logic
+            if (gameRunning && !levelCleared) {
+                trySpawnAlien();
+
+                if (alienActive && alien) {
+                    alien.position.x -= ALIEN_SPEED;
+                    alien.scale.x = -1;
+
+                    if (alien.position.x < -1800) {
+                        scene.remove(alien);
+                        alienActive = false;
+                        alien = null;
+                        if (laserLine) laserLine.material.opacity = 0;
+                    } else {
+                        const distY = Math.abs(alien.position.y - tankGroup.position.y);
+                        const shouldHeal = distY < LASER_ACTIVATION_RANGE;
+
+                        if (shouldHeal && playerHealth < maxPlayerHealth) {
+                            const points = [
+                                alien.position.clone(),
+                                tankGroup.position.clone().add(new THREE.Vector3(0, 30, 0))
+                            ];
+                            laserLine.geometry.setFromPoints(points);
+                            laserLine.material.opacity = 0.6 + Math.sin(performance.now() * 0.014) * 0.35;
+
+                            playerHealth = Math.min(maxPlayerHealth, playerHealth + LASER_HEAL_PER_FRAME);
+                            updateDamageBar();
+
+                            if (Math.random() < 0.004) {
+                                showMessage("ALIEN RECHARGING!", "#00ffff", 1200);
+                            }
+                        } else {
+                            laserLine.material.opacity = 0;
+                        }
+                    }
+                } else {
+                    if (laserLine) laserLine.material.opacity = 0;
+                }
+            }
+
             if (!isFlying && !levelCleared && enemies.length === 0 && shotsUsed > 0) {
                 levelComplete();
             }
@@ -1325,6 +1427,7 @@
             highscoreEl.textContent = `BEST: ${highScore.toString().padStart(5,'0')}`;
             createSpring();
             createTrajectoryLine();
+            createLaserLine();
             setNewBackground();
             spawnLevel(0);
             updateUI();

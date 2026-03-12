@@ -8,7 +8,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <title>Angry Tanks-V1</title>
 
-    <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
 
     <style>
@@ -101,7 +100,6 @@
 
         .start-hint { font-size: 4vmin; color: #88ff88; opacity: 0.85; max-width: 80%; text-align: center; }
 
-        /* Improved damage/power bar styling */
         #damage-bar-container {
             width: 80vw; max-width: 480px; height: 6vmin; background: #1a1a1a;
             border: 0.8vmin solid #555; border-radius: 4vmin; overflow: hidden;
@@ -444,7 +442,7 @@
         }
 
         function createEnemyProjectile(startPos, velocity) {
-            const proj = new THREE.Mesh(new THREE.SphereGeometry(16,14,14), new THREE.MeshPhongMaterial({color:0x550000, shininess:60}));
+            const proj = new THREE.Mesh(new THREE.SphereGeometry(14,12,12), new THREE.MeshPhongMaterial({color:0x660000, shininess:70}));
             proj.position.copy(startPos);
             proj.userData = { velocity: velocity.clone(), owner: 'enemy' };
             scene.add(proj); enemyProjectiles.push(proj);
@@ -494,9 +492,9 @@
             damageBar.style.width = `${percent * 100}%`;
 
             let color;
-            if (percent > 0.6) color = '#00e676';           // green
-            else if (percent > 0.3) color = '#ffeb3b';      // yellow
-            else color = '#ff1744';                         // red
+            if (percent > 0.6) color = '#00e676';
+            else if (percent > 0.3) color = '#ffeb3b';
+            else color = '#ff1744';
 
             damageBar.style.background = `linear-gradient(90deg, ${color}, ${new THREE.Color(color).multiplyScalar(0.7).getStyle()})`;
         }
@@ -587,26 +585,36 @@
 
                 const barrelTip = new THREE.Vector3(-65, 18, 0).applyMatrix4(enemy.matrixWorld);
 
+                const toPlayer = tankGroup.position.clone().sub(enemy.position);
+                const horizontalDist = Math.abs(toPlayer.x);
+                toPlayer.y += 40 + Math.random() * 70;
+
                 let vel;
                 if (Math.random() < ENEMY_AIM_ACCURACY) {
-                    const toPlayer = tankGroup.position.clone().sub(enemy.position);
-                    toPlayer.y += 50 + Math.random() * 60; // upward bias for nice arc
-                    const dist = toPlayer.length();
-                    let power = 0.18 + (dist / 1200) * 0.28; // scaling similar to player
-                    power *= THREE.MathUtils.mapLinear(dist, 300, 1600, 0.9, 1.3);
+                    const distFactor = THREE.MathUtils.clamp(horizontalDist / 800, 0.4, 1.8);
+                    let power = 38 + distFactor * 58;
                     const dir = toPlayer.normalize();
-                    vel = dir.multiplyScalar(power * 100);
-                    vel.x += windForce * 0.6;
+                    vel = dir.multiplyScalar(power);
+                    vel.x += windForce * 0.7;
                 } else {
-                    const angle = (Math.random() - 0.3) * Math.PI * 0.7; // biased upward
-                    const power = 35 + Math.random() * 45;
-                    vel = new THREE.Vector3(Math.cos(angle) * power, Math.sin(angle) * power, 0);
+                    const angleOffset = (Math.random() - 0.5) * 0.9;
+                    const baseAngle = Math.atan2(toPlayer.y, toPlayer.x) + angleOffset;
+                    const power = 40 + Math.random() * 45;
+                    vel = new THREE.Vector3(
+                        Math.cos(baseAngle) * power,
+                        Math.sin(baseAngle) * power,
+                        0
+                    );
                 }
 
-                // Clamp to prevent bad directions
-                if (vel.y < -15) vel.y = -15 + Math.random() * 10;
-                if (vel.x < -20 && enemy.position.x > tankGroup.position.x) vel.x = -20;
-                if (vel.y > 90) vel.y = 90; // no straight up
+                // Strong clamps to prevent straight-up or unrealistic shots
+                vel.y = THREE.MathUtils.clamp(vel.y, -5, 110);
+                if (vel.y < 8 && horizontalDist > 400) {
+                    vel.y += 15 + Math.random() * 25;
+                }
+                if (Math.abs(vel.x) < 8 && horizontalDist > 300) {
+                    vel.x += (enemy.position.x < tankGroup.position.x ? 20 : -20) * (Math.random() + 0.5);
+                }
 
                 createEnemyProjectile(barrelTip, vel);
 
@@ -628,7 +636,7 @@
             for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
                 const p = enemyProjectiles[i];
                 p.position.add(p.userData.velocity);
-                p.userData.velocity.y -= GRAVITY * 0.96;
+                p.userData.velocity.y -= GRAVITY * 1.00;
 
                 if (p.position.y < -360 || Math.abs(p.position.x) > 3200 || p.position.y < -1100) {
                     scene.remove(p); enemyProjectiles.splice(i,1); continue;

@@ -727,6 +727,7 @@
                 new THREE.MeshPhongMaterial({ color: 0x550000, shininess: 60 })
             );
             proj.position.copy(startPos);
+            proj.position.z = 10;
             proj.userData = {
                 velocity: velocity.clone(),
                 owner: 'enemy'

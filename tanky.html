@@ -80,7 +80,7 @@
             width: 14vmin; height: 14vmin; font-size: 7vmin;
             background: #673ab7; border: 1.1vmin solid #fff; border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            pointer-events: all; box-shadow: 0 2vmin 0 #000000aa; z-index: 85;
+            pointer-events: all; box-shadow: 0 2vmin 0 #000000aa; z-index: 95;
         }
 
         #tune-toggle:active { transform: translateY(1vmin); box-shadow: 0 1vmin 0 #000000aa; }
@@ -131,7 +131,7 @@
             width: 88vw;
             max-width: 520px;
             pointer-events: all;
-            z-index: 80;
+            z-index: 90;
             display: none;
             flex-direction: column;
             gap: 1.8vmin;
@@ -209,8 +209,6 @@
             <div id="restart" class="button">⟳</div>
             <div id="preview" class="button">📷</div>
 
-            <div id="tune-toggle">📊</div>
-
             <div id="message"></div>
 
             <div id="start-screen" class="start-screen">
@@ -244,13 +242,16 @@
                 </div>
             </div>
         </div>
+
+        <!-- Toggle button outside #ui for reliable clicks -->
+        <div id="tune-toggle">📊</div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r134/three.min.js"></script>
     <script src="https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/levels.js"></script>
 
     <script>
-        // Fallback levels if external file fails
+        // Fallback if levels.js fails to load
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
             console.warn("No levels loaded - using fallback");
             window.levels = [{
@@ -302,7 +303,8 @@
         gravityMultSlider.oninput = () => { gravityMultiplier = +gravityMultSlider.value; gravityMultValue.textContent = gravityMultiplier.toFixed(2) + '×'; };
 
         tuneToggle.addEventListener('click', () => {
-            tunePanel.style.display = tunePanel.style.display === 'flex' ? 'none' : 'flex';
+            console.log("Toggle clicked! Current display:", tunePanel.style.display);
+            tunePanel.style.display = (tunePanel.style.display === 'flex') ? 'none' : 'flex';
         });
 
         const scene = new THREE.Scene();
@@ -992,10 +994,6 @@
             startScreen.addEventListener('click', startGame);
             startScreen.addEventListener('touchstart', startGame, {passive:false});
         }
-
-        tuneToggle.addEventListener('click', () => {
-            tunePanel.style.display = tunePanel.style.display === 'flex' ? 'none' : 'flex';
-        });
 
         function animate() {
             requestAnimationFrame(animate);

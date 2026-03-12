@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks</title>
+    <title>Angry Tanks V1.0</title>
 
     <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
@@ -463,7 +463,7 @@
                     opacity: 0
                 })
             );
-            laserLine.renderOrder = 5;
+            laserLine.renderOrder = 210; // very high – above alien
             scene.add(laserLine);
         }
 
@@ -605,8 +605,8 @@
         const ALIEN_SPAWN_MIN = 22000;
         const ALIEN_SPAWN_MAX = 42000;
         const ALIEN_SPEED = 1.8;
-        const ALIEN_Y_MIN = 280;
-        const ALIEN_Y_MAX = 420;
+        const ALIEN_Y_MIN = 380;      // higher = closer to top of screen
+        const ALIEN_Y_MAX = 520;
         const LASER_HEAL_PER_FRAME = 0.28;
         const LASER_ACTIVATION_RANGE = 160;
 
@@ -785,12 +785,13 @@
                 );
 
                 const y = - (Math.random() * (ALIEN_Y_MAX - ALIEN_Y_MIN) + ALIEN_Y_MIN);
-                alien.position.set(1600, y, 30);
+                alien.position.set(1600, y, 90);     // high z → draws in front
+                alien.renderOrder = 200;             // very high render priority
                 alien.userData = { active: true };
                 scene.add(alien);
                 alienActive = true;
 
-                showMessage("FRIENDLY ALIEN APPROACHING!", "#88ffdd", 1800);
+                // No spawn message
             }
         }
 

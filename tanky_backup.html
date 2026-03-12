@@ -6,7 +6,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <title>Angry Tanks-V1</title>
+    <title>Angry Tanks</title>
 
     <!-- Tone.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
@@ -81,10 +81,7 @@
             padding: 1.2vmin 5vmin;
         }
 
-        #row1 { 
-            border-color: #ffcc00; 
-            font-size: 5.6vmin;
-        }
+        #row1 { border-color: #ffcc00; font-size: 5.6vmin; }
         #row2 { border-color: #00ffcc; font-size: 4.8vmin; }
         #row3 { border-color: #aa44ff; font-size: 4.2vmin; gap: 6vmin; }
 
@@ -200,6 +197,28 @@
             max-width: 80%;
             text-align: center;
         }
+
+        /* Damage bar – moved below BEST row */
+        #damage-bar-container {
+            width: 78vw;
+            max-width: 460px;
+            height: 5.5vmin;
+            background: #1a1a1a;
+            border: 0.7vmin solid #555;
+            border-radius: 3vmin;
+            overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.6), inset 0 1.5px 5px rgba(255,255,255,0.08);
+            pointer-events: none;
+            margin-top: 1vmin;
+        }
+
+        #damage-bar {
+            height: 100%;
+            width: 100%;
+            transition: width 0.45s ease-out, background 0.45s ease;
+            background: linear-gradient(90deg, #00e676, #66bb6a);
+            box-shadow: inset 0 1px 4px rgba(255,255,255,0.25);
+        }
     </style>
 </head>
 <body>
@@ -218,6 +237,11 @@
             <div id="row3" class="ui-row">
                 <div id="highscore">BEST: 00000</div>
                 <div id="stars">★☆☆</div>
+            </div>
+
+            <!-- Damage bar moved here – below BEST row -->
+            <div id="damage-bar-container">
+                <div id="damage-bar"></div>
             </div>
 
             <div id="quit" class="button">⏹</div>
@@ -239,9 +263,17 @@
 
     <script>
         if (typeof window.levels === 'undefined' || !Array.isArray(window.levels) || window.levels.length === 0) {
-            console.error("Failed to load levels");
-            document.body.innerHTML = '<h1 style="color:white;text-align:center;margin-top:40vh;">Error: Could not load levels</h1>';
-            throw new Error("No levels available");
+            console.warn("No levels loaded - using fallback");
+            window.levels = [{
+                enemies: [
+                    {x: 400, y: -200},
+                    {x: 700, y: -150},
+                    {x: 1000, y: -250},
+                    {x: 1300, y: -180}
+                ],
+                baseScore: 1000,
+                theme: 'normal'
+            }];
         }
 
         const container   = document.getElementById('container');
@@ -256,6 +288,7 @@
         const restartBtn  = document.getElementById('restart');
         const previewBtn  = document.getElementById('preview');
         const startScreen = document.getElementById('start-screen');
+        const damageBar   = document.getElementById('damage-bar');
 
         const scene = new THREE.Scene();
         const camera = new THREE.OrthographicCamera(-360, 360, 640, -640, 0.1, 2000);
@@ -277,7 +310,6 @@
 
         const textureLoader = new THREE.TextureLoader();
 
-        // Ground (foreground layer)
         const groundTexture = textureLoader.load('https://rbiz01.github.io/fuzzy-chainsaw/tanky_assets/ground.png');
         groundTexture.magFilter = THREE.NearestFilter;
         groundTexture.minFilter = THREE.NearestFilter;
@@ -289,9 +321,8 @@
             alphaTest: 0.01
         });
 
-        const groundGeometry = new THREE.PlaneGeometry(4500, 500);
-        const ground = new THREE.Mesh(groundGeometry, groundMaterial);
-        ground.position.set(0, -550, -50); // ← ADJUST HEIGHT HERE (y value)
+        const ground = new THREE.Mesh(new THREE.PlaneGeometry(4500, 500), groundMaterial);
+        ground.position.set(0, -550, -50);
         ground.renderOrder = -5;
         scene.add(ground);
 
@@ -473,9 +504,9 @@
             let pos = startPos.clone();
             let vel = velocity.clone();
 
-            const GRAVITY_TRAJ = 0.52;      // match real gravity
-            const TIME_STEP = 1.0;          // simulate per frame
-            const MAX_STEPS = 140;          // enough steps for visible arc
+            const GRAVITY_TRAJ = 0.52;
+            const TIME_STEP = 1.0;
+            const MAX_STEPS = 140;
 
             for (let i = 0; i < MAX_STEPS; i++) {
                 pts.push(pos.clone());
@@ -529,15 +560,43 @@
         let covers = [];
         let levelCleared = false;
 
-        let cannonSynth, explosionSynth;
+        let playerHealth = 100;
+        const maxPlayerHealth = 100;
+        const DAMAGE_PER_HIT = 28;
+        const PLAYER_HIT_FLASH_DURATION = 180;
+        let enemyProjectiles = [];
+
+        const ENEMY_FIRST_SHOT_MIN = 900;
+        const ENEMY_FIRST_SHOT_MAX = 4800;
+        const ENEMY_SHOT_INTERVAL_MIN = 2600;
+        const ENEMY_SHOT_INTERVAL_MAX = 5200;
+        const ENEMY_SHOOT_CHANCE = 0.64;
+        const ENEMY_AIM_ACCURACY = 0.60;
+
+        // Locked-in values from your tuning
+        const ENEMY_MIN_ANGLE_DEG = 104;
+        const ENEMY_MAX_ANGLE_DEG = 163;
+        const ENEMY_MIN_POWER = 0.45;
+        const ENEMY_MAX_POWER = 0.80;
+        const ENEMY_POWER_MULTIPLIER = 0.50;
+        const ENEMY_GRAVITY_MULTIPLIER = 1.20;
+
+        let cannonSynth, enemyCannonSynth, explosionSynth;
 
         async function initSounds() {
             await Tone.start();
             console.log("Tone.js audio context started");
 
+            // Player cannon sound (bright, punchy)
             cannonSynth = new Tone.Synth({
                 oscillator: { type: "sawtooth" },
                 envelope: { attack: 0.001, decay: 0.1, sustain: 0.05, release: 0.2 }
+            }).toDestination();
+
+            // Enemy cannon sound (lower, raspier, more aggressive)
+            enemyCannonSynth = new Tone.Synth({
+                oscillator: { type: "sawtooth", detune: -300 }, // lower and slightly detuned
+                envelope: { attack: 0.002, decay: 0.08, sustain: 0.02, release: 0.15 }
             }).toDestination();
 
             const noise = new Tone.NoiseSynth({
@@ -564,6 +623,12 @@
             cannonSynth.frequency.rampTo("G3", 0.08);
         }
 
+        function playEnemyCannonFire() {
+            if (!enemyCannonSynth) return;
+            enemyCannonSynth.triggerAttackRelease("A1", "8n");
+            enemyCannonSynth.frequency.rampTo("D3", 0.07);
+        }
+
         function playExplosion() {
             if (!explosionSynth) return;
             const { noise, filter } = explosionSynth;
@@ -586,6 +651,18 @@
                 ballsEl.appendChild(d);
                 ballIcons.push(d);
             }
+        }
+
+        function updateDamageBar() {
+            const percent = playerHealth / maxPlayerHealth;
+            damageBar.style.width = `${percent * 100}%`;
+
+            let color;
+            if (percent > 0.6) color = '#00e676';
+            else if (percent > 0.3) color = '#ffeb3b';
+            else color = '#ff1744';
+
+            damageBar.style.background = `linear-gradient(90deg, ${color}, ${new THREE.Color(color).multiplyScalar(0.7).getStyle()})`;
         }
 
         function createLoadedBall() {
@@ -644,6 +721,21 @@
             return g;
         }
 
+        function createEnemyProjectile(startPos, velocity) {
+            const proj = new THREE.Mesh(
+                new THREE.SphereGeometry(16, 14, 14),
+                new THREE.MeshPhongMaterial({ color: 0x550000, shininess: 60 })
+            );
+            proj.position.copy(startPos);
+            proj.position.z = 10;
+            proj.userData = {
+                velocity: velocity.clone(),
+                owner: 'enemy'
+            };
+            scene.add(proj);
+            enemyProjectiles.push(proj);
+        }
+
         function spawnLevel(levelIndex) {
             scene.traverse((obj) => {
                 if (obj.isMesh && obj.material && obj.material.map === platformTexture) {
@@ -655,8 +747,10 @@
 
             enemies.forEach(e => scene.remove(e));
             covers.forEach(c => scene.remove(c));
+            enemyProjectiles.forEach(p => scene.remove(p));
             enemies = [];
             covers = [];
+            enemyProjectiles = [];
 
             const effectiveIndex = levelIndex % window.levels.length;
             const lvlData = window.levels[effectiveIndex];
@@ -664,6 +758,12 @@
             lvlData.enemies.forEach(p => {
                 const armored = Math.random() < 0.1 + (effectiveIndex * 0.02);
                 enemies.push(createEnemyTank(p.x, p.y, armored));
+            });
+
+            const now = performance.now();
+            enemies.forEach(enemy => {
+                const firstDelay = ENEMY_FIRST_SHOT_MIN + Math.random() * (ENEMY_FIRST_SHOT_MAX - ENEMY_FIRST_SHOT_MIN);
+                enemy.userData.nextShotTime = now + firstDelay;
             });
 
             if (lvlData.theme === 'expert') {
@@ -678,6 +778,8 @@
             turretGroup.rotation.z = 0;
             tryAgainCount = shotsUsed = 0;
             levelCleared = false;
+            playerHealth = maxPlayerHealth;
+            updateDamageBar();
             updateBallsUI();
             createLoadedBall();
             resetCamera(true);
@@ -780,6 +882,123 @@
             }
         }
 
+        function updateEnemyAI() {
+            if (!gameRunning || levelCleared || isFlying) return;
+            const now = performance.now();
+
+            const minAngleRad = THREE.MathUtils.degToRad(ENEMY_MIN_ANGLE_DEG);
+            const maxAngleRad = THREE.MathUtils.degToRad(ENEMY_MAX_ANGLE_DEG);
+
+            enemies.forEach(enemy => {
+                if (!enemy.userData.alive) return;
+                if (now < enemy.userData.nextShotTime) return;
+
+                if (Math.random() > ENEMY_SHOOT_CHANCE) {
+                    enemy.userData.nextShotTime = now + 700 + Math.random() * 1500;
+                    return;
+                }
+
+                const barrelTip = new THREE.Vector3(-65, 18, 0).applyMatrix4(enemy.matrixWorld);
+
+                const toPlayer = tankGroup.position.clone().sub(enemy.position);
+                const horizontalDist = Math.abs(toPlayer.x);
+                toPlayer.y += 40 + Math.random() * 70;
+
+                let vel;
+                if (Math.random() < ENEMY_AIM_ACCURACY) {
+                    const distFactor = THREE.MathUtils.clamp(horizontalDist / 800, 0.4, 1.8);
+                    let basePower = 38 + distFactor * 58;
+                    const randomPower = ENEMY_MIN_POWER + Math.random() * (ENEMY_MAX_POWER - ENEMY_MIN_POWER);
+                    let power = basePower * randomPower * ENEMY_POWER_MULTIPLIER;
+                    const dir = toPlayer.normalize();
+                    vel = dir.multiplyScalar(power);
+                    vel.x += windForce * 0.7;
+                } else {
+                    const randomAngle = minAngleRad + Math.random() * (maxAngleRad - minAngleRad);
+                    const direction = new THREE.Vector3(Math.cos(randomAngle), Math.sin(randomAngle), 0);
+                    const randomPower = ENEMY_MIN_POWER + Math.random() * (ENEMY_MAX_POWER - ENEMY_MIN_POWER);
+                    let power = 40 + Math.random() * 45;
+                    power *= randomPower * ENEMY_POWER_MULTIPLIER;
+                    vel = direction.multiplyScalar(power);
+                    vel.x += (Math.random() - 0.5) * 15;
+                }
+
+                const currentAngle = Math.atan2(vel.y, vel.x);
+                if (currentAngle > maxAngleRad) {
+                    const scale = Math.cos(maxAngleRad) / Math.cos(currentAngle);
+                    vel.x *= scale;
+                    vel.y = vel.x * Math.tan(maxAngleRad);
+                }
+                if (currentAngle < minAngleRad) {
+                    const scale = Math.cos(minAngleRad) / Math.cos(currentAngle);
+                    vel.x *= scale;
+                    vel.y = vel.x * Math.tan(minAngleRad);
+                }
+
+                if (vel.y < 10 && horizontalDist > 500) {
+                    vel.y += 20 + Math.random() * 30;
+                }
+
+                createEnemyProjectile(barrelTip, vel);
+
+                // Play enemy shooting sound
+                playEnemyCannonFire();
+
+                const tur = enemy.children[2];
+                const origRot = tur.rotation.z;
+                tur.rotation.z -= 0.20;
+                setTimeout(() => tur.rotation.z = origRot, 130);
+
+                const nextDelay = ENEMY_SHOT_INTERVAL_MIN + Math.random() * (ENEMY_SHOT_INTERVAL_MAX - ENEMY_SHOT_INTERVAL_MIN);
+                enemy.userData.nextShotTime = now + nextDelay;
+            });
+        }
+
+        function checkPlayerHit() {
+            if (!tankGroup.userData.hitbox) {
+                tankGroup.userData.hitbox = new THREE.Box3(new THREE.Vector3(-90,-80,-20), new THREE.Vector3(90,80,20));
+            }
+
+            for (let i = enemyProjectiles.length - 1; i >= 0; i--) {
+                const p = enemyProjectiles[i];
+                p.position.add(p.userData.velocity);
+                p.userData.velocity.y -= GRAVITY * ENEMY_GRAVITY_MULTIPLIER;
+
+                if (p.position.y < -360 || Math.abs(p.position.x) > 3200 || p.position.y < -1100) {
+                    scene.remove(p);
+                    enemyProjectiles.splice(i, 1);
+                    continue;
+                }
+
+                const pBox = new THREE.Box3().setFromObject(p);
+                const playerBox = tankGroup.userData.hitbox.clone().applyMatrix4(tankGroup.matrixWorld);
+
+                if (pBox.intersectsBox(playerBox)) {
+                    playerHealth = Math.max(0, playerHealth - DAMAGE_PER_HIT);
+                    updateDamageBar();
+
+                    tankSprite.material.color.set(0xff4444);
+                    setTimeout(() => tankSprite.material.color.set(0xffffff), PLAYER_HIT_FLASH_DURATION);
+
+                    playExplosion();
+
+                    scene.remove(p);
+                    enemyProjectiles.splice(i, 1);
+
+                    if (playerHealth <= 0) {
+                        showMessage("YOU GOT DESTROYED!", "#ff1744", 3500);
+                        setTimeout(() => {
+                            score = 0;
+                            currentLevel = 1;
+                            playerHealth = maxPlayerHealth;
+                            updateDamageBar();
+                            restartBtn.click();
+                        }, 3800);
+                    }
+                }
+            }
+        }
+
         function levelComplete() {
             levelCleared = true;
             const lvlData = window.levels[(currentLevel - 1) % window.levels.length];
@@ -822,6 +1041,8 @@
                 currentLevel = 1;
                 score = 0;
                 shotsUsed = tryAgainCount = 0;
+                playerHealth = maxPlayerHealth;
+                updateDamageBar();
                 setNewBackground();
                 spawnLevel(0);
                 gameRunning = true;
@@ -946,6 +1167,8 @@
             score = 0;
             currentLevel = 1;
             shotsUsed = tryAgainCount = 0;
+            playerHealth = maxPlayerHealth;
+            updateDamageBar();
             turretGroup.rotation.z = 0;
             setNewBackground();
             spawnLevel(0);
@@ -1046,6 +1269,14 @@
                 checkCollisions();
             }
 
+            updateEnemyAI();
+            checkPlayerHit();
+
+            enemyProjectiles.forEach(p => {
+                p.rotation.x += p.userData.velocity.y * 0.008;
+                p.rotation.z += p.userData.velocity.x * 0.006;
+            });
+
             if (!isFlying && !levelCleared && enemies.length === 0 && shotsUsed > 0) {
                 levelComplete();
             }
@@ -1078,7 +1309,7 @@
                         new THREE.Vector3(projectile.position.x, 0, 500),
                         0.12
                     );
-                    camera.position.x = Math.min(camera.position.x, 1400); //camera clamo
+                    camera.position.x = Math.min(camera.position.x, 1400);
                 } else {
                     camera.position.lerp(DEFAULT_CAMERA_POS, 0.04);
                     camera.lookAt(0, -100, 0);

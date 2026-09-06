@@ -616,9 +616,9 @@ code { font-size: 0.9em; color: var(--accent-2); }
   pointer-events: none;
 }
 .course-thumb .badge-feat {
-  left: 0.7rem;
-  right: auto;
-  top: 2.55rem; /* sit under Free so they don't stack on the same corner */
+  left: auto;
+  right: 0.7rem;
+  top: 0.7rem;
   z-index: 3;
 }
 .course-art-title {
@@ -1152,9 +1152,9 @@ code { font-size: 0.9em; color: var(--accent-2); }
     padding: 0.22rem 0.45rem;
   }
   .course-thumb .badge-feat {
-    top: 2.2rem;
-    left: 0.55rem;
-    right: auto;
+    top: 0.55rem;
+    left: auto;
+    right: 0.55rem;
     font-size: 0.62rem;
     padding: 0.22rem 0.45rem;
   }
@@ -1232,7 +1232,7 @@ code { font-size: 0.9em; color: var(--accent-2); }
   border-radius:999px;
 }
 .course-thumb .badge-free{left:0.7rem; top:0.7rem}
-.course-thumb .badge-feat{left:0.7rem; right:auto; top:2.55rem}
+.course-thumb .badge-feat{left:auto; right:0.7rem; top:0.7rem}
 .buy-price .price-row{gap:0.55rem 0.85rem}
 .buy-price .price-free{font-size:1.35rem}
 .hero-slideshow-price .price-row{color:inherit}

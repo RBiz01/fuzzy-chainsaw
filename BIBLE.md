@@ -119,7 +119,7 @@ Add new category strings to the top-level `categories` array when needed.
 - Store covers at **`images/courses/<id>.png`** (or `.jpg`).
 - Set `image` (and usually `video.poster`) to that relative path in `data/courses.json`.
 - Cards / hero slideshow use the photo when `course.image` exists; otherwise gradient art.
-- Keep **Featured** (and Free) badges on the **upper left**; put the **level / difficulty** badge on the **lower right** of the course thumb so Featured never covers it.
+- Course thumb badges: **Free** upper-left, **Featured** upper-right, **level / difficulty** lower-right (so Featured never covers difficulty).
 - Course **front/detail page shows the trailer video only** (no separate cover image block). Cover still used for cards, hero slideshow, and video `poster`.
 - Prefer 16:10-ish crops; keep file sizes reasonable for GitHub Pages.
 
